@@ -813,7 +813,7 @@ function htmlFooter($uid) {
 				<input type='submit' name='edsave' id='edsave' value='Save' disabled>
 				</form></div>";
 				
-	$moveform = "<div id='bmamove' class='bmdialog'><div class='dheader'>Move Bookmark</div><form id='bmedt' method='POST'>
+	$moveform = "<div id='bmamove' class='bmdialog'><div class='dheader'>Move Bookmark</div><form id='bmmv' method='POST'>
 				<label for='mvtitle'>Title:</label><input type='text' id='mvtitle' name='mvtitle' value='' disabled>
 				<label for='mvfolder'>Folder:</label><select id='mvfolder' name='mvfolder'>$sFolderOptions</select>
 				<input type='hidden' id='mvid' name='mvid' value=''>

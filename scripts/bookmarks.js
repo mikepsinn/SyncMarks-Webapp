@@ -24,8 +24,14 @@ if (/Mobi|Android/i.test(navigator.userAgent)) {
 	});
 }
 
-$(document).bind('keydown', 'esc', function() {
-	$('.bmdialog').css('visibility','hidden');
+$(document).keydown(function(e) {
+	if(e.keyCode == 27) {
+		$('.bmdialog').hide();
+	}
+});
+
+$(".client-list li div.clientname input[type='text']").on("click", function () {
+   $(this).select();
 });
 
 $("#save").on("click",function(){        
@@ -38,8 +44,8 @@ $("#save").on("click",function(){
             url: $('#url').val(),
         },
         success: function(r){
-             $('#bmarkadd').attr('style', 'visibility: hidden');
-			 $("#bookmarks").html(r);
+			$('.bmdialog').hide();
+			$("#bookmarks").html(r);
 		}
     });  
     return false;
@@ -55,54 +61,25 @@ $("#userSelect").on("change",function(){
 });
 
 $("#mprofile").on("click",function(){
-	if($('#profileform').css('visibility') === 'hidden') {
-		$('#mnguform').css('visibility','hidden');
-		$('#mngcform').css('visibility','hidden');
-		$('#profileform').css('visibility','visible');
-		$('#bmarkadd').css('visibility','hidden');
-	}
-	else {
-		$('#profileform').css('visibility','hidden');
-	}
+	$('.bmdialog').hide();
+	$('#profileform').show();
 });
 
 $("#mngusers").on("click",function(){
-	if($('#profileform').css('visibility') === 'visible') {
-		$('#mnguform').css('visibility','visible');
-		$('#mngcform').css('visibility','hidden');
-		$('#profileform').css('visibility','hidden');
-		$('#bmarkadd').css('visibility','hidden');
-	}
-	else {
-		$('#profileform').css('visibility','hidden');
-	}
+	$('.bmdialog').hide();
+	$("#mngusers").show();
 });
 
 $("#clientedt").on("click",function(){
-	if($('#profileform').css('visibility') === 'visible') {
-		$('#mngcform').css('visibility','visible');
-		$('#mnguform').css('visibility','hidden');
-		$('#profileform').css('visibility','hidden');
-		$('#bmarkadd').css('visibility','hidden');
-	}
-	else {
-		$('#profileform').css('visibility','hidden');
-	}
+	$('.bmdialog').hide();
+	$("#clientedt").show();
 });
 
 $("#footer").on("click",function(){
-	if($('#bmarkadd').css('visibility') === 'hidden') {
-		$('#bmarkadd').css('visibility','visible');
-		$('#profileform').css('visibility','hidden');
-		$(".bmarkedt").css('visibility','hidden');
-		$('#mngcform').css('visibility','hidden');
-		$('#mnguform').css('visibility','hidden');
-		url.focus();
-		url.addEventListener('input', enableSave);
-	}
-	else {
-		$('#bmarkadd').css('visibility','hidden');
-	}
+	$('.bmdialog').hide();
+	$('#bmarkadd').show();
+	url.focus();
+	url.addEventListener('input', enableSave);
 });
 
 $("#mlog").on("click",function(){
@@ -171,9 +148,6 @@ $(".client-list li div.rename").on("click", function() {
 });
 
 $(".client-list li div.remove").on("click", function() {
-	console.log("delete");
-	console.log($(this)[0].parentElement.id);
-
 	$.ajax({
         type: "POST",
         url: "index.php",
@@ -293,11 +267,9 @@ function enableSave() {
 	}
 }
 
-function removeMenu() {
-	console.log("click");
-}
-
 function showMenu(x, y){
+	var minbot = $(window).height() - 120;
+	if(y >= minbot) y = minbot;
     menu.style.left = x + 'px';
     menu.style.top = y + 'px';
     menu.classList.add('show-menu');
@@ -309,8 +281,7 @@ function hideMenu(){
 
 function onContextMenu(e){
     e.preventDefault();
-	$('#profileform').css('visibility','hidden');
-	$('#bmarkadd').css('visibility','hidden');
+	$('.bmdialog').hide();
 	$('#bmid').prop('value',e.srcElement.attributes.id.value);
 	$('#bmid').prop('title',e.srcElement.attributes.title.value);
     showMenu(e.pageX, e.pageY);
@@ -320,22 +291,30 @@ function onContextMenu(e){
 }
 
 function onClick(e){
+	var minleft = 155;
+	var minbot = $(window).height() - 200;
+	var xpos = e.pageX;
+	var ypos = e.pageY;
+	if(xpos <= minleft) xpos = minleft;
+	if(ypos >= minbot) ypos = minbot;
+	
 	switch(this.id) {
 		case 'btnEdit':
 			$('#bmarkedt #edtitle').val($('#bmid').prop('title'));
 			$('#bmarkedt #edurl').val($('#'+$('#bmid').prop('value')).attr('href'));
 			$('#bmarkedt #edid').val($('#bmid').prop('value'));
-			$("#bmarkedt").css('visibility','visible');
-			$("#bmarkedt").css('left',e.pageX);
-			$("#bmarkedt").css('top',e.pageY);
+			$('.bmdialog').hide();
+			$("#bmarkedt").show();
+			$("#bmarkedt").css('left',xpos);
+			$("#bmarkedt").css('top',ypos);
 			break;
 		case 'btnMove':
-			$("#bmamove").css('visibility','visible');
-			$("#bmarkedt").css('visibility','hidden');
+			$('.bmdialog').hide();
+			$("#bmamove").show();
 			$('#bmamove #mvtitle').val($('#bmid').prop('title'));
 			$('#bmamove #mvid').val($('#bmid').prop('value'));
-			$("#bmamove").css('left',e.pageX);
-			$("#bmamove").css('top',e.pageY);
+			$("#bmamove").css('left',xpos);
+			$("#bmamove").css('top',ypos);
 			break;
 		case 'btnDelete':
 			delBookmark($('#bmid').prop('value'), $('#bmid').prop('title'))
