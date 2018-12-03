@@ -92,15 +92,17 @@
 	border-radius: 5px;
 	width: 300px;
 	left: 50%;
-	visibility: hidden;
+	display: none;
 	font-family: Segoe UI;
 	font-size: 0.8em;
 	box-sizing: border-box;
 	box-shadow: 1px 1px 4px rgba(0,0,0,.2);
 	border: 1px solid #bbb;
 	z-index: 10;
+	margin-left: -150px;
+	border-top: unset;
 }
-.bmdialog input, select, button {
+.bmdialog input, .bmdialog select, .bmdialog button {
 	width: 278px;
 	border-radius: 3px;
 	border: thin solid #b2b8bf;
@@ -130,14 +132,13 @@
 	line-height: 24px;
 	background: top;
 	color: black;
+	text-overflow: ellipsis;
 }
 .bmdialog form {
 	padding: 5px 10px;
 }
 #bmarkadd {
 	bottom: 38px;
-	margin-left: -150px;
-	left: 50%;
 }
 #bmarkadd::before {
     content: '';
@@ -186,9 +187,7 @@ hr {
 	background-color: darkgray;
 }
 #mngcform, #mnguform, #profileform {
-    left: 5px;
     top: 34px;
-    z-index: 10;
 }
 #mngcform input[type="submit"], #mnguform input[type="submit"] {
 	width: 32% !important;
@@ -204,7 +203,7 @@ input[type="submit"]:disabled {
 #profileform::before {
 	content: '';
 	position: absolute;
-	left: 60px;
+	left: 50%;
 	width: 0;
 	height: 0;
 	border: 15px solid transparent;
@@ -217,12 +216,11 @@ input[type="submit"]:disabled {
 #profileform::after {
 	content: '';
 	position: absolute;
-	left: 62px;
+	left: 50%;
 	width: 0;
 	height: 0;
-	border: 13px solid transparent;
-	margin-bottom: -13px;
-	z-index: 10;
+	border: 15px solid transparent;
+	z-index: -1;
 	top: 0;
 	border-bottom-color: #b2b8bf;
 	border-top: 0;
@@ -258,6 +256,12 @@ input[type="submit"]:disabled {
 	z-index: 12;
 	visibility: hidden;
 }
+#close button {
+	border-radius: 5px;
+	border: 1px solid;
+	border-color: #bbb;
+	height: 25px;
+}
 #footer {
 	bottom: 0;
 	position: absolute;
@@ -277,20 +281,22 @@ input[type="submit"]:disabled {
 }
 #menu {
 	position: absolute;
-	height: 24px;
-	background: grey;
+	height: 23px;
+	background: #e1e1e1;
 	left: 0;
 	right: 0;
 	top: 0;
 	font-family: Segoe UI;
-	color: white;
 	text-align: center;
+	border-bottom: thin solid #b2b8bf;
 }
 #menu a {
-	color: white;
+	color: #333;
 	text-decoration: none;
-	width: 100%;
-	padding: 3px 10px 3px 10px;
+	display: block;
+	line-height: 23px;
+	cursor: pointer;
+	background: transparent;
 }
 #menu a:hover {
 	background: lightgray;
@@ -515,9 +521,6 @@ input[type="submit"]:disabled {
   transition-delay: 300ms;
 }
 @media screen and (min-device-width: 1024px) {
-    #menu{
-		text-align: unset;
-    }
 	#logfile {
 		width: 50%;
 		border: 1px solid black;
