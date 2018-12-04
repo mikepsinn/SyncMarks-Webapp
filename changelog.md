@@ -1,6 +1,16 @@
 ChangeLog
 =========
 
+0.9.14 (2018-12-03)
+-------------------------
+* added search function
+
+0.9.13 (2018-12-03)
+-------------------------
+* fixed dialog hiding
+* fixed unique id issue
+* added function to select device name
+
 0.9.12 (2018-12-01)
 -------------------------
 * added edit function
