@@ -137,6 +137,23 @@
 .bmdialog form {
 	padding: 5px 10px;
 }
+#bmsearch {
+	position: absolute;
+	top: 2px;
+	border: 1px transparent;
+	border-radius: 3px;
+	height: 19px;
+	width: 17px;
+	transition: width .5s ease-in-out;
+	background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEwAACxMBAJqcGAAAAcFJREFUOI3l0r9LHEEUB/Dve7t7d9HlAnseITYSu9NWJEW0CAQLFWys7PIn2AYcNj/I/Qv+ASlCCKRJcRZCsBIbuyuDTcTfBkI8d2bes1Ahert3IiFNvt3MYz7z3jDAfxfqVawbjVnsuAJ8zlH7Z0qn9wITI1UW31SSlwwuX+6KB+gj2XB5/z3vFYGch5H331TxgpWX5CyohhQOQnkWoIZEbrNmZLgIDLtuEN9UIC674OmPJh/9UWo9Nrph1a2z2FUA831HrhuNRbNDVl46eBN9zjuQmGwyUNpk70b33j343nNkFjvO4LJ0grWikY7TaAuQEwmiibz6DVCv1qUB8kUgQCoCrznP1QWec9QGxDtxU0VcYjpjzDwk4rZzr7u9UV/JPgDUCCl8tpvS7xvFRQ1qjewrgwcOXkfTfTsEALLhskITq249MdkkoHTd2RU2AxU7YrRypw4BoGZkmMWugngOkBMReGYeArABFQvi5wJpxVRa2Emp0xe8zqNXZ08kiCYUCEXc9vHbSnvEaOWXZl8YPJOH9gSLchs9apdm8enyZ3S94V2yk1InptKCQFoApqtj+vA+TncWNagaSf4O9q9yASq2wD45EcjaAAAAAElFTkSuQmCC') no-repeat right;
+	color: transparent;
+}
+#bmsearch:hover, #bmsearch:focus {
+	background: white;
+	width: 210px;
+	border: 1px solid #bbb;
+	color: black;
+}
 #bmarkadd {
 	bottom: 38px;
 }

@@ -2,7 +2,7 @@
 /**
  * PHP Bookmark Syncer
  *
- * @version 0.9.12
+ * @version 0.9.14
  * @author Offerel
  * @copyright Copyright (c) 2018, Offerel
  * @license GNU General Public License, version 3
@@ -348,7 +348,9 @@ if(isset($_POST['caction'])) {
 }
 
 echo htmlHeader($userData);
-echo "<div id=\"bookmarks\">".bmTree($userData,$database)."</div>";
+$bmTree = bmTree($userData,$database);
+echo "<div id='bookmarks'>$bmTree</div>";
+echo "<div id='hmarks'>$bmTree</div>";
 echo htmlFooter($userData['userID']);
 
 function delFolder($database, $ud, $bm) {
@@ -831,7 +833,7 @@ function htmlFooter($uid) {
 					</select>
 					<input type='submit' name='madd' id='save' value='Save' disabled>
 					</form></div>
-					<div id='footer'>Add new Bookmark</div>
+					<input type='search' id='bmsearch' name='bmsearch' value=''><div id='footer'>Add new Bookmark</div>
 					<script src='scripts/bookmarks.js'></script>
 					</body></html>";
 	$menu = "<menu class='menu'><input type='hidden' id='bmid' title='bmtitle' value=''>
