@@ -14,8 +14,8 @@ if (!isset ($_SESSION['fauth'])) {
 $database = __DIR__.'/database/bookmarks.db';
 $logfile = "/var/log/bookmark.log";
 $realm = "Bookmarks";
-$loglevel = 2;
-$sender = "bookmarks@yourdomain.com";
+$loglevel = 9;
+$sender = "bookmarks@pfohlnet.de";
 
 set_error_handler("e_log");
 
@@ -298,7 +298,7 @@ if(isset($_POST['caction'])) {
 			$ctype = $_POST['ctype'];
 			$ctime = round(microtime(true) * 1000);
 			$cRes = updateClient($database, $client, $ctype, $userData, $ctime);
-			$bRes = moveBookmark($database, $userData, $bookmark);
+			die(moveBookmark($database, $userData, $bookmark));
 			break;
 		case "delmark":
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
