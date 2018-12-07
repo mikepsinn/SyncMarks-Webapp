@@ -2,7 +2,7 @@
 /**
  * PHP Bookmark Syncer
  *
- * @version 0.9.14
+ * @version 0.9.15
  * @author Offerel
  * @copyright Copyright (c) 2018, Offerel
  * @license GNU General Public License, version 3
@@ -14,8 +14,8 @@ if (!isset ($_SESSION['fauth'])) {
 $database = __DIR__.'/database/bookmarks.db';
 $logfile = "/var/log/bookmark.log";
 $realm = "Bookmarks";
-$loglevel = 9;
-$sender = "bookmarks@pfohlnet.de";
+$loglevel = 2;
+$sender = "bookmarks@yourdomain.com;
 
 set_error_handler("e_log");
 
@@ -280,11 +280,11 @@ if(isset($_POST['caction'])) {
 			$ctype = $_POST['ctype'];
 			$ctime = $bookmark["added"];
 			if($bookmark['type'] == 'bookmark' && isset($bookmark['url'])) {
-				$cRes = updateClient($database, $client, $ctype, $userData, $ctime);
+				//$cRes = updateClient($database, $client, $ctype, $userData, $ctime);
 				die(addBookmark($database, $userData, $bookmark));
 			}
 			else if($bookmark['type'] == 'folder') {
-				$cRes = updateClient($database, $client, $ctype, $userData, $ctime);
+				//$cRes = updateClient($database, $client, $ctype, $userData, $ctime);
 				die(addFolder($database, $userData, $bookmark));
 			}
 			else {
@@ -297,7 +297,7 @@ if(isset($_POST['caction'])) {
 			$client = $_POST['client'];
 			$ctype = $_POST['ctype'];
 			$ctime = round(microtime(true) * 1000);
-			$cRes = updateClient($database, $client, $ctype, $userData, $ctime);
+			//$cRes = updateClient($database, $client, $ctype, $userData, $ctime);
 			die(moveBookmark($database, $userData, $bookmark));
 			break;
 		case "delmark":
@@ -306,11 +306,11 @@ if(isset($_POST['caction'])) {
 			$ctype = $_POST['ctype'];
 			$ctime = round(microtime(true) * 1000);
 			if($bookmark['type'] == 'bookmark' && isset($bookmark['url'])) {
-				$cRes = updateClient($database, $client, $ctype, $userData, $ctime);
+				//$cRes = updateClient($database, $client, $ctype, $userData, $ctime);
 				die(delBookmark($database, $userData, $bookmark));
 			}
 			else if($bookmark['type'] == 'folder') {
-				$cRes = updateClient($database, $client, $ctype, $userData, $ctime);
+				//$cRes = updateClient($database, $client, $ctype, $userData, $ctime);
 				die(delFolder($database, $userData, $bookmark));
 			}
 			else {
