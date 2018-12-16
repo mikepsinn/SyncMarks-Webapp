@@ -1,0 +1,7 @@
+<?php
+$database = __DIR__.'/database/bookmarks.db';
+$logfile = "/var/log/bookmark.log";
+$realm = "Bookmarks";
+$loglevel = 2;
+$sender = "bookmarks@yourdomain.com;
+?>
