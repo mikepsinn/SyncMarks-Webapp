@@ -1,0 +1,24 @@
+{
+	"short_name": "PHPMarks",
+	"name": "PHPMarks",
+	"share_target": {
+		"action": "index.php",
+		"params": {
+			"text": "burl",
+			"title": "title",
+			"url": "url"
+		}
+	},
+	"icons": [
+		{
+			"src": "images/bookmarks.png",
+			"type": "image/png",
+			"sizes": "256x256"
+		}
+	],
+	"start_url": "index.php",
+	"scope": ".",
+	"background_color": "#0879D9",
+	"display": "standalone",
+	"theme_color": "#0879D9"
+}
