@@ -1,6 +1,6 @@
 <?php
 /**
- * PHP Bookmark Syncer
+ * PHPMarks
  *
  * @version 0.9.15
  * @author Offerel
@@ -11,14 +11,8 @@ if (!isset ($_SESSION['fauth'])) {
     session_start();
 }
 
-$database = __DIR__.'/database/bookmarks.db';
-$logfile = "/var/log/bookmark.log";
-$realm = "Bookmarks";
-$loglevel = 2;
-$sender = "bookmarks@yourdomain.com;
-
+include_once "config.inc.php";
 set_error_handler("e_log");
-
 if(!file_exists($database)) initDB($database);
 
 if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !isset($_SERVER['PHP_AUTH_PW']) || !isset($_SESSION['fauth'])) {
@@ -87,8 +81,9 @@ if(isset($_POST['adel'])) {
 
 if(isset($_POST['muedt'])) {
 	$del = false;
-	$headers = "From: Bookmark Syncer <$sender>";
+	$headers = "From: PHPMarks <$sender>";
 	$url = $_SERVER['REQUEST_SCHEME']."://".$_SERVER['SERVER_NAME'].$_SERVER['PHP_SELF'];
+
 	switch($_POST['muedt']) {
 		case "Add User":
 			$pwd = password_hash($_POST['npwd'],PASSWORD_DEFAULT);
@@ -280,11 +275,9 @@ if(isset($_POST['caction'])) {
 			$ctype = $_POST['ctype'];
 			$ctime = $bookmark["added"];
 			if($bookmark['type'] == 'bookmark' && isset($bookmark['url'])) {
-				//$cRes = updateClient($database, $client, $ctype, $userData, $ctime);
 				die(addBookmark($database, $userData, $bookmark));
 			}
 			else if($bookmark['type'] == 'folder') {
-				//$cRes = updateClient($database, $client, $ctype, $userData, $ctime);
 				die(addFolder($database, $userData, $bookmark));
 			}
 			else {
@@ -297,7 +290,6 @@ if(isset($_POST['caction'])) {
 			$client = $_POST['client'];
 			$ctype = $_POST['ctype'];
 			$ctime = round(microtime(true) * 1000);
-			//$cRes = updateClient($database, $client, $ctype, $userData, $ctime);
 			die(moveBookmark($database, $userData, $bookmark));
 			break;
 		case "delmark":
@@ -306,11 +298,9 @@ if(isset($_POST['caction'])) {
 			$ctype = $_POST['ctype'];
 			$ctime = round(microtime(true) * 1000);
 			if($bookmark['type'] == 'bookmark' && isset($bookmark['url'])) {
-				//$cRes = updateClient($database, $client, $ctype, $userData, $ctime);
 				die(delBookmark($database, $userData, $bookmark));
 			}
 			else if($bookmark['type'] == 'folder') {
-				//$cRes = updateClient($database, $client, $ctype, $userData, $ctime);
 				die(delFolder($database, $userData, $bookmark));
 			}
 			else {
@@ -350,7 +340,7 @@ if(isset($_POST['caction'])) {
 echo htmlHeader($userData);
 $bmTree = bmTree($userData,$database);
 echo "<div id='bookmarks'>$bmTree</div>";
-echo "<div id='hmarks'>$bmTree</div>";
+echo "<div id='hmarks' style='display: none'>$bmTree</div>";
 echo htmlFooter($userData['userID']);
 
 function delFolder($database, $ud, $bm) {
@@ -734,13 +724,33 @@ function delUsermarks($uid) {
 function htmlHeader($ud) {
 	global $database;
 	$db = new PDO('sqlite:'.$database);
-	$htmlHeader = "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width, initial-scale=1'><base href='".$_SERVER['REQUEST_SCHEME'].'://'.$_SERVER['SERVER_NAME'].dirname($_SERVER['SCRIPT_NAME'])."/'><script src='scripts/jquery-3.3.1.min.js'></script><link rel=\"stylesheet\" href=\"bookmarks.css\"><link rel=\"shortcut icon\" type=\"image/x-icon\" href=\"images/bookmarks.ico\"><title>Bookmarks</title></head><body>";
+	$htmlHeader = "<!DOCTYPE html>
+		<html>
+			<head>
+				<meta name='viewport' content='width=device-width, initial-scale=1'>
+				<base href='".$_SERVER['REQUEST_SCHEME'].'://'.$_SERVER['SERVER_NAME'].dirname($_SERVER['SCRIPT_NAME'])."/'>
+				<script src='scripts/jquery-3.3.1.min.js'></script>
+				<link rel='stylesheet' href='bookmarks.css'>
+				<link rel='shortcut icon' type='image/x-icon' href='images/bookmarks.ico'>
+				<link rel='manifest' href='manifest.json' crossorigin='use-credentials'>
+				<meta name='theme-color' content='#0879D9'>
+				<title>Bookmarks</title>
+			</head>
+			<body>";
 	
-	$htmlHeader.= "<div id='menu'><a id='mprofile' title=\"Last login: ".date("d.m.y H:i",$ud['userLastLogin'])."\">My Bookmarks</a></div>";
+	$htmlHeader.= "<div id='menu'>
+	<div id='hmenu'>
+		<div class='hline'></div>
+		<div class='hline'></div>
+		<div class='hline'></div>
+	</div>
+	<button>&#8981;</button><input type='search' name='bmsearch' value=''>
+	<a id='mprofile' title=\"Last login: ".date("d.m.y H:i",$ud['userLastLogin'])."\">My Bookmarks</a>
+		</div>";
 	
 	if($ud['userType'] == 2) {
 		$userSelect = "<select id='userSelect' name='userSelect'>";
-		$userSelect.= "<option value=''>-- Select User --</option>";
+		$userSelect.= "<option value='' hidden>-- Select User --</option>";
 		$statement = $db->prepare("SELECT `userID`, `userName` FROM `users`");
 		$statement->execute();
 		$userList = $statement->fetchAll(PDO::FETCH_ASSOC);
@@ -754,32 +764,72 @@ function htmlHeader($ud) {
 		$userSelect = "";
 	}
 
-	$profileForm = "<div id='profileform' class='bmdialog'><div class='dheader'>Profile</div><form action='".$_SERVER['PHP_SELF']."' method=\"POST\"><div><label for=\"username\">Username:</label>
-			<input type=\"text\" name=\"username\" id=\"username\" autocomplete='username' value='".$ud['userName']."'>
-			<label for=\"opassword\">Old password:</label><input type=\"password\" id=\"opassword\" name=\"opassword\" autocomplete='current-password' value='' />
-			<label for=\"npassword\">New password:</label><input type=\"password\" id=\"npassword\" name=\"npassword\" autocomplete='new-password' value='' />
-			<label for=\"cpassword\">Confirm new password:</label><input type=\"password\" id=\"cpassword\" name=\"cpassword\" autocomplete='new-password' value='' />
-			<hr />";
-	if($ud['userType'] == 2) $profileForm.= "<button type='button' id='mlog' name='mlog'>Logfile</button> <button type='button' id='mngusers' name='mngusers'>Manage Users</button>";
-	$profileForm.= "<button type='button' id='clientedt' name='clientedt'>Manage Clients</button>
-			<input type=\"submit\" name=\"pupdate\" value=\"Change Password\" /><input type=\"submit\" name=\"uupdate\" value=\"Change User\" /><input type=\"submit\" name=\"logout\" value=\"Logout\" /></div>
-			</form></div>";
-	$logform = "<div id=\"close\"><button id='mclear'>clear</button> <button id='mclose'>&times;</button></div><textarea id=\"logfile\"></textarea>";
-
-	$mnguserform = "<div id='mnguform' class='bmdialog'><div class='dheader'>Manage Users</div><form enctype='multipart/form-data' action='".$_SERVER['PHP_SELF']."' method='POST'>
-	<label for='userSelect'>Select existing User:</label>$userSelect
-	<label for='nuser'>Username:</label><input type='text' required id='nuser' name='nuser' autocomplete='username' value='' />
-	<label for='npwd'>Password:</label><input type='password' required id='npwd' name='npwd' autocomplete='password' value='' />
-	<label for='userLevel'>Userlevel:</label><select id='userLevel' required name='userLevel'><option value=''>-- Select Level --</option><option value='0'>Normal</option><option value='1'>Admin</option></select>
-	<input type='submit' id='muadd' name='muedt' value='Add User' /><input type='submit' id='muedt' name='muedt' value='Edit User' disabled /><input type='submit' id='mudel' name='muedt' value='Delete User' disabled formnovalidate />
-	</form></div>";
+	if($ud['userType'] == 2) {
+		$admenu = "<hr><li id='mlog'>Logfile</li><li id='mngusers'>Users</li>";
+		$logform = "<div id=\"close\"><button id='mclear'>clear</button> <button id='mclose'>&times;</button></div><textarea id=\"logfile\"></textarea>";
+		$mnguserform = "<div id='mnguform' class='mbmdialog'><h6>Manage Users</h6><form enctype='multipart/form-data' action='".$_SERVER['PHP_SELF']."' method='POST'>
+						<div class='select'>
+						$userSelect
+						<div class='select__arrow'></div>
+						</div>
+						<input placeholder='Username' type='text' required id='nuser' name='nuser' autocomplete='username' value='' />
+						<input placeholder='Password' type='password' required id='npwd' name='npwd' autocomplete='password' value='' />
+						<div class='select'>
+						<select id='userLevel' required name='userLevel'><option value='' hidden>-- Select Level --</option><option value='0'>Normal</option><option value='1'>Admin</option></select>
+						<div class='select__arrow'></div>
+						</div>
+						<div class='dbutton'>
+						<button type='submit' id='muadd' name='muedt' value='Add User' disabled>Save</button><button type='submit' id='mudel' name='muedt' value='Delete User' disabled formnovalidate>Delete</button>
+						</div>
+						</form></div>";
+	}
+	else {
+		$admenu = "";
+		$logform = "";
+		$mnguserform = "";
+	}
+		
+	$mainmenu = "<div id='mainmenu' class='mmenu'>
+					<ul>
+						<li id='meheader'><span class='logo'>&nbsp;</span><span class='text'>".$ud['userName']."<br>Last login: ".date("d.m.y H:i",$ud['userLastLogin'])."<span></li>
+						<li id='muser'>Username</li>
+						<li id='mpassword'>Password</li>
+						<li id='clientedt'>Clients</li>
+						$admenu
+						<hr>
+						<li id='mlogout'>Logout</li>
+					</ul>
+				</div>";
+				
+	$userform = "<div id='userform' class='mbmdialog'>
+				<h6>Change Username</h6>
+				<div class='dialogdescr'>Here you can change your username. Type in your new username and your current password and click on save to change it.
+				</div>
+					<form action='".$_SERVER['PHP_SELF']."' method='POST'>
+						<input placeholder='Username' required type='text' name='username' id='username' autocomplete='username' value='".$ud['userName']."'>
+						<input placeholder='Password' required type='password' id='password' name='opassword' autocomplete='current-password' value='' />
+						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='uupdate' value='Save'>Save</button></div>
+					</form>
+				</div>";
+				
+	$passwordform = "<div id='passwordform' class='mbmdialog'>
+				<h6>Change Password</h6>
+				<div class='dialogdescr'>Enter your current password and a new password and confirm the new password. 
+				</div>
+					<form action='".$_SERVER['PHP_SELF']."' method='POST'>					
+						<input required placeholder='Current password' type='password' id='opassword' name='opassword' autocomplete='current-password' value='' />
+						<input required placeholder='New password' type='password' id='npassword' name='npassword' autocomplete='new-password' value='' />
+						<input required placeholder='Confirm new password' type='password' id='cpassword' name='cpassword' autocomplete='new-password' value='' />
+						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='pupdate' value='Save'>Save</button></div>
+					</form>
+				</div>";
 	
 	$query = "SELECT * FROM `clients` WHERE `uid` = ".$ud['userID']." ORDER BY `lastseen` DESC";
 	$statement = $db->prepare($query);
 	$statement->execute();
 	$clientData = $statement->fetchAll(PDO::FETCH_ASSOC);
 	
-	$clientList = "<ul class='client-list'>";
+	$clientList = "<ul>";
 	foreach($clientData as $key => $client) {
 		$cname = $client['cid'];
 		if(isset($client['cname'])) $cname = $client['cname'];
@@ -789,16 +839,15 @@ function htmlHeader($ud) {
 	}
 	$clientList.= "</ul>";
 	
-	$mngclientform = "<div id='mngcform' class='bmdialog'><div class='dheader'>Manage Clients</div>$clientList</div>";
+	$mngclientform = "<div id='mngcform' class='mmenu'>$clientList</div>";
 	
-	if($ud['userType'] != 2) $mnguserform = "";
-	$htmlHeader.= $profileForm.$logform.$mnguserform.$mngclientform;
+	$htmlHeader.= $mainmenu.$userform.$passwordform.$logform.$mnguserform.$mngclientform;
 	$db = NULL;
 	return $htmlHeader;
 }
 
 function htmlFooter($uid) {
-	$sFolderOptions = "";
+	$sFolderOptions = "<option value='' hidden>Select Folder</option>";
 	$sFolderArr = getUserFolders($uid);
 	foreach ($sFolderArr as $key => $folder) {
 		if($folder['bmID'] === "unfiled_____")
@@ -808,38 +857,55 @@ function htmlFooter($uid) {
 	}
 	$burl = (isset($_GET['burl'])) ? $_GET['burl'] : "";
 	
-	$editform = "<div id='bmarkedt' class='bmdialog'><div class='dheader'>Edit Bookmark</div><form id='bmedt' method='POST'>
-				<label for='edtitle'>Title:</label><input type='text' id='edtitle' name='edtitle' value=''>
-				<label for='edurl'>URL:</label><input type='text' id='edurl' name='edurl' value=''>
+	if(isset($_GET['burl']) && isset($_GET['title'])) {
+		$mad = "style='display: block'";
+		$mdis = "";
+	}
+	else {
+		$mad = "";
+		$mdis = "disabled";
+	}
+	
+	$editform = "<div id='bmarkedt' class='mbmdialog'><h6>Edit Bookmark</h6><form id='bmedt' method='POST'>
+				<input placeholder='Title' type='text' id='edtitle' name='edtitle' value=''>
+				<input placeholder='URL' type='text' id='edurl' name='edurl' value=''>
 				<input type='hidden' id='edid' name='edid' value=''>
-				<input type='submit' name='edsave' id='edsave' value='Save' disabled>
+				<div class='dbutton'><button type='submit' id='edsave' name='edsave' value='Save' disabled>Save</button></div>
 				</form></div>";
 				
-	$moveform = "<div id='bmamove' class='bmdialog'><div class='dheader'>Move Bookmark</div><form id='bmmv' method='POST'>
-				<label for='mvtitle'>Title:</label><input type='text' id='mvtitle' name='mvtitle' value='' disabled>
-				<label for='mvfolder'>Folder:</label><select id='mvfolder' name='mvfolder'>$sFolderOptions</select>
+	$moveform = "<div id='bmamove' class='mbmdialog'><h6>Move Bookmark</h6><form id='bmmv' method='POST'>
+				<input placeholder='Title' type='text' id='mvtitle' name='mvtitle' value='' disabled>
+				<div class='select'>
+				<select id='mvfolder' name='mvfolder'>$sFolderOptions</select>
+				<div class='select__arrow'></div>
+				</div>
 				<input type='hidden' id='mvid' name='mvid' value=''>
-				<input type='submit' name='mvsave' id='mvsave' value='Save' disabled>
+				<div class='dbutton'><button type='submit' id='mvsave' name='mvsave' value='Save' disabled>Save</button></div>
 				</form></div>";
 
-	$htmlFooter = "<div id='bmarkadd' class='bmdialog'>
-					<div class='dheader'>Add Bookmark</div>
+	$htmlFooter = "<div id='bmarkadd' class='mbmdialog' $mad>
+					<h6>Add Bookmark</h6>
 					<form id='bmadd' action='?madd' method='POST'>
-					<label for='url'>URL:</label>
-					<input type='text' id='url' name='url' value='$burl'>
-					<label for='folder'>Folder:</label>
+					<input placeholder='URL' type='text' id='url' name='url' value='$burl'>
+					<div class='select'>
 					<select id='folder' name='folder'>
 						$sFolderOptions
 					</select>
-					<input type='submit' name='madd' id='save' value='Save' disabled>
+					<div class='select__arrow'></div>
+					</div>
+					<div class='dbutton'><button type='submit' id='save' name='madd' value='Save' $mdis>Save</button></div>
 					</form></div>
-					<input type='search' id='bmsearch' name='bmsearch' value=''><div id='footer'>Add new Bookmark</div>
+					
+					<div id='footer'></div>
 					<script src='scripts/bookmarks.js'></script>
 					</body></html>";
+
 	$menu = "<menu class='menu'><input type='hidden' id='bmid' title='bmtitle' value=''>
-			<li class='menu-item'><button type='button' id='btnEdit' class='menu-btn'><span class='menu-text'>Edit</span></button></li>
-			<li class='menu-item'><button type='button' id='btnMove' class='menu-btn'><span class='menu-text'>Move</span></button></li>
-			<li class='menu-item'><button type='button' id='btnDelete' class='menu-btn'><span class='menu-text'>Delete</span></button></li>
+			<ul>
+			<li id='btnEdit' class='menu-item'>Edit</li>
+			<li id='btnMove' class='menu-item'>Move</li>
+			<li id='btnDelete' class='menu-item'>Delete</li>
+			<ul>
 			</menu>";
 	return $menu.$editform.$moveform.$htmlFooter;
 }
@@ -990,9 +1056,22 @@ function doLogin($database,$realm) {
 		e_log(8,"No user logged in, sending 401 to client.");
 		header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
 		http_response_code(401);
-		$_SESSION['fauth']=true;
+		//$_SESSION['fauth']=true;
 		$db = NULL;
-		die("You must login to use this tool.");
+		$lpage = "<!DOCTYPE html>
+		<html>
+			<head>
+				<meta name='viewport' content='width=device-width, initial-scale=1'>
+				<link rel='shortcut icon' type='image/x-icon' href='images/bookmarks.ico'>
+				<link rel='manifest' href='manifest.json' crossorigin='use-credentials'>
+				<meta name='theme-color' content='#0879D9'>
+				<title>Bookmarks</title>
+			</head>
+			<body>
+				You must login to use this tool.
+			</body>
+		</html>";
+		die($lpage);
 	}
 
 	$db = NULL;
