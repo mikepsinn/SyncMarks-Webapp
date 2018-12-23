@@ -11,12 +11,22 @@
 	},
 	"icons": [
 		{
+			"src": "images/bookmarks192.png",
+			"type": "image/png",
+			"sizes": "192x192"
+		},
+		{
 			"src": "images/bookmarks.png",
 			"type": "image/png",
 			"sizes": "256x256"
+		},
+		{
+			"src": "images/bookmarks512.png",
+			"type": "image/png",
+			"sizes": "512x512"
 		}
 	],
-	"start_url": "index.php",
+	"start_url": "./index.php",
 	"scope": ".",
 	"background_color": "#0879D9",
 	"display": "standalone",

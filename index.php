@@ -616,12 +616,13 @@ function getIndex($folder) {
 }
 
 function getSiteTitle($url) {
-	e_log(8,"Get titel from remote site");
+	e_log(8,"Get titel from site ".$url);
 	$src = file_get_contents($url);
 	if(strlen($src) > 0) {
-		$src = trim(preg_replace('/\s+/', ' ', $src));
-		preg_match("/\<title\>(.*)\<\/title\>/i",$src,$title);
-		return $title[1];
+		preg_match("/\<title\>(.*)\<\/title\>/i",$src,$title_arr);
+		$title = $title_arr[1];
+		e_log(8,"Titel for site is '$title'");
+		return $title;
 	}
 }
 
@@ -732,7 +733,7 @@ function htmlHeader($ud) {
 				<script src='scripts/jquery-3.3.1.min.js'></script>
 				<link rel='stylesheet' href='bookmarks.css'>
 				<link rel='shortcut icon' type='image/x-icon' href='images/bookmarks.ico'>
-				<link rel='manifest' href='manifest.json' crossorigin='use-credentials'>
+				<link rel='manifest' href='./manifest.json' crossorigin='use-credentials'>
 				<meta name='theme-color' content='#0879D9'>
 				<title>Bookmarks</title>
 			</head>
@@ -905,7 +906,7 @@ function htmlFooter($uid) {
 			<li id='btnEdit' class='menu-item'>Edit</li>
 			<li id='btnMove' class='menu-item'>Move</li>
 			<li id='btnDelete' class='menu-item'>Delete</li>
-			<ul>
+			</ul>
 			</menu>";
 	return $menu.$editform.$moveform.$htmlFooter;
 }
@@ -941,7 +942,7 @@ function makeHTMLTree($arr) {
 	
 	foreach($arr as $bm) {
 		if($bm['bmType'] == "bookmark") {
-			$bookmark = "\n<li class=\"file\"><a id='".$bm['bmID']."' title=\"".$bm['bmTitle']."\" target=\"_blank\" href=\"".$bm['bmURL']."\">".$bm['bmTitle']."</a></li>%ID".$bm['bmParentID'];
+			$bookmark = "\n<li class='file'><a id='".$bm['bmID']."' title='".$bm['bmTitle']."' rel='noopener' target='_blank' href='".$bm['bmURL']."'>".$bm['bmTitle']."</a></li>%ID".$bm['bmParentID'];
 			$bookmarks = str_replace("%ID".$bm['bmParentID'], $bookmark, $bookmarks);
 		}
 		
@@ -1063,7 +1064,6 @@ function doLogin($database,$realm) {
 			<head>
 				<meta name='viewport' content='width=device-width, initial-scale=1'>
 				<link rel='shortcut icon' type='image/x-icon' href='images/bookmarks.ico'>
-				<link rel='manifest' href='manifest.json' crossorigin='use-credentials'>
 				<meta name='theme-color' content='#0879D9'>
 				<title>Bookmarks</title>
 			</head>

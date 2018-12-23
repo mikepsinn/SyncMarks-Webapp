@@ -1,6 +1,11 @@
 ChangeLog
 =========
 
+0.9.15 (2018-12-23)
+-------------------------
+* Added PWA mode for mobile browsers
+* Moved configuration to separate file
+
 0.9.14 (2018-12-03)
 -------------------------
 * added search function
