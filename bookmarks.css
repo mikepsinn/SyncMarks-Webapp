@@ -110,15 +110,18 @@
 }
 .mbmdialog button {
 	background-color: transparent;
-	border: 0;
+	border: 1px solid #bbb;
 	text-transform: uppercase;
 	color: #0879D9;
 	font-weight: bold;
 	margin-inline-start: 3px;
 	padding: 3px 6px;
+	border-radius: 4px;
 }
 .mbmdialog button:hover {
-	background-color: #E3F2FD;
+	background-color: #0879D9;
+	color: white;
+	border-color: #0879D9;
 }
 .mbmdialog button:disabled {
 	pointer-events: none;
