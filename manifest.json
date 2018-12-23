@@ -1,6 +1,7 @@
 {
 	"short_name": "PHPMarks",
 	"name": "PHPMarks",
+	"description": "Synchronize Bookmarks with your Browser",
 	"share_target": {
 		"action": "index.php",
 		"params": {
@@ -26,9 +27,10 @@
 			"sizes": "512x512"
 		}
 	],
-	"start_url": "./index.php",
+	"start_url": ".",
 	"scope": ".",
 	"background_color": "#0879D9",
 	"display": "standalone",
+	"orientation": "portrait-primary",
 	"theme_color": "#0879D9"
 }
