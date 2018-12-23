@@ -2,8 +2,8 @@ var menu = document.querySelector('.menu');
 var bookmarks = document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
 
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('scripts/sw.js', {scope: 'scripts/'}).then(function(reg){
-		console.log("ServiceWorker installed");
+	navigator.serviceWorker.register('./sw.js').then(function(reg){
+		//console.log("ServiceWorker installed");
 	}).catch(function(err) {
 		console.log("Cant install ServiceWorker: ", err)
 	});
