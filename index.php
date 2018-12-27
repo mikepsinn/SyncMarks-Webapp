@@ -494,8 +494,9 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 	$clientData = $statement->fetch();
 
 	if($clientData) {
+		$lastseen = $clientData["lastseen"];
 		e_log(8,"Get changed bookmarks for client $cl");
-		$query = "SELECT b.bmID as fdID, b.bmTitle AS fdName, b.bmIndex as fdIndex, a.bmIndex, a.bmTitle, a.bmType, a.bmURL, a.bmAdded, a.bmModified, a.bmAction FROM bookmarks a INNER JOIN bookmarks b ON b.bmID = a.bmParentID WHERE (a.bmAdded >= ".$clientData["lastseen"]." AND a.userID = $uid) OR (a.bmAction = 1 and a.userID = $uid)";
+		$query = "SELECT b.bmID AS fdID, b.bmTitle AS fdName, b.bmIndex AS fdIndex, a.bmIndex, a.bmTitle, a.bmType, a.bmURL, a.bmAdded, a.bmModified, a.bmAction FROM bookmarks a INNER JOIN bookmarks b ON b.bmID = a.bmParentID WHERE (a.bmAdded >= $lastseen AND a.userID = $uid) OR (a.bmAction = 1 AND a.bmAdded >= $lastseen AND a.userID = $uid)";
 		$statement = $db->prepare($query);
 		e_log(9,$query);
 		$statement->execute();
