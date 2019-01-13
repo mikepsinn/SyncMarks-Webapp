@@ -1,8 +1,8 @@
 <?php
 /**
- * PHPMarks
+ * SyncMarks
  *
- * @version 0.9.15
+ * @version 1.0.0
  * @author Offerel
  * @copyright Copyright (c) 2018, Offerel
  * @license GNU General Public License, version 3
@@ -273,9 +273,11 @@ if(isset($_POST['caction'])) {
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
 			$client = $_POST['client'];
 			$ctype = $_POST['ctype'];
+			if($ctype == "chrome") $bookmark = cfolderMatching($bookmark);
 			$ctime = $bookmark["added"];
+			updateClient($database, $client, $ctype, $userData, $ctime);
 			if($bookmark['type'] == 'bookmark' && isset($bookmark['url'])) {
-				die(addBookmark($database, $userData, $bookmark));
+				die(json_encode(addBookmark($database, $userData, $bookmark)));
 			}
 			else if($bookmark['type'] == 'folder') {
 				die(addFolder($database, $userData, $bookmark));
@@ -290,22 +292,20 @@ if(isset($_POST['caction'])) {
 			$client = $_POST['client'];
 			$ctype = $_POST['ctype'];
 			$ctime = round(microtime(true) * 1000);
-			die(moveBookmark($database, $userData, $bookmark));
+			updateClient($database, $client, $ctype, $userData, $ctime);
+			die(json_encode(moveBookmark($database, $userData, $bookmark)));
 			break;
 		case "delmark":
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
 			$client = $_POST['client'];
 			$ctype = $_POST['ctype'];
 			$ctime = round(microtime(true) * 1000);
-			if($bookmark['type'] == 'bookmark' && isset($bookmark['url'])) {
-				die(delBookmark($database, $userData, $bookmark));
-			}
-			else if($bookmark['type'] == 'folder') {
-				die(delFolder($database, $userData, $bookmark));
+			updateClient($database, $client, $ctype, $userData, $ctime);
+			if(isset($bookmark['url'])) {
+				die(json_encode(delBookmark($database, $userData, $bookmark)));
 			}
 			else {
-				e_log(1,"This bookmark could not deleted, parameters are missing");
-				die(false);
+				die(json_encode(delFolder($database, $userData, $bookmark)));
 			}
 			break;
 		case "startup":
@@ -321,18 +321,16 @@ if(isset($_POST['caction'])) {
 			$ctime = round(microtime(true) * 1000);
 			delUsermarks($userData['userID']);
 			$armarks = parseJSON($jmarks);
-			$response = importMarks($armarks,$userData['userID'],$database);
-			die($response);
+			die(json_encode(importMarks($armarks,$userData['userID'],$database)));
 			break;
 		case "export":
 			$client = $_POST['client'];
 			$ctype = $_POST['ctype'];
 			$ctime = round(microtime(true) * 1000);
-			$usermarks = json_encode(getBookmarks($userData['userID'],$database));
-			die($usermarks);
+			die(json_encode(getBookmarks($userData['userID'],$database)));
 			break;
 		default:
-			die("Unknown Action");
+			die(json_encode("Unknown Action"));
 	}
 	die();
 }
@@ -342,6 +340,18 @@ $bmTree = bmTree($userData,$database);
 echo "<div id='bookmarks'>$bmTree</div>";
 echo "<div id='hmarks' style='display: none'>$bmTree</div>";
 echo htmlFooter($userData['userID']);
+
+function cfolderMatching($bookmark) {
+	switch($bookmark['folder']) {
+		case "0": $bookmark['folder'] = "root________"; break;
+		case "1": $bookmark['folder'] = "toolbar_____"; break;
+		case "2": $bookmark['folder'] = "unfiled_____"; break;
+		case "3": $bookmark['folder'] = "mobile______"; break;
+		default: break;
+	}
+	$bookmark['id'] = unique_code(12);
+	return $bookmark;
+}
 
 function delFolder($database, $ud, $bm) {
 	$db = new PDO('sqlite:'.$database);
@@ -368,38 +378,43 @@ function delBookmark($database, $ud, $bm) {
 function moveBookmark($database, $ud, $bm) {
 	$db = new PDO('sqlite:'.$database);
 	e_log(8,"Bookmark seems to be moved, checking current folder data");
-	$query = "SELECT MAX(`bmIndex`) +1 AS `nindex`, `bmParentID` FROM `bookmarks` WHERE `bmParentID` IN (SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `bmIndex` = ".$bm['folderIndex']." AND `userID` = ".$ud['userID'].")";
+	$query = "SELECT MAX(`bmIndex`) +1 AS `nindex`, `bmParentID` FROM `bookmarks` WHERE `bmParentID` IN (SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userID` = ".$ud['userID'].")";
 	$statement = $db->prepare($query);
 	e_log(9,$query);
 	$statement->execute();
-	$folderData = $statement->fetchAll(PDO::FETCH_ASSOC);
+	$folderData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
+	
+	if(is_null($folderData['bmParentID'])) {
+		e_log(8,"Folder not found, can`t move bookmark.");
+		return "Folder not found, bookmark not moved.";
+	}
 	
 	e_log(8,"Checking bookmark data before moving it");
-	$query = "SELECT * FROM `bookmarks` WHERE `bmID` = '".$bm["id"]."'";
+	$query = "SELECT * FROM `bookmarks` WHERE `userID`= ".$ud["userID"]." AND `bmURL` = '".$bm["url"]."'";
 	$statement = $db->prepare($query);
 	e_log(9,$query);
 	$statement->execute();
-	$oldData = $statement->fetchAll(PDO::FETCH_ASSOC);
+	$oldData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
 	
 	if (!empty($folderData) && !empty($oldData)) {
-		if(($folderData[0]['bmParentID'] != $oldData[0]['bmParentID']) || ($oldData[0]['bmIndex'] != $bm['index'])) {
+		if(($folderData['bmParentID'] != $oldData['bmParentID']) || ($oldData['bmIndex'] != $bm['index'])) {
 			e_log(8,"Folder or Position changed, moving bookmark");
-			$query = "DELETE FROM `bookmarks` WHERE `bmID` = '".$bm["id"]."'";
+			$query = "DELETE FROM `bookmarks` WHERE `bmID` = '".$oldData["bmID"]."'";
 			e_log(9,$query);
 			$db->exec($query);
 			e_log(8,"Re-Add bookmark on new position");
-			$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$folderData[0]['bmParentID']."', ".$bm['index'].", '".$oldData[0]['bmTitle']."', '".$oldData[0]['bmType']."', '".$oldData[0]['bmURL']."', ".$oldData[0]['bmAdded'].", ".$ud["userID"].")";
+			$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$oldData["bmID"]."', '".$folderData['bmParentID']."', ".$bm['index'].", '".$oldData['bmTitle']."', '".$oldData['bmType']."', '".$oldData['bmURL']."', ".$oldData['bmAdded'].", ".$ud["userID"].")";
 			e_log(9,$query);
 			$db->exec($query);
 			return true;
 		}
 		else {
 			e_log(8,"Bookmark not moved, exiting");
-			return false;
+			return "Bookmark not moved, exiting";
 		}
 	}
 	else {
-		return false;
+		return "Cant move bookmark, data not found.";
 	}
 }
 
@@ -444,42 +459,52 @@ function addFolder($database, $ud, $bm) {
 }
 
 function addBookmark($database, $ud, $bm) {
-	try {
-		$db = new PDO('sqlite:'.$database);
-	}
-	catch (PDOException $e) {
-		e_log(1,'DB connection failed: '.$e->getMessage());
-	}
-
-	$query = "SELECT COUNT(*) AS bmcount FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' and userID = ".$ud["userID"];
+	$db = new PDO('sqlite:'.$database);
+	$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+	e_log(8,"Test if bookmark already exists for user.");
+	$query = "SELECT COUNT(*) AS bmcount FROM `bookmarks` WHERE `bmAction` IS NULL AND `bmUrl` = '".$bm['url']."' and userID = ".$ud["userID"];
+	e_log(9,$query);
 	$statement = $db->prepare($query);
 	$statement->execute();
 	$bmExistData = $statement->fetchAll(PDO::FETCH_ASSOC)[0]["bmcount"];
 	if($bmExistData > 0) {
 		e_log(8,"Bookmark not added, it exists already for this user");
-		return false;
+		return "Bookmark not added, it exists already for this user";
 	}
-
 	e_log(8,"Get folder data for adding bookmark");
 	$query = "SELECT MAX(`bmIndex`) +1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `bmParentId` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userId` = ".$ud['userID'].")";
 	$statement = $db->prepare($query);
 	e_log(9,$query);
-	
 	$statement->execute();
-	$folderData = $statement->fetchAll();
+	$folderData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
 	
-	if (!empty($folderData)) {
-		e_log(8,"Add bookmark '".$bm['title']."'");
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$folderData[0]['bmParentID']."', ".$folderData[0]['nindex'].", '".$bm['title']."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].")";
+	if(is_null($folderData['bmParentID'])) {
+		e_log(8,"Folder not found, using 'unfiled_____'.");
+		$query = "SELECT MAX(`bmIndex`) +1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `bmParentId` = 'unfiled_____' AND `userId` = 1";
+		$statement = $db->prepare($query);
 		e_log(9,$query);
-		$db->exec($query);
+		$statement->execute();
+		$folderData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
+	}
+	
+	if(!empty($folderData)) {
+		e_log(8,"Add bookmark '".$bm['title']."'");
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$folderData['bmParentID']."', ".$folderData['nindex'].", '".$bm['title']."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].")";
+		e_log(9,$query);
+		try {
+			$db->exec($query);
+		}
+		catch(PDOException $e) {
+			e_log(1,'INSERT failed: '.$e->getMessage());
+			return "Adding bookmark failed.";
+		}
 		$db = NULL;
-		return true;
+		return 1;
 	}
 	else {
 		$db = NULL;
-		e_log(1,"Couldn't add bookmark");
-		return false;
+		e_log(1,"Couldn't add bookmark, folder do not exists.");
+		return "Couldn't add bookmark, folder do not exists.";
 	}
 }
 
@@ -504,12 +529,12 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 	}
 	else {
 		e_log(8,"Client not found in database, registering now");
-		updateClient($dbase, $cl, $ct, $ud, $time);
+		updateClient($dbase, $cl, $ct, $ud, $time, true);
 		return "New client registered for user.";
 	}
 
 	if (!empty($bookmarkData)) {
-		updateClient($dbase, $cl, $ct, $ud, $time);
+		updateClient($dbase, $cl, $ct, $ud, $time, true);
 		e_log(8,"Try to find bookmarks, which could be completely deleted");
 		$query = "SELECT bmID FROM bookmarks WHERE bmAdded <= (SELECT MIN(lastseen) FROM clients WHERE uid = $uid AND lastseen > 1) AND bmAction = 1";
 		$statement = $db->prepare($query);
@@ -538,7 +563,7 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 	}
 }
 
-function updateClient($dbase, $cl, $ct, $ud, $time) {
+function updateClient($dbase, $cl, $ct, $ud, $time, $sync = false) {
 	try {
 		$db = new PDO('sqlite:'.$dbase);
 	}
@@ -561,13 +586,15 @@ function updateClient($dbase, $cl, $ct, $ud, $time) {
 	}
 
 	$clientData = $statement->fetchAll();
-	if (!empty($clientData)) {
+	if (!empty($clientData) && $sync) {
 		$query = "UPDATE `clients` SET `lastseen`= '".$time."' WHERE `cid` = '".$cl."';";
 		$db->exec($query);
 		e_log(8,"Updating lastlogin for client $cl.");
 	}
-	else {
-		$db->exec("INSERT INTO `clients` (`cid`,`ctype`,`uid`,`lastseen`) VALUES ('".$cl."', '".$ct."', ".$uid.", '".$time."')");
+	else if(empty($clientData)) {
+		$query = "INSERT INTO `clients` (`cid`,`ctype`,`uid`,`lastseen`) VALUES ('".$cl."', '".$ct."', ".$uid.", '".$time."')";
+		e_log(9, $query);
+		$db->exec($query);
 		e_log(8,"New client detected. Register client $cl for user ".$ud["userName"]);
 	}
 	
@@ -731,8 +758,8 @@ function htmlHeader($ud) {
 			<head>
 				<meta name='viewport' content='width=device-width, initial-scale=1'>
 				<base href='".$_SERVER['REQUEST_SCHEME'].'://'.$_SERVER['SERVER_NAME'].dirname($_SERVER['SCRIPT_NAME'])."/'>
-				<script src='scripts/jquery-3.3.1.min.js'></script>
-				<link rel='stylesheet' href='bookmarks.css'>
+				<script src='".$_SERVER['REQUEST_SCHEME'].'://'.$_SERVER['SERVER_NAME'].dirname($_SERVER['SCRIPT_NAME'])."/scripts/jquery-3.3.1.min.js'></script>
+				<link rel='stylesheet' href='".$_SERVER['REQUEST_SCHEME'].'://'.$_SERVER['SERVER_NAME'].dirname($_SERVER['SCRIPT_NAME'])."/bookmarks.css'>
 				<link rel='shortcut icon' type='image/x-icon' href='images/bookmarks.ico'>
 				<link rel='manifest' href='./manifest.json' crossorigin='use-credentials'>
 				<meta name='theme-color' content='#0879D9'>
@@ -899,7 +926,7 @@ function htmlFooter($uid) {
 					</form></div>
 					
 					<div id='footer'></div>
-					<script src='scripts/bookmarks.js'></script>
+					<script src='".$_SERVER['REQUEST_SCHEME'].'://'.$_SERVER['SERVER_NAME'].dirname($_SERVER['SCRIPT_NAME'])."/scripts/bookmarks.js'></script>
 					</body></html>";
 
 	$menu = "<menu class='menu'><input type='hidden' id='bmid' title='bmtitle' value=''>

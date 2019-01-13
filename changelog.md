@@ -1,6 +1,12 @@
 ChangeLog
 =========
 
+1.0.0 (2019-01-13)
+-------------------------
+* Added experimental support for Chrome Extension
+* Minify some files
+* Fixed some small bug for initial sync
+
 0.9.15 (2018-12-23)
 -------------------------
 * Added PWA mode for mobile browsers
