@@ -254,6 +254,9 @@
 .client[data-type="firefox"] {
 	background-image: url(images/fflgo.png);
 }
+.client[data-type="chrome"] {
+	background-image: url(images/chrlgo.png);
+}
 .client .clientname {
 	line-height: 1.2;
 	white-space: nowrap;
@@ -736,7 +739,7 @@ input[type="submit"]:disabled {
 		color: black;
 	}
 	#hmenu {
-		width: 30px;
+		width: 10px;
 		padding: 3px 10px;
 		margin-right: 10px;
 	}
@@ -744,7 +747,7 @@ input[type="submit"]:disabled {
 		background-color: darkgray;
 	}
 	.hline {
-		width: 20px;
+		width: 2px;
 		height: 2px;
 		background-color: black;
 		margin: 3px 0;
@@ -755,7 +758,7 @@ input[type="submit"]:disabled {
 		top: -9px;
 	}
 	#menu input {
-		color: black;
+		color: white;
 		font-size: 0.8em;
 		height: 20px;
 		top: 2px;
