@@ -1,13 +1,14 @@
 {
-	"short_name": "PHPMarks",
-	"name": "PHPMarks",
+	"short_name": "SyncMarks",
+	"name": "SyncMarks",
 	"description": "Synchronize Bookmarks with your Browser",
 	"share_target": {
-		"action": "index.php",
+		"action": "/bookmarks/",
+		"method": "GET",
 		"params": {
-			"text": "burl",
+			"text": "url",
 			"title": "title",
-			"url": "url"
+			"url": "link"
 		}
 	},
 	"icons": [

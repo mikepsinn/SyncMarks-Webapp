@@ -1,5 +1,10 @@
 ChangeLog
 =========
+1.1.0 (2020-02-22)
+-------------------------
+* Added HTML export to export bookmarks in HTML format for import in other browsers
+* Updated jquery library
+* removed PWA functions
 
 1.0.0 (2019-01-13)
 -------------------------
