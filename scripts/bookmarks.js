@@ -1,6 +1,7 @@
 var menu = document.querySelector('.menu');
 var bookmarks = document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
 
+/*
 if ('serviceWorker' in navigator) {
 	navigator.serviceWorker.register('./sw.js').then(function(reg){
 		//console.log("ServiceWorker installed");
@@ -8,7 +9,7 @@ if ('serviceWorker' in navigator) {
 		console.log("Cant install ServiceWorker: ", err)
 	});
 }
-
+*/
 if (/Mobi|Android/i.test(navigator.userAgent)) {
 	var ffolder = [];
 	$('.ffolder').on('change', function() {
@@ -138,6 +139,54 @@ $("#mpassword").on("click",function(){
 $("#clientedt").on("click",function(){
 	$('.mmenu').hide();
 	$("#mngcform").show();
+	document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
+});
+
+$("#bexport").on("click",function(){
+	$('.mmenu').hide();
+
+	var today = new Date();
+var dd = today.getDate();
+
+var mm = today.getMonth()+1; 
+var yyyy = today.getFullYear();
+if(dd<10) 
+{
+    dd='0'+dd;
+} 
+
+if(mm<10) 
+{
+    mm='0'+mm;
+} 
+
+today = dd+'-'+mm+'-'+yyyy;
+//console.log(today);
+
+	$.ajax({
+        url: document.location.href,
+		type: "POST",
+        data: {
+            export: 'html',
+		},
+		success: function(data) {
+			var blob = new Blob([data], { type: 'text/html' });
+			var link = document.createElement('a');
+        	link.href = window.URL.createObjectURL(blob);
+        	link.download = "bookmarks_" + today + ".html";
+        	link.click();
+		}
+		/*
+		statusCode: {
+			401: function() {
+				$('body').html("Successfully logged out...");
+			}
+		}
+		*/
+    });  
+    return false;
+
+
 	document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
 });
 

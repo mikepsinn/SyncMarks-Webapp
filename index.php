@@ -2,9 +2,9 @@
 /**
  * SyncMarks
  *
- * @version 1.0.0
+ * @version 1.1.0
  * @author Offerel
- * @copyright Copyright (c) 2018, Offerel
+ * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
  */
 if (!isset ($_SESSION['fauth'])) {
@@ -16,12 +16,13 @@ set_error_handler("e_log");
 if(!file_exists($database)) initDB($database);
 
 if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !isset($_SERVER['PHP_AUTH_PW']) || !isset($_SESSION['fauth'])) {
+//if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !isset($_SERVER['PHP_AUTH_PW'])) {
 	doLogin($database,$realm);
 }
 else {
 	$db = new PDO('sqlite:'.$database);
 	e_log(8,"Update lastseen date for user");
-	$query = "UPDATE `users` SET `userLastLogin`=".time()." WHERE `userName`='".$_SERVER['PHP_AUTH_USER']."'";
+	$query = "UPDATE `users` SET `userLastLogin`=".time()." WHERE `userName` = '".$_SERVER['PHP_AUTH_USER']."'";
 	e_log(9,$query);
 	$db->exec($query);
 	$db = NULL;
@@ -335,6 +336,38 @@ if(isset($_POST['caction'])) {
 	die();
 }
 
+if(isset($_GET['link'])) {
+	$url = $_GET["link"];
+
+	if(!empty($_GET["title"])) {
+		$title = $_GET["title"];
+	}
+	else {
+		$title = "unknown";
+		//echo "No Title specified, set to 'unknown'.";
+	}
+
+	e_log(8,"No Title specified, set to 'unknown'.");
+	$bookmark['url'] = $url;
+	$bookmark['nfolder'] = 'unfiled_____';
+	$bookmark['title'] = $title;
+	$bookmark['id'] = unique_code(12);
+	$bookmark['type'] = 'bookmark';
+	$bookmark['added'] = round(microtime(true) * 1000);
+	if(addBookmark($database, $userData, $bookmark) == 1) {
+		echo "<script>window.onload = function() { window.close();}</script>";
+		die();
+	}
+	//e_log(8,"Get Bookmark added? $returnval");
+	
+}
+
+if(isset($_POST['export'])) {
+	$format = $_POST['export'];
+	html_export($userData['userID'],$database);
+	exit;
+}
+
 echo htmlHeader($userData);
 $bmTree = bmTree($userData,$database);
 echo "<div id='bookmarks'>$bmTree</div>";
@@ -351,6 +384,42 @@ function cfolderMatching($bookmark) {
 	}
 	$bookmark['id'] = unique_code(12);
 	return $bookmark;
+}
+
+function html_export($uid,$database) {
+	header('Content-Description: File Transfer');
+	header('Content-Type: text/html');
+	header('Content-Disposition: attachment; filename="bookmarks.html"'); 
+	header('Content-Transfer-Encoding: binary');
+	header('Connection: Keep-Alive');
+	header('Expires: 0');
+	header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+	header('Pragma: public');
+	//header('Content-Length: ' . $size);
+
+$content = '<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<!-- This is an automatically generated file.
+	 It will be read and overwritten.
+	 DO NOT EDIT! -->
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+<TITLE>Bookmarks</TITLE>';
+//<H1>Bookmarks</H1>
+//<DL><p>';
+
+$umarks = makeHTMLExport(getBookmarks($uid,$database));
+do {
+	$start = strpos($umarks,"%ID");
+	$end = strpos($umarks,"\n",$start);
+	$len = $end - $start;
+	$umarks = substr_replace($umarks, "", $start, $len);
+} while (strpos($umarks,"%ID") > 0);
+//$umarks = preg_replace("/[\r\n]\s*[\r\n]/",' ',$umarks);
+
+//die($umarks);
+
+$content.="$umarks\r\n</DL><p>";
+
+	echo $content;
 }
 
 function delFolder($database, $ud, $bm) {
@@ -389,32 +458,34 @@ function moveBookmark($database, $ud, $bm) {
 		return "Folder not found, bookmark not moved.";
 	}
 	
-	e_log(8,"Checking bookmark data before moving it");
-	$query = "SELECT * FROM `bookmarks` WHERE `userID`= ".$ud["userID"]." AND `bmURL` = '".$bm["url"]."'";
-	$statement = $db->prepare($query);
-	e_log(9,$query);
-	$statement->execute();
-	$oldData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
-	
-	if (!empty($folderData) && !empty($oldData)) {
-		if(($folderData['bmParentID'] != $oldData['bmParentID']) || ($oldData['bmIndex'] != $bm['index'])) {
-			e_log(8,"Folder or Position changed, moving bookmark");
-			$query = "DELETE FROM `bookmarks` WHERE `bmID` = '".$oldData["bmID"]."'";
-			e_log(9,$query);
-			$db->exec($query);
-			e_log(8,"Re-Add bookmark on new position");
-			$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$oldData["bmID"]."', '".$folderData['bmParentID']."', ".$bm['index'].", '".$oldData['bmTitle']."', '".$oldData['bmType']."', '".$oldData['bmURL']."', ".$oldData['bmAdded'].", ".$ud["userID"].")";
-			e_log(9,$query);
-			$db->exec($query);
-			return true;
+	if(array_key_exists("url", $bm)) {
+		e_log(8,"Checking bookmark data before moving it");
+		$query = "SELECT * FROM `bookmarks` WHERE `userID`= ".$ud["userID"]." AND `bmURL` = '".$bm["url"]."'";
+		$statement = $db->prepare($query);
+		e_log(9,$query);
+		$statement->execute();
+		$oldData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
+		
+		if (!empty($folderData) && !empty($oldData)) {
+			if(($folderData['bmParentID'] != $oldData['bmParentID']) || ($oldData['bmIndex'] != $bm['index'])) {
+				e_log(8,"Folder or Position changed, moving bookmark");
+				$query = "DELETE FROM `bookmarks` WHERE `bmID` = '".$oldData["bmID"]."'";
+				e_log(9,$query);
+				$db->exec($query);
+				e_log(8,"Re-Add bookmark on new position");
+				$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$oldData["bmID"]."', '".$folderData['bmParentID']."', ".$bm['index'].", '".$oldData['bmTitle']."', '".$oldData['bmType']."', '".$oldData['bmURL']."', ".$oldData['bmAdded'].", ".$ud["userID"].")";
+				e_log(9,$query);
+				$db->exec($query);
+				return true;
+			}
+			else {
+				e_log(8,"Bookmark not moved, exiting");
+				return "Bookmark not moved, exiting";
+			}
 		}
 		else {
-			e_log(8,"Bookmark not moved, exiting");
-			return "Bookmark not moved, exiting";
+			return "Cant move bookmark, data not found.";
 		}
-	}
-	else {
-		return "Cant move bookmark, data not found.";
 	}
 }
 
@@ -757,11 +828,11 @@ function htmlHeader($ud) {
 		<html>
 			<head>
 				<meta name='viewport' content='width=device-width, initial-scale=1'>
-				<base href='".$_SERVER['REQUEST_SCHEME'].'://'.$_SERVER['SERVER_NAME'].dirname($_SERVER['SCRIPT_NAME'])."/'>
-				<script src='".$_SERVER['REQUEST_SCHEME'].'://'.$_SERVER['SERVER_NAME'].dirname($_SERVER['SCRIPT_NAME'])."/scripts/jquery-3.3.1.min.js'></script>
-				<link rel='stylesheet' href='".$_SERVER['REQUEST_SCHEME'].'://'.$_SERVER['SERVER_NAME'].dirname($_SERVER['SCRIPT_NAME'])."/bookmarks.css'>
+				<base href='".dirname($_SERVER['SCRIPT_NAME'])."/' />
+				<script type='text/javascript' src='scripts/jquery-3.4.1.min.js'></script>
+				<link type='text/css' rel='stylesheet' href='bookmarks.css'>
 				<link rel='shortcut icon' type='image/x-icon' href='images/bookmarks.ico'>
-				<link rel='manifest' href='./manifest.json' crossorigin='use-credentials'>
+				<link rel='manifest' href='./manifest.json'>
 				<meta name='theme-color' content='#0879D9'>
 				<title>Bookmarks</title>
 			</head>
@@ -824,6 +895,7 @@ function htmlHeader($ud) {
 						<li id='muser'>Username</li>
 						<li id='mpassword'>Password</li>
 						<li id='clientedt'>Clients</li>
+						<li id='bexport'>Export</li>
 						$admenu
 						<hr>
 						<li id='mlogout'>Logout</li>
@@ -926,7 +998,7 @@ function htmlFooter($uid) {
 					</form></div>
 					
 					<div id='footer'></div>
-					<script src='".$_SERVER['REQUEST_SCHEME'].'://'.$_SERVER['SERVER_NAME'].dirname($_SERVER['SCRIPT_NAME'])."/scripts/bookmarks.js'></script>
+					<script type='text/javascript' src='./scripts/bookmarks.js'></script>
 					</body></html>";
 
 	$menu = "<menu class='menu'><input type='hidden' id='bmid' title='bmtitle' value=''>
@@ -963,6 +1035,49 @@ function getUserFolders($uid) {
 	$folders = $statement->fetchAll();
 	$db = NULL;
 	return $folders;
+}
+
+function makeHTMLExport($arr) {
+	$bookmarks = "";
+	
+	foreach($arr as $bm) {
+		if($bm['bmType'] == "bookmark") {
+			$bookmark = "\r\n\t<DT><A HREF=\"".$bm['bmURL']."\" ADD_DATE=\"".round($bm['bmAdded']/1000)."\">".$bm['bmTitle']."</A>%ID".$bm['bmParentID'];
+			
+			$bookmarks = str_replace("%ID".$bm['bmParentID'], $bookmark, $bookmarks);
+		}
+		
+		if($bm['bmType'] == "folder") {
+			switch($bm['bmID']) {
+				case 'toolbar_____':
+					$sfolder = ' PERSONAL_TOOLBAR_FOLDER="true"';
+					$fclose = '</DL><p>';
+					break;
+				case 'unfiled_____':
+					$sfolder = ' UNFILED_BOOKMARKS_FOLDER="true"';
+					$fclose = '</DL><p>';
+					break;
+				case 'menu________':
+					$fclose = '';
+					break;
+				default:
+					$sfolder = '';
+					$fclose = '</DL><p>';
+			}
+
+			$flvls = ($bm['bmID'] == 'menu________') ? "\r\n<H1 " : "\r\n\t<DT><H3";
+			$flvle = ($bm['bmID'] == 'menu________') ? '</H1>' : '</H3>';
+			$nFolder = "$flvls ADD_DATE=\"".round($bm['bmAdded']/1000)."\" LAST_MODIFIED=\"".round($bm['bmModified']/1000)."\"$sfolder>".$bm['bmTitle']."$flvle\r\n\t<DL><p>%ID".$bm['bmID']."\r\n\t$fclose";			
+			if(strpos($bookmarks, "%ID".$bm['bmParentID']) > 0) {
+				$nFolder = "\r\n\t".$nFolder."\n%ID".$bm['bmParentID'];
+				$bookmarks = str_replace("%ID".$bm['bmParentID'], $nFolder, $bookmarks);
+			}
+			else {
+				$bookmarks.= $nFolder;
+			}
+		}
+	}
+	return $bookmarks;
 }
 
 function makeHTMLTree($arr) {
@@ -1083,15 +1198,21 @@ function doLogin($database,$realm) {
 	
 	if (!$valid) {
 		e_log(8,"No user logged in, sending 401 to client.");
+		header("Expires: Sat, 01 Jan 2000 00:00:00 GMT");
+		header("Last-Modified: ".gmdate("D, d M Y H:i:s")." GMT");
+		header("Cache-Control: post-check=0, pre-check=0",false);
+		header("Pragma: no-cache");
+		session_cache_limiter("public, no-store");
 		header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
 		http_response_code(401);
-		//$_SESSION['fauth']=true;
+		//$_SESSION['fauth']=false;
 		$db = NULL;
 		$lpage = "<!DOCTYPE html>
 		<html>
 			<head>
 				<meta name='viewport' content='width=device-width, initial-scale=1'>
 				<link rel='shortcut icon' type='image/x-icon' href='images/bookmarks.ico'>
+				<link rel='manifest' href='./manifest.json'>
 				<meta name='theme-color' content='#0879D9'>
 				<title>Bookmarks</title>
 			</head>
