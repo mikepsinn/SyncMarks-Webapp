@@ -344,10 +344,9 @@ if(isset($_GET['link'])) {
 	}
 	else {
 		$title = "unknown";
-		//echo "No Title specified, set to 'unknown'.";
+		e_log(8,"No Title specified, set to 'unknown'.");
 	}
 
-	e_log(8,"No Title specified, set to 'unknown'.");
 	$bookmark['url'] = $url;
 	$bookmark['nfolder'] = 'unfiled_____';
 	$bookmark['title'] = $title;
@@ -358,8 +357,6 @@ if(isset($_GET['link'])) {
 		echo "<script>window.onload = function() { window.close();}</script>";
 		die();
 	}
-	//e_log(8,"Get Bookmark added? $returnval");
-	
 }
 
 if(isset($_POST['export'])) {
@@ -888,6 +885,10 @@ function htmlHeader($ud) {
 		$logform = "";
 		$mnguserform = "";
 	}
+
+	$clink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']; 
+	$bookmarklet = "bWindow=window.open(%22$clink%3Ftitle=%22+document.title+%22%26link=%22+document.location.href,%22bWindow%22,%22width=100,height=100%22,replace=!1)";
+	$bookmarklet = "javascript:void%20function(){".$bookmarklet."}();";
 		
 	$mainmenu = "<div id='mainmenu' class='mmenu'>
 					<ul>
@@ -896,6 +897,7 @@ function htmlHeader($ud) {
 						<li id='mpassword'>Password</li>
 						<li id='clientedt'>Clients</li>
 						<li id='bexport'>Export</li>
+						<li id='bmlet'><a href=\"$bookmarklet\">Bookmarklet</a></li>
 						$admenu
 						<hr>
 						<li id='mlogout'>Logout</li>
