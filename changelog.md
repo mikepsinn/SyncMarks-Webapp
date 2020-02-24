@@ -1,5 +1,9 @@
 ChangeLog
 =========
+1.1.1 (2020-02-24)
+-------------------------
+* Added bookmarklet to add current site as bookmark
+
 1.1.0 (2020-02-22)
 -------------------------
 * Added HTML export to export bookmarks in HTML format for import in other browsers

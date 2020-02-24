@@ -28,6 +28,26 @@
 .mmenu li:hover {
 	background-color: #EEEEEE;
 }
+#bmlet a {
+	border-radius: 5px;
+	display: inline-block;
+	cursor: pointer;
+	color: #fff;
+	font-family: Arial;
+	padding: 6px 24px;
+	text-decoration: none;
+	line-height: 13px;
+	width: 215px;
+	text-align: center;
+	background: linear-gradient(180deg,#61a9e8 0%,#a4cdf0 49%,#4f6d88 51%,#84b2d9 100%);
+	border: 1px solid #4776b7;
+	box-shadow: inset 0px 1px 0px rgba(255,255,255,1),0px 1px 3px rgba(0,0,0,0.3);
+	text-shadow: 0px -1px 0px rgba(0,0,0,0.4);
+}
+#bmlet:hover {
+	background-color: unset;
+	cursor: unset;
+}
 .mmenu hr {
 	width: 100%;
 	margin-left: 0;
@@ -728,7 +748,7 @@ input[type="submit"]:disabled {
 	background: #e1e1e1;
 	text-align: center;
 	border-bottom: 1px solid #bbb;
-}
+	}
 	#menu a {
 		line-height: 23px;
 		color: #333;
