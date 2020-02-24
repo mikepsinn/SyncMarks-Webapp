@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.1.0
+ * @version 1.1.1
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -887,8 +887,7 @@ function htmlHeader($ud) {
 	}
 
 	$clink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']; 
-	$bookmarklet = "bWindow=window.open(%22$clink%3Ftitle=%22+document.title+%22%26link=%22+document.location.href,%22bWindow%22,%22width=100,height=100%22,replace=!1)";
-	$bookmarklet = "javascript:void%20function(){".$bookmarklet."}();";
+	$bookmarklet = "javascript:void%20function(){bWindow=window.open(%22$clink%3Ftitle=%22+document.title+%22%26link=%22+document.location.href,%22bWindow%22,%22width=480,height=245%22,replace=!1)}();";
 		
 	$mainmenu = "<div id='mainmenu' class='mmenu'>
 					<ul>
