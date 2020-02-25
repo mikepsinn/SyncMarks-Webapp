@@ -530,7 +530,8 @@ function addBookmark($database, $ud, $bm) {
 	$db = new PDO('sqlite:'.$database);
 	$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 	e_log(8,"Test if bookmark already exists for user.");
-	$query = "SELECT COUNT(*) AS bmcount FROM `bookmarks` WHERE `bmAction` IS NULL AND `bmUrl` = '".$bm['url']."' and userID = ".$ud["userID"];
+	//$query = "SELECT COUNT(*) AS bmcount FROM `bookmarks` WHERE `bmAction` IS NULL AND `bmUrl` = '".$bm['url']."' and userID = ".$ud["userID"];
+	$query = "SELECT COUNT(*) AS bmcount FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' and userID = ".$ud["userID"];
 	e_log(9,$query);
 	$statement = $db->prepare($query);
 	$statement->execute();
@@ -891,7 +892,7 @@ function htmlHeader($ud) {
 		
 	$mainmenu = "<div id='mainmenu' class='mmenu'>
 					<ul>
-						<li id='meheader'><span class='logo'>&nbsp;</span><span class='text'>".$ud['userName']."<br>Last login: ".date("d.m.y H:i",$ud['userLastLogin'])."<span></li>
+						<li id='meheader'><span class='logo'>&nbsp;</span><span class='text'>".$ud['userName']."<br>Last login: ".date("d.m.y H:i",$ud['userLastLogin'])."</span></li>
 						<li id='muser'>Username</li>
 						<li id='mpassword'>Password</li>
 						<li id='clientedt'>Clients</li>
@@ -1086,7 +1087,7 @@ function makeHTMLTree($arr) {
 	
 	foreach($arr as $bm) {
 		if($bm['bmType'] == "bookmark") {
-			$bookmark = "\n<li class='file'><a id='".$bm['bmID']."' title='".$bm['bmTitle']."' rel='noopener' target='_blank' href='".$bm['bmURL']."'>".$bm['bmTitle']."</a></li>%ID".$bm['bmParentID'];
+			$bookmark = "\n<li class='file'><a id='".$bm['bmID']."' title='".$bm['bmTitle']."' rel='noopener' target='_blank' href='".$bm['bmURL']."'>".htmlentities($bm['bmTitle'])."</a></li>%ID".$bm['bmParentID'];
 			$bookmarks = str_replace("%ID".$bm['bmParentID'], $bookmark, $bookmarks);
 		}
 		
