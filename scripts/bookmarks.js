@@ -2,9 +2,23 @@ var menu = document.querySelector('.menu');
 var bookmarks = document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
 
 /*
+window.addEventListener('load', () => {
+	var parsedUrl = new URL(window.location);
+	console.log('Title shared: ' + parsedUrl.searchParams.get('name'));
+	console.log('Text shared: ' + parsedUrl.searchParams.get('description'));
+	console.log('URL shared: ' + parsedUrl.searchParams.get('link'));
+	console.log('PWA shared: ' + parsedUrl.searchParams.get('pwa'));
+
+	alert('Title shared: ' + parsedUrl.searchParams.get('name'));
+	alert('Text shared: ' + parsedUrl.searchParams.get('description'));
+	alert('URL shared: ' + parsedUrl.searchParams.get('link'));
+	alert('PWA shared: ' + parsedUrl.searchParams.get('pwa'));
+});
+*/
+/*
 if ('serviceWorker' in navigator) {
-	navigator.serviceWorker.register('./sw.js').then(function(reg){
-		//console.log("ServiceWorker installed");
+	navigator.serviceWorker.register('sw.js').then(function(reg){
+		console.log("ServiceWorker installed");
 	}).catch(function(err) {
 		console.log("Cant install ServiceWorker: ", err)
 	});
@@ -56,6 +70,7 @@ $("#save").on("click",function(){
         success: function(r){
 			$('.mmenu').hide();
 			$("#bookmarks").html(r);
+			$('#bmarkadd').hide();
 		}
     });  
     return false;
@@ -144,24 +159,13 @@ $("#clientedt").on("click",function(){
 
 $("#bexport").on("click",function(){
 	$('.mmenu').hide();
-
 	var today = new Date();
-var dd = today.getDate();
-
-var mm = today.getMonth()+1; 
-var yyyy = today.getFullYear();
-if(dd<10) 
-{
-    dd='0'+dd;
-} 
-
-if(mm<10) 
-{
-    mm='0'+mm;
-} 
-
-today = dd+'-'+mm+'-'+yyyy;
-//console.log(today);
+	var dd = today.getDate();
+	var mm = today.getMonth()+1; 
+	var yyyy = today.getFullYear();
+	if(dd<10) dd='0'+dd;
+	if(mm<10) mm='0'+mm;
+	today = dd+'-'+mm+'-'+yyyy;
 
 	$.ajax({
         url: document.location.href,
@@ -176,13 +180,6 @@ today = dd+'-'+mm+'-'+yyyy;
         	link.download = "bookmarks_" + today + ".html";
         	link.click();
 		}
-		/*
-		statusCode: {
-			401: function() {
-				$('body').html("Successfully logged out...");
-			}
-		}
-		*/
     });  
     return false;
 

@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.1.1
+ * @version 1.1.2
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -140,9 +140,13 @@ if(isset($_POST['mclear'])) {
 
 if(isset($_POST['madd'])) {
 	$bmParentID = $_POST['folder'];
-	$bmURL = $_POST['url'];
+	$bmURL = trim($_POST['url']);
 	$bmID = unique_code(12);
 	$bmIndex = getIndex($bmParentID);
+	if(strpos($bmURL,'http') != 0) {
+		e_log(1,"Given string is not a real URL, cant add this.");
+		exit;
+	}
 	$bmTitle = getSiteTitle($bmURL);
 	$bmAdded = round(microtime(true) * 1000);
 	$userID = $userData['userID'];
@@ -529,16 +533,25 @@ function addFolder($database, $ud, $bm) {
 function addBookmark($database, $ud, $bm) {
 	$db = new PDO('sqlite:'.$database);
 	$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-	e_log(8,"Test if bookmark already exists for user.");
+	e_log(8,"Check if bookmark already exists for user.");
 	//$query = "SELECT COUNT(*) AS bmcount FROM `bookmarks` WHERE `bmAction` IS NULL AND `bmUrl` = '".$bm['url']."' and userID = ".$ud["userID"];
-	$query = "SELECT COUNT(*) AS bmcount FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' and userID = ".$ud["userID"];
+	$query = "SELECT COUNT(*) AS bmcount, bmAction FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' and userID = ".$ud["userID"];
 	e_log(9,$query);
 	$statement = $db->prepare($query);
 	$statement->execute();
 	$bmExistData = $statement->fetchAll(PDO::FETCH_ASSOC)[0]["bmcount"];
+	$bmAction = $statement->fetchAll(PDO::FETCH_ASSOC)[0]["bmAction"];
 	if($bmExistData > 0) {
-		e_log(8,"Bookmark not added, it exists already for this user");
-		return "Bookmark not added, it exists already for this user";
+		if($bmAction == 1) {
+			e_log(8,"Undelete removed bookmark.");
+			$query = "UPDATE `bookmarks` SET `bmAction` = NULL WHERE `bmUrl` = '".$bm['url']."' AND userID = ".$ud["userID"].";";
+			$db->exec($query);
+			e_log(9,$query);
+		}
+		else {
+			e_log(8,"Bookmark not added, it exists already for this user");
+			return "Bookmark not added, it exists already for this user";
+		}
 	}
 	e_log(8,"Get folder data for adding bookmark");
 	$query = "SELECT MAX(`bmIndex`) +1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `bmParentId` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userId` = ".$ud['userID'].")";
@@ -717,7 +730,7 @@ function getSiteTitle($url) {
 	$src = file_get_contents($url);
 	if(strlen($src) > 0) {
 		preg_match("/\<title\>(.*)\<\/title\>/i",$src,$title_arr);
-		$title = $title_arr[1];
+		$title = (strlen($title_arr[1]) > 0) ? $title_arr[1] : 'unknown';
 		e_log(8,"Titel for site is '$title'");
 		return $title;
 	}
@@ -843,7 +856,7 @@ function htmlHeader($ud) {
 		<div class='hline'></div>
 	</div>
 	<button>&#8981;</button><input type='search' name='bmsearch' value=''>
-	<a id='mprofile' title=\"Last login: ".date("d.m.y H:i",$ud['userLastLogin'])."\">My Bookmarks</a>
+	<a id='mprofile' title=\"Last login: ".date("d.m.y H:i",$ud['userOldLogin'])."\">My Bookmarks</a>
 		</div>";
 	
 	if($ud['userType'] == 2) {
@@ -1193,8 +1206,21 @@ function doLogin($database,$realm) {
 
 		$userData = $statement->fetchAll();
 
-		if (!empty($userData)) {
-			$valid = password_verify($_SERVER['PHP_AUTH_PW'], $userData[0]['userHash']);
+		if(password_verify($_SERVER['PHP_AUTH_PW'], $userData[0]['userHash'])) {
+			$valid = true;
+			if (session_status() == PHP_SESSION_ACTIVE) {
+				$aTime = time();
+				$oTime = $userData[0]['userLastLogin'];
+				$seid = session_id();
+				$uid = $userData[0]['userID'];
+
+				if($seid != $userData[0]['sessionID']) {
+					e_log(8,"Save session to database.");
+					$query = "UPDATE `users` SET `userLastLogin`= $aTime, `sessionID` = '$seid', `userOldLogin`= $oTime WHERE `userID` = '$uid'";
+					$db->exec($query);
+					e_log(9,$query);
+				}
+			}
 		}
 	}
 	
@@ -1243,13 +1269,13 @@ function initDB($database) {
 		$query = "CREATE TABLE `bookmarks` (`bmID`	TEXT NOT NULL, `bmParentID`	TEXT NOT NULL, `bmIndex` INTEGER NOT NULL, `bmTitle` TEXT, `bmType`	TEXT NOT NULL, `bmURL` TEXT, `bmAdded` TEXT NOT NULL, `bmModified` TEXT, `userID` INTEGER NOT NULL, `bmAction` INTEGER, PRIMARY KEY(`bmID`))";
 		$db->exec($query);
 		e_log(9,$query);
-		$query = "CREATE TABLE `users` (`userID` INTEGER NOT NULL, `userName` TEXT UNIQUE NOT NULL, `userType` INTEGER NOT NULL, `userHash`	TEXT NOT NULL, `userLastLogin` TEXT, PRIMARY KEY(`userID`));";
+		$query = "CREATE TABLE `users` (`userID` INTEGER NOT NULL, `userName` TEXT UNIQUE NOT NULL, `userType` INTEGER NOT NULL, `userHash`	TEXT NOT NULL, `userLastLogin` INT(11), `sessionID`	VARCHAR(255) UNIQUE, `userOldLogin`	INT(11), PRIMARY KEY(`userID`));";
 		$db->exec($query);
 		e_log(9,$query);
 		$query = "CREATE TABLE `clients` (`cid` TEXT NOT NULL UNIQUE,`cname` TEXT, `ctype` TEXT NOT NULL, `uid`	INTEGER NOT NULL, `lastseen` TEXT NOT NULL, PRIMARY KEY(`cid`));";
 		$db->exec($query);
 		e_log(9,$query);
-		
+
 		$bmAdded = time();
 		$userPWD = password_hash("mypass",PASSWORD_DEFAULT);
 		$db->exec("INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('0', '0', 0, 'GitHub Repository', 'bookmark', 'https://github.com/Offerel', ".$bmAdded.", 1)");

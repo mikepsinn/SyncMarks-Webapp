@@ -1,37 +1,27 @@
 {
-	"short_name": "SyncMarks",
-	"name": "SyncMarks",
-	"description": "Synchronize Bookmarks with your Browser",
-	"share_target": {
-		"action": "/bookmarks/",
-		"method": "GET",
-		"params": {
-			"text": "url",
-			"title": "title",
-			"url": "link"
-		}
-	},
-	"icons": [
-		{
-			"src": "images/bookmarks192.png",
-			"type": "image/png",
-			"sizes": "192x192"
-		},
-		{
-			"src": "images/bookmarks.png",
-			"type": "image/png",
-			"sizes": "256x256"
-		},
-		{
-			"src": "images/bookmarks512.png",
-			"type": "image/png",
-			"sizes": "512x512"
-		}
-	],
-	"start_url": ".",
-	"scope": ".",
-	"background_color": "#0879D9",
-	"display": "standalone",
-	"orientation": "portrait-primary",
-	"theme_color": "#0879D9"
+   "short_name":"SyncMarks",
+   "name":"SyncMarks",
+   "description":"Synchronize Bookmarks with your Browser",
+   "start_url":".",
+   "icons":[
+      {
+         "src":"images/bookmarks192.png",
+         "type":"image/png",
+         "sizes":"192x192"
+      },
+      {
+         "src":"images/bookmarks.png",
+         "type":"image/png",
+         "sizes":"256x256"
+      },
+      {
+         "src":"images/bookmarks512.png",
+         "type":"image/png",
+         "sizes":"512x512"
+      }
+   ],
+   "background_color":"#0879D9",
+   "display":"standalone",
+   "orientation":"portrait-primary",
+   "theme_color":"#0879D9"
 }
