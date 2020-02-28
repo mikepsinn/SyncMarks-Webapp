@@ -535,14 +535,13 @@ function addBookmark($database, $ud, $bm) {
 	$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 	e_log(8,"Check if bookmark already exists for user.");
 	//$query = "SELECT COUNT(*) AS bmcount FROM `bookmarks` WHERE `bmAction` IS NULL AND `bmUrl` = '".$bm['url']."' and userID = ".$ud["userID"];
-	$query = "SELECT COUNT(*) AS bmcount, bmAction FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' and userID = ".$ud["userID"];
+	$query = "SELECT COUNT(*) AS bmcount, MAX(bmAction) as bmaction FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' and userID = ".$ud["userID"];
 	e_log(9,$query);
 	$statement = $db->prepare($query);
 	$statement->execute();
-	$bmExistData = $statement->fetchAll(PDO::FETCH_ASSOC)[0]["bmcount"];
-	$bmAction = $statement->fetchAll(PDO::FETCH_ASSOC)[0]["bmAction"];
-	if($bmExistData > 0) {
-		if($bmAction == 1) {
+	$bmExistData = $statement->fetchAll(PDO::FETCH_ASSOC);
+	if($bmExistData[0]["bmcount"] > 0) {
+		if($bmExistData[0]["bmaction"] == 1) {
 			e_log(8,"Undelete removed bookmark.");
 			$query = "UPDATE `bookmarks` SET `bmAction` = NULL WHERE `bmUrl` = '".$bm['url']."' AND userID = ".$ud["userID"].";";
 			$db->exec($query);
@@ -570,8 +569,9 @@ function addBookmark($database, $ud, $bm) {
 	}
 	
 	if(!empty($folderData)) {
-		e_log(8,"Add bookmark '".$bm['title']."'");
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$folderData['bmParentID']."', ".$folderData['nindex'].", '".$bm['title']."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].")";
+		$title = htmlspecialchars($bm['title'],ENT_QUOTES,'UTF-8');
+		e_log(8,"Add bookmark '".$title."'");
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$folderData['bmParentID']."', ".$folderData['nindex'].", '".$title."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].")";
 		e_log(9,$query);
 		try {
 			$db->exec($query);
@@ -631,7 +631,7 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 				e_log(9,$query);
 				$db->exec($query);
 			}
-			e_log("Try to compacting database");
+			e_log(8,"Try to compacting database");
 			$db->exec("VACUUM");
 		}
 		else {
@@ -1100,7 +1100,8 @@ function makeHTMLTree($arr) {
 	
 	foreach($arr as $bm) {
 		if($bm['bmType'] == "bookmark") {
-			$bookmark = "\n<li class='file'><a id='".$bm['bmID']."' title='".$bm['bmTitle']."' rel='noopener' target='_blank' href='".$bm['bmURL']."'>".htmlentities($bm['bmTitle'])."</a></li>%ID".$bm['bmParentID'];
+			$title = htmlspecialchars_decode($bm['bmTitle'],ENT_QUOTES);
+			$bookmark = "\n<li class='file'><a id='".$bm['bmID']."' title='".$title."' rel='noopener' target='_blank' href='".$bm['bmURL']."'>".$title."</a></li>%ID".$bm['bmParentID'];
 			$bookmarks = str_replace("%ID".$bm['bmParentID'], $bookmark, $bookmarks);
 		}
 		
