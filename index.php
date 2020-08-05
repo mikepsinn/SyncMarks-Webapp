@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.2
+ * @version 1.2.3
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -57,8 +57,11 @@ if(isset($_POST['bmmv'])) {
 }
 
 if(isset($_POST['arename'])) {
+	$cliento = $_POST['cido'];
+	e_log(8,"Renaming client ".$cliento);
 	$db = new PDO('sqlite:'.$database);
-	$query = "UPDATE `clients` SET `cname` = '".$_POST['nname']."' WHERE `uid` = ".$userData['userID']." AND `cid` = '".$_POST['cido']."'";
+	$query = "UPDATE `clients` SET `cname` = '".$_POST['nname']."' WHERE `uid` = ".$userData['userID']." AND `cid` = '".$cliento."'";
+	e_log(9,$query);
 	$count = $db->exec($query);
 	$db = NULL;
 	
@@ -130,16 +133,25 @@ if(isset($_POST['muedt'])) {
 	$db = NULL;
 }
 
-if(isset($_POST['mlog'])) die(file_get_contents($logfile));
+if(isset($_POST['mlog'])) {
+	if($userData['userType'] > 1) {
+		die(file_get_contents($logfile));
+	}	else {
+		die("Not allowed to read server logfile.");
+	} 
+}
 
 if(isset($_POST['mclear'])) {
-	file_put_contents($logfile,"");
+	if($userData['userType'] > 1) {
+		file_put_contents($logfile,"");
+	}
 	die();
 }
 
 if(isset($_POST['madd'])) {
 	$bmParentID = $_POST['folder'];
 	$bmURL = validate_url(trim($_POST['url']));
+	e_log(8,"Try to add manually new bookmark: ".$bmURL);
 	$bmID = unique_code(12);
 	$bmIndex = getIndex($bmParentID);
 	if(strpos($bmURL,'http') != 0) {
@@ -162,20 +174,17 @@ if(isset($_POST['madd'])) {
 			e_log(9,$query);
 		}
 		catch(PDOException $e) {
-			e_log(1,'Exception : '.$e->getMessage());
+			e_log(1,'Exception: '.$e->getMessage());
 		}
 		$db = NULL;
-		
-		
 	}
 	if(!isset($_POST['rc'])) {
-		e_log(8,"Manual added bookmark for ".$userData['userName']);
+		e_log(8,"Manually added bookmark.");
 		die(bmTree($userData,$database));
 	} else {
-		e_log(8,"Roundcube added bookmark for ".$userData['userName']);
+		e_log(8,"Roundcube added bookmark.");
 		die();
 	}
-	
 }
 
 if(isset($_POST['mdel'])) {
@@ -545,7 +554,7 @@ if(isset($_POST['export'])) {
 echo htmlHeader($userData);
 $bmTree = bmTree($userData,$database);
 echo "<div id='bookmarks'>$bmTree</div>";
-echo "<div id='hmarks' style='display: none'>$bmTree</div>";
+//echo "<div id='hmarks' style='display: none'>$bmTree</div>";
 echo htmlFooter($userData['userID']);
 
 function validate_url($url) {
@@ -1057,19 +1066,27 @@ function delUsermarks($uid) {
 	$db = NULL;
 }
 
+function minFile($infile) {
+	$outfile = $infile;
+	$infile = pathinfo($infile);
+	$minfile = $infile['filename'].'.min.'.$infile['extension'];
+	$outfile = (file_exists($minfile)) ? $minfile : $outfile;
+	return $outfile;
+}
+
 function htmlHeader($ud) {
 	global $database;
 	$db = new PDO('sqlite:'.$database);
+	minfile("bookmarks.js");
 	$htmlHeader = "<!DOCTYPE html>
 		<html>
 			<head>
 				<meta name='viewport' content='width=device-width, initial-scale=1'>
-				<!-- <base href='".dirname($_SERVER['SCRIPT_NAME'])."/' /> -->
-				<script type='text/javascript' src='./scripts/jquery-3.4.1.min.js'></script>
-				<link type='text/css' rel='stylesheet' href='bookmarks.css?ran=1'>
-				<link type='text/css' rel='stylesheet' href='font-awesome/css/font-awesome.min.css?ran=2'>
+				<script type='text/javascript' src='".minfile("bookmarks.js")."'></script>
+				<link type='text/css' rel='stylesheet' href='".minfile("bookmarks.css")."'>
+				<link type='text/css' rel='stylesheet' href='font-awesome/css/font-awesome.min.css'>
 				<link rel='shortcut icon' type='image/x-icon' href='./images/bookmarks.ico'>
-				<link rel='manifest' href='./manifest.json'>
+				<link rel='manifest' href='manifest.json'>
 				<meta name='theme-color' content='#0879D9'>
 				<title>Bookmarks</title>
 			</head>
@@ -1102,8 +1119,8 @@ function htmlHeader($ud) {
 	}
 
 	if($ud['userType'] == 2) {
-		$admenu = "<hr><li id='mlog'>Logfile</li><li id='mngusers'>Users</li>";
-		$logform = "<div id=\"close\"><button id='mclear'>clear</button> <button id='mclose'>&times;</button></div><textarea id=\"logfile\"></textarea>";
+		$admenu = "<hr><li class='fa fa-file-text-o' id='mlog'>Logfile</li><li class='fa fa-users' id='mngusers'>Users</li>";
+		$logform = "<div id=\"logfile\"><div id=\"close\"><button id='mclear'>clear</button> <button id='mclose'>&times;</button></div><div id='lfiletext'></div></div>";
 		$mnguserform = "<div id='mnguform' class='mbmdialog'><h6>Manage Users</h6><form enctype='multipart/form-data' action='".$_SERVER['PHP_SELF']."' method='POST'>
 						<div class='select'>
 						$userSelect
@@ -1131,16 +1148,16 @@ function htmlHeader($ud) {
 	$mainmenu = "<div id='mainmenu' class='mmenu'>
 					<ul>
 						<li id='meheader'><span class='logo'>&nbsp;</span><span class='text'>".$ud['userName']."<br>Last login: ".date("d.m.y H:i",$ud['userLastLogin'])."</span></li>
-						<li id='muser'>Username</li>
-						<li id='mpassword'>Password</li>
-						<li id='clientedt'>Clients</li>
-						<li id='pbullet'>Pushbullet</li>
-						<li id='nmessages'>Notifications</li>
-						<li id='bexport'>Export</li>
+						<li class='fa fa-user-circle-o' id='muser'>Username</li>
+						<li class='fa fa-unlock-alt' id='mpassword'>Password</li>
+						<li class='fa fa-desktop' id='clientedt'>Clients</li>
+						<li class='fa fa-commenting' id='pbullet'>Pushbullet</li>
+						<li class='fa fa-bell' id='nmessages'>Notifications</li>
+						<li class='fa fa-external-link' id='bexport'>Export</li>
 						<li id='bmlet'><a href=\"$bookmarklet\">Bookmarklet</a></li>
 						$admenu
 						<hr>
-						<li id='mlogout'>Logout</li>
+						<li class='fa fa-sign-out' id='mlogout'>Logout</li>
 					</ul>
 				</div>";
 				
@@ -1317,15 +1334,13 @@ function htmlFooter($uid) {
 					</form></div>
 					
 					<div id='footer'></div>
-					
-					<script type='text/javascript' src='bookmarks.js?rand=7'></script>
 					</body></html>";
 
 	$menu = "<menu class='menu'><input type='hidden' id='bmid' title='bmtitle' value=''>
 			<ul>
-			<li id='btnEdit' class='menu-item'>Edit</li>
-			<li id='btnMove' class='menu-item'>Move</li>
-			<li id='btnDelete' class='menu-item'>Delete</li>
+			<li id='btnEdit' class='menu-item fa fa-pencil-square-o'>Edit</li>
+			<li id='btnMove' class='menu-item fa fa-arrows-alt'>Move</li>
+			<li id='btnDelete' class='menu-item fa fa-trash-o'>Delete</li>
 			</ul>
 			</menu>";
 	return $menu.$editform.$moveform.$htmlFooter;
@@ -1538,7 +1553,6 @@ function doLogin($database,$realm) {
 		header("Pragma: no-cache");
 		header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
 		http_response_code(401);
-		//$_SESSION['fauth']=false;
 		$db = NULL;
 		$lpage = "<!DOCTYPE html>
 		<html>

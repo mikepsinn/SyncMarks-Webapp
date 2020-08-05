@@ -1,462 +1,426 @@
-$(document).ready(function() {
-	var menu = document.querySelector('.menu');
-	var bookmarks = document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
+/**
+ * SyncMarks
+ *
+ * @version 1.2.3
+ * @author Offerel
+ * @copyright Copyright (c) 2020, Offerel
+ * @license GNU General Public License, version 3
+ */
+document.addEventListener("DOMContentLoaded", function(event) {	
+	document.getElementById("logfile").addEventListener("mousedown", function(e){
+		if (e.offsetX < 3) {
+			document.addEventListener("mousemove", resize, false);
+		}
+	}, false);
+	
+	document.addEventListener("mouseup", function(){
+		document.removeEventListener("mousemove", resize, false);
+	}, false);
 
-	if (/Mobi|Android/i.test(navigator.userAgent)) {
-		var ffolder = [];
-		$('.ffolder').on('change', function() {
-			if (this.checked) {
-				ffolder.push(this.value);
-			} else {
-				ffolder.splice(ffolder.indexOf(this.value), 1);
-				location.reload();
-			}
-			
-			var actFolder = "f_"+ffolder[ffolder.length-1];
-			
-			if(actFolder != 'f_undefined') {
-				$('.actFolder').removeClass('actFolder');
-				$('#'+actFolder+' li').addClass('actFolder');
-				$('.mainFolder > label').css('z-index',0);
-				$('#'+actFolder).addClass('actFolder mainFolder');
-				$('.mainFolder').addClass('actFolder');
-				$('li:not(.actFolder)').hide();
-			}
-		});
-	}
-
+	document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
 	document.querySelectorAll('.tablinks').forEach(tab => tab.addEventListener('click',openMessages, false));
 	document.querySelectorAll('.fa-trash-o').forEach(message => message.addEventListener('click',delMessage, false));
 	document.querySelector('#cnoti').addEventListener('change',eNoti,false);
 
 	if(sessionStorage.getItem('gNoti') != 1) getNotifications();
-});
- 
-$(document).keydown(function(e) {
-	if(e.keyCode == 27) {
-		$('.mbmdialog').hide();
-		$('.mmenu').hide();
-	}
-});
 
-$("#mngcform li div.clientname input[type='text']").on("focus", function () {
-   $(this).select();
-});
-
-$("#save").on("click",function(){        
-    $.ajax({
-        url: document.location.href,
-		type: "POST",
-        data: {
-            madd: true,
-            folder: $('#folder').val(),
-            url: $('#url').val(),
-        },
-        success: function(r){
-			$('.mmenu').hide();
-			$("#bookmarks").html(r);
-			$('#bmarkadd').hide();
+	document.addEventListener('keydown', e => {
+		if (e.keyCode === 27) {
+			hideMenu();
 		}
-    });  
-    return false;
-});
+	});
 
-$("#mlogout").on("click",function(){        
-    $.ajax({
-        url: document.location.href,
-		type: "POST",
-        data: {
-            logout: true,
-        },
-		statusCode: {
-			401: function() {
-				$('body').html("Successfully logged out...");
+	document.querySelector("#mngcform input[type='text']").addEventListener('focus', function() {
+		this.select();
+	});
+
+	document.getElementById("save").addEventListener('click', function(event) {
+		event.preventDefault();
+		hideMenu();
+		let folder = document.getElementById('folder').value;
+		let url = encodeURIComponent(document.getElementById('url').value);
+
+		var xhr = new XMLHttpRequest();
+		var data = "madd=" + true + "&folder=" + folder + "&url=" + url;
+		xhr.onreadystatechange = function () {
+			if (this.readyState == 4) {
+				if(this.status == 200) {
+					document.getElementById('bookmarks').innerHTML = this.responseText;
+					console.log("Bookmark added successfully.");
+				} else {
+					alert("Error adding bookmark, please check server log.");
+				}
 			}
+		};
+
+		xhr.open("POST", document.location.href, true);
+		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+		xhr.send(data);
+	});
+
+	document.getElementById("mlogout").addEventListener('click', function(event) {
+		event.preventDefault();
+		var xhr = new XMLHttpRequest();
+		xhr.onreadystatechange = function () {
+			if (this.readyState == 4) {
+				if(this.status == 401) {
+					console.log("Successfully logged out...");
+				}
+			}
+		};
+
+		xhr.open("POST", document.location.href, true);
+		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+		xhr.send("logout=true");
+		return false;
+	});
+
+	document.getElementById('userSelect').addEventListener('change', function() {
+		if(this.value > 0) {
+			document.getElementById('nuser').value = document.querySelector('#userSelect option:checked').text;
+			checkuform();
+			document.getElementById('muadd').value = 'Edit User';
+			document.getElementById('mudel').disabled = false;
 		}
-    });  
-    return false;
-});
+	});
 
-$("#userSelect").on("change",function(){
-	if($(this).val() > 0) {
-		$('#nuser').val($("#userSelect option:selected").text());
-		checkuform();
-		$('#muadd').val('Edit User');
-		$('#mudel').removeAttr('disabled','disabled');
-	}
-});
+	document.getElementById('npwd').addEventListener('input', function() {checkuform()});
+	document.getElementById('nuser').addEventListener('input', function() {checkuform()});
+	document.getElementById('userLevel').addEventListener('input', function() {checkuform()});
 
-$("#npwd").on("input",function(){
-	checkuform();
-});
+	document.getElementById('hmenu').addEventListener('click', function() {
+		var mainmenu = document.getElementById('mainmenu');
+		document.querySelector('#menu button').style.background = 'transparent';
+		document.querySelector('#bookmarks').addEventListener('click', hideMenu, false);
 
-$("#nuser").on("input",function(){
-	checkuform();
-});
-
-$("#userLevel").on("change",function(){
-	checkuform();
-});
-
-$("#hmenu").on("click",function(){
-	$('#menu button').css('background-color', 'transparent');
-	$('.mbmdialog').hide();
-	if($('#mainmenu').css('display') == 'none') {
-		$('.mmenu').hide();
-		$('#mainmenu').show();
-	}
-	else {
-		$('#mainmenu').hide();
-	}
-	document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
-});
-
-$("#mngusers").on("click",function(){
-	$('.mmenu').hide();
-	$("#mnguform").show();
-	document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
-});
-
-$("#muser").on("click",function(){
-	$('.mbmdialog').hide();
-	$('.mmenu').hide();
-	$("#userform").show();
-	document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
-});
-
-$('.mdcancel').on('click', function() {
-	$('.mbmdialog').hide();
-	$('.mmenu').hide();
-});
-
-$("#mpassword").on("click",function(){
-	$('.mbmdialog').hide();
-	$('.mmenu').hide();
-	$("#passwordform").show();
-	document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
-});
-
-$("#pbullet").on("click",function(){
-	$('.mbmdialog').hide();
-	$('.mmenu').hide();
-	$('#pbulletform').show();
-	document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
-});
-
-$("#nmessages").on("click",function(){
-	$('.mbmdialog').hide();
-	$('.mmenu').hide();
-	$('#nmessagesform').show();
-	document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
-});
-
-$("#clientedt").on("click",function(){
-	$('.mmenu').hide();
-	$("#mngcform").show();
-	document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
-});
-
-$("#bexport").on("click",function(){
-	$('.mmenu').hide();
-	var today = new Date();
-	var dd = today.getDate();
-	var mm = today.getMonth()+1; 
-	var yyyy = today.getFullYear();
-	if(dd<10) dd='0'+dd;
-	if(mm<10) mm='0'+mm;
-	today = dd+'-'+mm+'-'+yyyy;
-
-	$.ajax({
-        url: document.location.href,
-		type: "POST",
-        data: {
-            export: 'html',
-		},
-		success: function(data) {
-			var blob = new Blob([data], { type: 'text/html' });
-			var link = document.createElement('a');
-        	link.href = window.URL.createObjectURL(blob);
-        	link.download = "bookmarks_" + today + ".html";
-        	link.click();
+		if(mainmenu.style.display === 'block') {
+			mainmenu.style.display = 'none';
+		} else {
+			hideMenu();
+			mainmenu.style.display = 'block';
 		}
-    });  
-    return false;
-});
+	});
 
-$("#footer").on("click",function(){
-	document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
-	$('#bmarkadd').show();
-	$('.mmenu').hide();
-	url.focus();
-	url.addEventListener('input', enableSave);
-	document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
-});
+	document.getElementById('mngusers').addEventListener('click', function() {
+		hideMenu();
+		document.getElementById('mnguform').style.display = 'block';
+		document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
+	});
 
-$("#mlog").on("click",function(){
-	$('.mmenu').hide();
-	if($('#logfile').css('visibility') === 'hidden') {
-		$('#logfile').css('visibility','visible');
-		$('#close').css('visibility','visible');
-		$.ajax({
-			url: document.location.href,
-			type: "POST",
-			data: {
-				mlog: true,
-			},
-			success: function(r){
-				 $("#logfile").html(r);
-				moveEnd($('#logfile'));
+	document.getElementById('muser').addEventListener('click', function() {
+		hideMenu();
+		document.getElementById('userform').style.display = 'block';
+		document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
+	});
+
+	document.querySelectorAll('.mdcancel').forEach(button => button.addEventListener('click', function() {
+		hideMenu();
+	}));
+
+	document.getElementById('mpassword').addEventListener('click', function() {
+		hideMenu();
+		document.getElementById('passwordform').style.display = 'block';
+		document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
+	});
+
+	document.getElementById('pbullet').addEventListener('click', function() {
+		hideMenu();
+		document.getElementById('pbulletform').style.display = 'block';
+		document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
+	});
+
+	document.getElementById('nmessages').addEventListener('click', function() {
+		hideMenu();
+		document.getElementById('nmessagesform').style.display = 'block';
+		document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
+	});
+
+	document.getElementById('clientedt').addEventListener('click', function() {
+		hideMenu();
+		document.getElementById('mngcform').style.display = 'block';
+		document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
+	});
+
+	document.getElementById('bexport').addEventListener('click', function() {
+		hideMenu();
+		var today = new Date();
+		var dd = today.getDate();
+		var mm = today.getMonth()+1; 
+		var yyyy = today.getFullYear();
+		if(dd<10) dd='0'+dd;
+		if(mm<10) mm='0'+mm;
+		today = dd+'-'+mm+'-'+yyyy;
+
+		var xhr = new XMLHttpRequest();
+		var data = "export=html";
+
+		xhr.onreadystatechange = function () {
+			if (this.readyState == 4) {
+				if(this.status == 200) {
+					var blob = new Blob([this.responseText], { type: 'text/html' });
+					var link = document.createElement('a');
+					link.href = window.URL.createObjectURL(blob);
+					link.download = "bookmarks_" + today + ".html";
+					link.click();
+					console.log("HTML successfully, please look in your download folder.");
+				} else {
+					alert("Error generating export, please check server log.");
+				}
 			}
-		});
-	}
-	else {
-		$('#logfile').css('visibility','hidden');
-		$('#close').css('visibility','hidden');
-	}
-});
+		};
 
-$("#mclear").on("click",function(){
-	if($('#logfile').css('visibility') === 'visible') {
-		$('#logfile').css('visibility','hidden');
-		$('#close').css('visibility','hidden');
-		
-		$.ajax({
-			url: document.location.href,
-			type: "POST",
-			data: {
-				mclear: true,
-			},
-			success: function(r){;
-			}
-		});
-	}
-});
+		xhr.open("POST", document.location.href, true);
+		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+		xhr.send(data);
 
-$("#mclose").on("click",function(){
-	if($('#logfile').css('visibility') === 'visible') {
-		$('#logfile').css('visibility','hidden');
-		$('#close').css('visibility','hidden');
-	}
-});
+		return false;
+	});
 
-$("#mngcform li div.rename").on("click", function() {
-	$.ajax({
-        type: "POST",
-        url: "index.php",
-        data: {
-            arename: true,
-            cido: $(this)[0].parentElement.id,
-			nname: $(this)[0].parentElement.children[0].children[0].value,
-        },
-        success: function(a) {
-			response = JSON.parse(a);
-			if(response = 1)
-				location.reload(false);
-			else
-				console.log("Error renaming client");
-        }
-    });
-});
+	document.getElementById('footer').addEventListener('click', function() {
+		hideMenu();
+		document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
+		document.getElementById('bmarkadd').style.display = 'block';
+		url.focus();
+		url.addEventListener('input', enableSave);
+	});
 
-$("#mngcform li div.remove").on("click", function() {
-	$.ajax({
-        type: "POST",
-        url: "index.php",
-        data: {
-            adel: true,
-            cido: $(this)[0].parentElement.id,
-        },
-        success: function(a) {
-			response = JSON.parse(a);
-			if(response = 1)
-				location.reload(false);
-			else
-				console.log("Error removing client");
-        }
-    });
-});
-
-$("#mngcform li div.clientname input").on('mouseleave',function() {
-	if($(this)[0].defaultValue != $(this)[0].value) {
-		$("#"+$(this)[0].parentElement.parentElement.id+" div.clientname input").css("display","block");
-		$("#"+$(this)[0].parentElement.parentElement.id+" div.rename").css("display","block");
-		$("#"+$(this)[0].parentElement.parentElement.id+" div.remove").css("display","block");
-	}
-});
-
-$('#edtitle').on('input', function() {
-	$('#edsave').prop('disabled',false);
-});
-
-$('#edurl').on('input', function() {
-	$('#edsave').prop('disabled',false);
-});
-
-$('#mvfolder').on('change', function() {
-	$('#mvsave').prop('disabled',false);
-});
-
-$('#edsave').on('click', function(e) {
-	e.preventDefault();
-	$.ajax({
-        url: document.location.href,
-		type: "POST",
-        data: {
-            bmedt: true,
-            title: $('#edtitle').val(),
-            url: $('#edurl').val(),
-			id: $('#edid').val(),
-        },
-        success: function(r){
-			if(r == 1) {
-				location.reload();
-			}
-			else {
-				console.log("There was a problem changing that bookmark.");
-			}
+	document.getElementById('mlog').addEventListener('click', function() {
+		hideMenu();
+		let logfile = document.getElementById('logfile');
+		if(logfile.style.visibility === 'visible') {
+			logfile.style.visibility = 'hidden';
+			document.getElementById('close').style.visibility = 'hidden';
+		} else {
+			logfile.style.visibility = 'visible';
+			document.getElementById('close').style.visibility = 'visible';
+			let xhr = new XMLHttpRequest();
+			let data = "mlog=true";
+			xhr.onreadystatechange = function () {
+				if (this.readyState == 4) {
+					if(this.status == 200) {
+						document.getElementById('lfiletext').innerHTML = this.responseText;
+						moveEnd();
+					} else {
+						alert("Error loading logfile, please check server log.");
+					}
+				}
+			};
+			xhr.open("POST", document.location.href, true);
+			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+			xhr.send(data);
 		}
-    });  
-    return false;
-});
+	});
 
-$('#mvsave').on('click', function(e) {
-	e.preventDefault();
-	$.ajax({
-        url: document.location.href,
-		type: "POST",
-        data: {
-            bmmv: true,
-            title: $('#mvtitle').val(),
-			folder: $('#mvfolder').val(),
-			id: $('#mvid').val(),
-        },
-        success: function(r){
-			if(r == 1) {
-				location.reload();
-			}
-			else {
-				console.log("There was a problem moving that bookmark.");
-			}
+	document.getElementById('mclear').addEventListener('click', function() {
+		let logfile = document.getElementById('logfile');
+		if(logfile.style.visibility === 'visible') {
+			logfile.style.visibility = 'hidden';
+			document.getElementById('close').style.visibility = 'hidden';
+			let xhr = new XMLHttpRequest();
+			let data = "mclear=true";
+			xhr.onreadystatechange = function () {
+				if (this.readyState == 4) {
+					if(this.status == 200) {
+						console.log("Logfile should now be empty.");
+					} else {
+						console.log("Error couldnt clear logfile.");
+					}
+				}
+			};
+			xhr.open("POST", document.location.href, true);
+			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+			xhr.send(data);
 		}
-    });  
-    return false;
+	});
+
+	document.getElementById('mclose').addEventListener('click', function() {
+		if(document.getElementById('logfile').style.visibility === 'visible') {
+			document.getElementById('logfile').style.visibility = 'hidden';
+			document.getElementById('close').style.visibility = 'hidden';
+		}
+	});
+
+	document.querySelector("#mngcform div.rename").addEventListener('click', function() {
+		let xhr = new XMLHttpRequest();
+		let data = 'arename=true&cido=' + this.parentElement.id + '&nname=' + this.parentElement.children[0].innerText;
+
+		xhr.onreadystatechange = function () {
+			if (this.readyState == 4) {
+				if(this.status == 200) {
+					response = JSON.parse(this.responseText);
+					if(response == 1)
+						location.reload(false);
+					else
+						console.log("Error renaming client");
+				}
+			}
+		};
+
+		xhr.open("POST", document.location.href, true);
+		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+		xhr.send(data);
+	});
+
+	document.querySelector("#mngcform li div.remove").addEventListener('click', function() {
+		let xhr = new XMLHttpRequest();
+		let data = 'adel=true&cido=' + this.parentElement.id;
+		xhr.onreadystatechange = function () {
+			if (this.readyState == 4) {
+				if(this.status == 200) {
+					if(JSON.parse(this.responseText) == 1)
+						location.reload(false);
+					else
+						console.log("Error removing client");
+				}
+			}
+		};
+
+		xhr.open("POST", document.location.href, true);
+		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+		xhr.send(data);
+	});
+
+	document.querySelector("#mngcform li div.clientname input").addEventListener('mouseleave', function() {
+		if(this.defaultValue != this.value) {
+			this.style.display = 'block';
+			this.parentElement.parentElement.children[2].style.display = 'block';
+			this.parentElement.parentElement.children[3].style.display = 'block';
+		}
+	});
+
+	document.getElementById('edtitle').addEventListener('input', function() {
+		document.getElementById('edsave').disabled = false;
+	});
+
+	document.getElementById('edurl').addEventListener('input', function() {
+		document.getElementById('edsave').disabled = false;
+	});
+
+	document.getElementById('mvfolder').addEventListener('change', function() {
+		document.getElementById('mvsave').disabled = false;
+	});
+
+	document.getElementById('edsave').addEventListener('click', function(e) {
+		e.preventDefault();
+		let xhr = new XMLHttpRequest();
+		let data = 'bmedt=true&title=' + document.getElementById('edtitle').value + '&url=' + document.getElementById('edurl').value + '&id=' + document.getElementById('edid').value;
+		xhr.onreadystatechange = function () {
+			if (this.readyState == 4) {
+				if(this.status == 200) {
+					if(this.responseText == 1)
+						location.reload(false);
+					else
+						console.log("There was a problem changing that bookmark.");
+				}
+			}
+		};
+		xhr.open("POST", document.location.href, true);
+		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+		xhr.send(data);
+		return false;
+	});
+
+	document.getElementById('mvsave').addEventListener('click', function(e) {
+		e.preventDefault();
+		let xhr = new XMLHttpRequest();
+		let data = 'bmmv=true&title=' + document.getElementById('mvtitle').value + '&folder=' + document.getElementById('mvfolder').value + '&id=' + document.getElementById('mvid').value;
+		xhr.onreadystatechange = function () {
+			if (this.readyState == 4) {
+				if(this.status == 200) {
+					if(this.responseText == 1)
+						location.reload(false);
+					else
+						console.log("There was a problem moving that bookmark.");
+				}
+			}
+		};
+		xhr.open("POST", document.location.href, true);
+		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+		xhr.send(data);
+		return false;
+	});
+
 });
 
-jQuery.expr[':'].Contains = function(a, i, m) {
-	return jQuery(a).text().toUpperCase()
-		.indexOf(m[3].toUpperCase()) >= 0;
-};
-
-$('#menu input').keyup(function(e) {
-	var sfilter = $(this).val();
-	var allmarks = $('#bookmarks li.file');
-	$('#bookmarks').html(allmarks);
-	$('#bookmarks li.file:not(:Contains('+sfilter+'))').css("display","none");
-	$('#bookmarks li.file:Contains('+sfilter+')').css("display","block");
-	$('#bookmarks li.file:Contains('+sfilter+')').css("padding-left","20px");
-	if((sfilter == "") || (e.keyCode == 27)) {
-		$('#bookmarks').html($('#hmarks').html());
-		$('#menu input').val('');
-	}
-});
-
-$('#menu button').on('click', function() {
-	if($('#menu button').html() == '\u00D7') {
-		$('#menu input').blur();
-		$('#menu button').html('\u2315')
-		$('#menu button').css('background-color', 'transparent');
-		$('#menu input').css('width', '0');
-		$('#menu input').css('background-color', 'transparent');
-		$('#menu input').css('border', '1px solid transparent');
-		$('#mprofile').show();
-		
-	}
-	else {
-		$('#menu button').html('\u00D7');
-		$('#menu button').css('background-color', '#05589D');
-		$('#menu input').css('width', 'calc(100% - 100px)');
-		$('#menu input').css('background-color', '#05589D');
-		$('#mprofile').hide();
-		$('#menu input').focus();
-	}
-
-	$('.mbmdialog').hide();
-	$('.mmenu').hide();
-});
+function resize(e){
+	let wdt = window.innerWidth - parseInt(e.x);
+	document.getElementById("logfile").style.width = wdt + "px";
+}
 
 function checkuform() {
-	if($("#nuser").val().length > 0 && $("#npwd").val().length && $("#userLevel").val().length > 0) {
-		$('#muadd').removeAttr('disabled','disabled');
-		$('#mudel').removeAttr('disabled','disabled');
+	if(document.getElementById('nuser').value.length > 0 && document.getElementById('npwd').value.length > 0 && document.getElementById('userLevel').value.length > 0) {
+		document.getElementById('muadd').disabled = false;
+		document.getElementById('mudel').disabled = false;
 	}
 	else {
-		$('#muadd').attr('disabled','disabled');
-		$('#mudel').attr('disabled','disabled');
+		document.getElementById('muadd').disabled = true;
+		document.getElementById('mudel').disabled = true;
 	}
 	
-	if($("#userSelect").val().length < 1) {
-		$('#mudel').attr('disabled','disabled');
+	if(document.getElementById('userSelect').value.length < 1) {
+		document.getElementById('mudel').disabled = true;
 	}
 }
 
-function moveEnd (content) {
-	var char = 3000;
-	content.focus();
-	var sel = window.getSelection();
-	sel.collapse(content.firstChild, char);
+function moveEnd () {
+	let lfiletext = document.getElementById("lfiletext");
+	lfiletext.scrollTop = lfiletext.scrollHeight;
 }
 
 function delBookmark(id, title) {
 	if(confirm("Would you like to delete \"" + title + "\"?")) {
-		$.ajax({
-			url: document.location.href,
-			type: "POST",
-			data: {
-				mdel: true,
-				id: id,
-			},
-			success: function(r){
-				 $("#bookmarks").html(r);
-				 var bookmarks = document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
+		let xhr = new XMLHttpRequest();
+		let data = 'mdel=true&id=' + id;
+		xhr.onreadystatechange = function () {
+			if (this.readyState == 4) {
+				if(this.status == 200) {
+					document.getElementById('bookmarks').innerHTML = this.responseText;
+					document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
+				}
+				else
+					console.log("There was a problem removing that bookmark.");
 			}
-		});
+		};
+		xhr.open("POST", document.location.href, true);
+		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+		xhr.send(data);
 	}
 }
 
 function enableSave() {
-	var url = document.getElementById('url');
-	var save = document.getElementById('save');
-
-	if(url.value.length > 7) {
-		save.disabled = false;
-	}
-	else {
-		save.disabled = true;
-	}
+	if(document.getElementById('url').value.length > 7)
+		document.getElementById('save').disabled = false;
+	else
+		document.getElementById('save').disabled = true;
 }
 
 function showMenu(x, y){
-	var minbot = $(window).height() - 120;
+	var menu = document.querySelector('.menu');
+	var minbot = window.innerHeight - 120;
 	if(y >= minbot) y = minbot;
     menu.style.left = x + 'px';
-    menu.style.top = y + 'px';
+	menu.style.top = y + 'px';
+	menu.style.opacity = 1;
     menu.classList.add('show-menu');
 }
 
 function hideMenu(){
-    menu.classList.remove('show-menu');
-	$('.mmenu').hide();
-	$('.mbmdialog').hide();
-	document.querySelector('#bookmarks').removeEventListener('click',hideMenu, false);
+	let menu = document.querySelector('.menu');
+	menu.classList.remove('show-menu');
+	menu.style.display = 'none';
+	
+	document.querySelectorAll('.mmenu').forEach(function(item) {item.style.display = 'none'});
+	document.querySelectorAll('.mbmdialog').forEach(function(item) {item.style.display = 'none'});
 }
 
 function onContextMenu(e){
     e.preventDefault();
-	$('.mbmdialog').hide();
-	$('.mmenu').hide();
-	$('#bmid').prop('value',e.srcElement.attributes.id.value);
-	$('#bmid').prop('title',e.srcElement.attributes.title.value);
-    showMenu(e.pageX, e.pageY);
+	hideMenu();
+	let menu = document.querySelector('.menu');
+	menu.style.display = 'block';
+	document.getElementById('bmid').value = e.srcElement.attributes.id.value;
+	document.getElementById('bmid').title = e.srcElement.attributes.title.value;
+	showMenu(e.pageX, e.pageY);
 	document.querySelector('#btnEdit').addEventListener('click', onClick, false);
 	document.querySelector('#btnMove').addEventListener('click', onClick, false);
 	document.querySelector('#btnDelete').addEventListener('click', onClick, false);
@@ -464,7 +428,7 @@ function onContextMenu(e){
 
 function onClick(e){
 	var minleft = 155;
-	var minbot = $(window).height() - 200;
+	var minbot = window.innerHeight - 200;
 	var xpos = e.pageX;
 	var ypos = e.pageY;
 	if(xpos <= minleft) xpos = minleft;
@@ -472,32 +436,29 @@ function onClick(e){
 	
 	switch(this.id) {
 		case 'btnEdit':
-			$('#bmarkedt #edtitle').val($('#bmid').prop('title'));
-			$('#bmarkedt #edurl').val($('#'+$('#bmid').prop('value')).attr('href'));
-			$('#bmarkedt #edid').val($('#bmid').prop('value'));
-			$('.mbmdialog').hide();
-			$('.mmenu').hide();
-			$("#bmarkedt").show();
-			$("#bmarkedt").css('left',xpos);
-			$("#bmarkedt").css('top',ypos);
+			document.getElementById('edtitle').value = document.getElementById('bmid').title;
+			document.getElementById('edurl').value = document.getElementById(document.getElementById('bmid').value).href;
+			document.getElementById('edid').value = document.getElementById('bmid').value;
+			hideMenu();
+			document.getElementById('bmarkedt').style.left = xpos;
+			document.getElementById('bmarkedt').style.top = ypos;
+			document.getElementById('bmarkedt').style.display = 'block';
 			break;
 		case 'btnMove':
-			$('.mbmdialog').hide();
-			$('.mmenu').hide();
-			$("#bmamove").show();
-			$('#bmamove #mvtitle').val($('#bmid').prop('title'));
-			$('#bmamove #mvid').val($('#bmid').prop('value'));
-			$("#bmamove").css('left',xpos);
-			$("#bmamove").css('top',ypos);
+			document.getElementById('mvtitle').value = document.getElementById('bmid').title;
+			document.getElementById('mvid').value = document.getElementById('bmid').value;
+			hideMenu();
+			document.getElementById('bmamove').style.left = xpos;
+			document.getElementById('bmamove').style.top = ypos;
+			document.getElementById('bmamove').style.display = 'block';
 			break;
 		case 'btnDelete':
-			delBookmark($('#bmid').prop('value'), $('#bmid').prop('title'))
+			delBookmark(document.getElementById('bmid').value, document.getElementById('bmid').title)
 			break;
 		default:
 			break;
 	}
 
-    hideMenu();
     document.removeEventListener('click', onClick);
 }
 
@@ -518,24 +479,24 @@ function openMessages(element) {
 }
 
 function delMessage(message) {
-	$.ajax({
-        url: document.location.href,
-		type: "POST",
-        data: {
-            caction: 'rmessage',
-            message: message.target.dataset['message'],
-        },
-        complete: function(r){
-			if(r.responseText === "1") {
-				$('.mmenu').hide();
-				hideMenu();
-				console.log("Notification removed.");
-				location.reload();
-			} else {
-				alert("Error removing notification, please check server log");
+	let xhr = new XMLHttpRequest();
+	let data = 'caction=rmessage&message=' + message.target.dataset['message'];
+	xhr.onreadystatechange = function () {
+		if (this.readyState == 4) {
+			if(this.status == 200) {
+				if(this.responseText === "1") {
+					hideMenu();
+					console.log("Notification removed.");
+					location.reload();
+				} else {
+					alert("Error removing notification, please check server log");
+				}
 			}
 		}
-    });
+	};
+	xhr.open("POST", document.location.href, true);
+	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	xhr.send(data);
 }
 
 function eNoti(e) {
@@ -569,36 +530,42 @@ function eNoti(e) {
 }
 
 function setOption(option,val) {
-	$.ajax({
-        url: document.location.href,
-		type: "POST",
-        data: {
-            caction: 'soption',
-			option: option,
-			value: val
-        },
-        complete: function(r){
-			if(r.responseText === "1") {
-				console.log("Option saved.");
-			} else {
-				alert("Error saving option, please check server log");
+	let xhr = new XMLHttpRequest();
+	let data = 'caction=soption&option=' + option + '&value=' + val;
+	xhr.onreadystatechange = function () {
+		if (this.readyState == 4) {
+			if(this.status == 200) {
+				if(this.responseText === "1") {
+					console.log("Option saved.");
+				} else {
+					alert("Error saving option, please check server log");
+				}
 			}
 		}
-    });
+	};
+	xhr.open("POST", document.location.href, true);
+	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	xhr.send(data);
 }
 
 function rNot(noti) {
-	$.ajax({
-        url: document.location.href,
-		type: "GET",
-        data: "durl="+noti,
-        complete: function(r){
-			if(r.responseText == '1')
-				console.log("Notification removed");
-			else
-				alert("Problem removing notification, please check server log.");
+	let xhr = new XMLHttpRequest();
+	let url = new URL(document.location.href);
+	url.searchParams.set('durl', noti);
+	xhr.onreadystatechange = function () {
+		if (this.readyState == 4) {
+			if(this.status == 200) {
+				if(this.responseText === "1") {
+					console.log("Notification removed");
+				} else {
+					alert("Problem removing notification, please check server log.");
+				}
+			}
 		}
-    });
+	};
+	xhr.open("GET", url, true);
+	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	xhr.send();
 }
 
 function show_noti(noti) {
@@ -619,20 +586,28 @@ function show_noti(noti) {
 }
 
 function getNotifications() {
-	$.ajax({
-        url: document.location.href,
-		type: "GET",
-        data: "gurls=1",
-        complete: function(r){
-			if(r.responseText) {
-				let notifications = JSON.parse(r.responseText);
-				if(notifications[0]['nOption'] == 1) {
-					notifications.forEach(function(notification){
-						show_noti(notification);
-					});
+	let xhr = new XMLHttpRequest();
+	let url = new URL(document.location.href);
+	url.searchParams.set('gurls', '1');
+
+	xhr.onreadystatechange = function () {
+		if (this.readyState == 4) {
+			if(this.status == 200) {
+				if(this.responseText) {
+					let notifications = JSON.parse(this.responseText);
+					if(notifications[0]['nOption'] == 1) {
+						notifications.forEach(function(notification){
+							show_noti(notification);
+						});
+					}
 				}
 			}
 		}
-	});
+	};
+
+	xhr.open("GET", url, true);
+	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	xhr.send();
+
 	sessionStorage.setItem('gNoti', '1');
 }

@@ -1,5 +1,11 @@
 ChangeLog
 =========
+1.2.3 (2020-07-30)
+-------------------------
+* Admin level required to show logfile
+* Removed all jQuery dependencies
+* Reworked mobile view
+  
 1.2.2 (2020-07-24)
 -------------------------
 * Validate URL's before add them
