@@ -1,12 +1,54 @@
 /**
  * SyncMarks
  *
- * @version 1.2.3
+ * @version 1.2.4
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
  */
-document.addEventListener("DOMContentLoaded", function(event) {	
+document.addEventListener("DOMContentLoaded", function(event) {
+	document.querySelector('#menu input').addEventListener('keyup', function(e) {
+		var sfilter = this.value;
+		var allmarks = document.querySelectorAll('#bookmarks li.file');
+		var bdiv = document.getElementById('bookmarks');
+		bdiv.innerHTML = '';
+		allmarks.forEach(bookmark => {
+			bdiv.appendChild(bookmark);
+			if(bookmark.innerText.toUpperCase().includes(sfilter.toUpperCase())) {
+				bookmark.style.display = 'block';
+				bookmark.style.paddingLeft = '20px';
+			} else {
+				bookmark.style.display = 'none';
+			}
+		});
+		if((sfilter == "") || (e.keyCode == 27)) {
+			bdiv.innerHTML = document.getElementById('hmarks').innerHTML;
+			document.querySelector('#menu input').value = '';
+		}
+	});
+
+	document.querySelector('#menu button').addEventListener('click', function() {
+		if(document.querySelector('#menu button').innerHTML == '\u00D7') {
+			document.querySelector('#menu input').blur();
+			document.querySelector('#menu button').innerHTML = '\u2315';
+			//document.querySelector('#menu button').style.background = 'transparent';
+			document.querySelector('#menu button').classList.remove('asform');
+			document.querySelector('#menu input').classList.remove('asform');
+			document.querySelector('#menu input').classList.add('isform');
+			document.getElementById('mprofile').style.display = 'block';
+		}
+		else {
+			document.querySelector('#menu button').innerHTML = '\u00D7';
+			//document.querySelector('#menu button').style.background = '#05589D';
+			document.querySelector('#menu button').classList.add('asform');
+			document.querySelector('#menu input').classList.remove('isform');
+			document.querySelector('#menu input').classList.add('asform');
+			document.getElementById('mprofile').style.display = 'none';
+			document.querySelector('#menu input').focus();
+		}
+		hideMenu();
+	});
+
 	document.getElementById("logfile").addEventListener("mousedown", function(e){
 		if (e.offsetX < 3) {
 			document.addEventListener("mousemove", resize, false);

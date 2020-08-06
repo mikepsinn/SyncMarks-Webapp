@@ -1,5 +1,9 @@
 ChangeLog
 =========
+1.2.4 (2020-08-06)
+-------------------------
+* re-added search feature
+  
 1.2.3 (2020-07-30)
 -------------------------
 * Admin level required to show logfile
