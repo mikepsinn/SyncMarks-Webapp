@@ -359,6 +359,17 @@
 	color: white;
 	font-size: 1em;
 	transition: width .5s ease-in-out;
+	outline: 0;
+}
+#menu .asform {
+	background-color: rgb(5, 88, 157);
+	width: calc(100% - 100px);
+	color: white;
+}
+#menu .isform {
+	background-color: transparent;
+	width: 0;
+	border: 1px solid transparent;
 }
 #menu button {
 	border: 0;
@@ -373,6 +384,12 @@
 	position: absolute;
 	top: 7px;
 	right: 10px;
+	outline: 0;
+}
+#menu button.asform {
+	background-color: #05589D;
+	color: white;
+	width: 40px;
 }
 #bmarkadd {
 	bottom: 38px;
@@ -896,6 +913,13 @@ input:checked + .slider:before {
 	text-align: center;
 	border-bottom: 1px solid #bbb;
 	}
+	#menu .asform {
+		background-color: #f7f7f7;
+		color: #29302e;
+		border-color: #b0b0b0;
+		border-width: 1px 0px 1px 1px;
+		border-style: solid;
+	}
 	#menu a {
 		line-height: 23px;
 		color: #333;
@@ -923,6 +947,17 @@ input:checked + .slider:before {
 		color: darkgrey;
 		font-size: 23px;
 		top: -9px;
+	}
+	#menu button.asform {
+		background-color: #f7f7f7;
+		color: #424242;
+		width: 40px;
+		height: 20px;
+		top: 2px;
+		line-height: 10px;
+		font-size: 15px;
+		border-width: 1px 1px 1px 0;
+		border-style: solid;
 	}
 	#menu input {
 		color: white;

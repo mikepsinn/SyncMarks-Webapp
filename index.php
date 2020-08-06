@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.3
+ * @version 1.2.4
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -554,7 +554,7 @@ if(isset($_POST['export'])) {
 echo htmlHeader($userData);
 $bmTree = bmTree($userData,$database);
 echo "<div id='bookmarks'>$bmTree</div>";
-//echo "<div id='hmarks' style='display: none'>$bmTree</div>";
+echo "<div id='hmarks' style='display: none'>$bmTree</div>";
 echo htmlFooter($userData['userID']);
 
 function validate_url($url) {
@@ -629,7 +629,6 @@ function html_export($uid,$database) {
 	header('Expires: 0');
 	header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
 	header('Pragma: public');
-	//header('Content-Length: ' . $size);
 
 $content = '<!DOCTYPE NETSCAPE-Bookmark-file-1>
 <!-- This is an automatically generated file.
@@ -1077,7 +1076,6 @@ function minFile($infile) {
 function htmlHeader($ud) {
 	global $database;
 	$db = new PDO('sqlite:'.$database);
-	minfile("bookmarks.js");
 	$htmlHeader = "<!DOCTYPE html>
 		<html>
 			<head>
