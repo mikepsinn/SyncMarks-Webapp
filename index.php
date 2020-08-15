@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.4
+ * @version 1.2.5
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -57,15 +57,16 @@ if(isset($_POST['bmmv'])) {
 }
 
 if(isset($_POST['arename'])) {
-	$cliento = $_POST['cido'];
-	e_log(8,"Renaming client ".$cliento);
+	$cliento = filter_var($_POST['cido'], FILTER_SANITIZE_STRING);
+	$name = filter_var($_POST['nname'], FILTER_SANITIZE_STRING);
+	e_log(8,"Renaming client $cliento to $name");
 	$db = new PDO('sqlite:'.$database);
-	$query = "UPDATE `clients` SET `cname` = '".$_POST['nname']."' WHERE `uid` = ".$userData['userID']." AND `cid` = '".$cliento."'";
+	$query = "UPDATE `clients` SET `cname` = '".$name."' WHERE `uid` = ".$userData['userID']." AND `cid` = '".$cliento."'";
 	e_log(9,$query);
 	$count = $db->exec($query);
 	$db = NULL;
 	
-	if($count > 0)
+	if($count == 1)
 		die(true);
 	else
 		die(false);
@@ -323,8 +324,8 @@ if(isset($_POST['caction'])) {
 	switch($_POST['caction']) {
 		case "addmark":
 			$bookmark = validate_url(json_decode(rawurldecode($_POST['bookmark']),true));
-			$client = $_POST['client'];
-			$ctype = $_POST['ctype'];
+			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
+			$ctype = filter_var($_POST['ctype'], FILTER_SANITIZE_STRING);
 			if($ctype == "chrome") $bookmark = cfolderMatching($bookmark);
 			$ctime = $bookmark["added"];
 			updateClient($database, $client, $ctype, $userData, $ctime);
@@ -413,13 +414,14 @@ if(isset($_POST['caction'])) {
 			die(json_encode(getBookmarks($userData['userID'],$database)));
 			break;
 		case "getpurl":
-			$client = $_POST['client'];
+			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$url = validate_url($_POST['url']);
+			$target = (isset($_POST['tg'])) ? filter_var($_POST['tg'], FILTER_SANITIZE_STRING) : '0';
 			$ctime = time();
 			$title = getSiteTitle($url);
 			$db = new PDO('sqlite:'.$database);
 			e_log(8,"Get new pushed URL: ".$url);
-			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`repeat`,`nloop`,`publish_date`,`userID`) VALUES ('".$title."', '".$url."', ".$ctime.", '0', '1', '".$ctime."', ".$userData['userID'].")";
+			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`repeat`,`nloop`,`publish_date`,`userID`) VALUES ('".$title."', '".$url."', ".$ctime.", '".$target."', '1', '".$ctime."', ".$userData['userID'].")";
 			e_log(9,$query);
 			$erg = $db->exec($query);
 			if($erg !== 0) echo("URL successfully pushed.");
@@ -460,7 +462,48 @@ if(isset($_POST['caction'])) {
 			($count === 1) ? e_log(8,"Option saved") : e_log(9,"Error, saving option");
 			echo $count;
 			break;
-		default:
+		case "getclients":
+			e_log(8,"Try to get list of clients.");
+			$db = new PDO('sqlite:'.$database);
+			$query = "SELECT cid, IFNULL(cname, cid) cname, ctype, lastseen FROM clients WHERE uid = ".$userData['userID']." ORDER BY 2 COLLATE NOCASE ASC;";
+			e_log(9,$query);
+			$statement = $db->prepare($query);
+			$statement->execute();
+			$clientList = $statement->fetchAll(PDO::FETCH_ASSOC);
+			e_log(8,"Found ".count($clientList)." clients. Send list to requesting client.");
+
+			if (!empty($clientList)) {
+				foreach($clientList as $key => $client) {
+					$myObj[$key]['id'] =	$client['cid'];
+					$myObj[$key]['name'] = 	$client['cname'];
+					$myObj[$key]['type'] = 	$client['ctype'];
+					$myObj[$key]['date'] = 	$client['lastseen'];
+				}
+				die(json_encode($myObj));
+			}
+			else {
+				die();
+			}
+			break;
+		case "tl":
+			e_log(8,"Get testrequest from saving client options.");
+			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
+			$type = filter_var($_POST['t'], FILTER_SANITIZE_STRING);
+			die(updateClient($database, $client, $type, $userData, time()));
+			break;
+		case "gname":
+			e_log(8,"Get clientname.");
+			$client = filter_var($_POST['cl'], FILTER_SANITIZE_STRING);
+			$db = new PDO('sqlite:'.$database);
+			$query = "SELECT cname, ctype FROM clients WHERE cid = '$client' and uid = ".$userData['userID'].";";
+			e_log(9,$query);
+			$statement = $db->prepare($query);
+			$statement->execute();
+			$clientData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
+			e_log(8,"Send name ".$clientData['cname']." back to client.");
+			die(json_encode($clientData));
+			break;
+	default:
 			die(json_encode("Unknown Action"));
 	}
 	die();
@@ -468,14 +511,15 @@ if(isset($_POST['caction'])) {
 
 if(isset($_GET['gurls'])) {
 	$db = new PDO('sqlite:'.$database);
+	$client = (isset($_GET['client'])) ? $_GET['client'] : '0';
 	e_log(8,"Get pushed site from clients.");
-	$query = "SELECT * FROM `notifications` WHERE `nloop` = 1 AND `userID` = ".$userData['userID'];
+	$query = "SELECT * FROM `notifications` WHERE `nloop` = 1 AND `userID` = ".$userData['userID']." AND `repeat` IN ('".$client."','0');";
 	$uOptions = json_decode($userData['uOptions'],true);
 	$statement = $db->prepare($query);
 	e_log(9,$query);
 	$statement->execute();
 	$notificationData = $statement->fetchAll(PDO::FETCH_ASSOC);
-	e_log(8,"Found ".count($notificationData)." links. will push them to client.");
+	e_log(8,"Found ".count($notificationData)." links. Will push them to the client.");
 	
 	if (!empty($notificationData)) {
 		foreach($notificationData as $key => $notification) {

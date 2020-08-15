@@ -1,5 +1,10 @@
 ChangeLog
 =========
+1.2.5 (2020-08-14)
+-------------------------
+* Notifications can now send to dedicated clients
+* Small fixes
+  
 1.2.4 (2020-08-06)
 -------------------------
 * re-added search feature
