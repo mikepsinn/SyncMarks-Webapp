@@ -1,7 +1,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.5
+ * @version 1.2.6
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -284,7 +284,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
 
 	document.querySelector("#mngcform div.rename").addEventListener('click', function() {
 		let xhr = new XMLHttpRequest();
-		let data = 'arename=true&cido=' + this.parentElement.id + '&nname=' + this.parentElement.children[0].innerText;
+		let data = 'arename=true&cido=' + this.parentElement.id + '&nname=' + this.parentElement.children[0].children['cname'].value;
 
 		xhr.onreadystatechange = function () {
 			if (this.readyState == 4) {

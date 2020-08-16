@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.5
+ * @version 1.2.6
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -489,7 +489,8 @@ if(isset($_POST['caction'])) {
 			e_log(8,"Get testrequest from saving client options.");
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$type = filter_var($_POST['t'], FILTER_SANITIZE_STRING);
-			die(updateClient($database, $client, $type, $userData, time()));
+			$time = round(microtime(true) * 1000);
+			die(updateClient($database, $client, $type, $userData, $time));
 			break;
 		case "gname":
 			e_log(8,"Get clientname.");
