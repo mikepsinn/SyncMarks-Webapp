@@ -1,5 +1,10 @@
 ChangeLog
 =========
+1.2.6 (2020-08-16)
+-------------------------
+* Fix renaming of clients
+* Fix client menu
+  
 1.2.5 (2020-08-14)
 -------------------------
 * Notifications can now send to dedicated clients
