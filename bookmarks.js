@@ -31,7 +31,6 @@ document.addEventListener("DOMContentLoaded", function(event) {
 		if(document.querySelector('#menu button').innerHTML == '\u00D7') {
 			document.querySelector('#menu input').blur();
 			document.querySelector('#menu button').innerHTML = '\u2315';
-			//document.querySelector('#menu button').style.background = 'transparent';
 			document.querySelector('#menu button').classList.remove('asform');
 			document.querySelector('#menu input').classList.remove('asform');
 			document.querySelector('#menu input').classList.add('isform');
@@ -39,7 +38,6 @@ document.addEventListener("DOMContentLoaded", function(event) {
 		}
 		else {
 			document.querySelector('#menu button').innerHTML = '\u00D7';
-			//document.querySelector('#menu button').style.background = '#05589D';
 			document.querySelector('#menu button').classList.add('asform');
 			document.querySelector('#menu input').classList.remove('isform');
 			document.querySelector('#menu input').classList.add('asform');
@@ -282,52 +280,58 @@ document.addEventListener("DOMContentLoaded", function(event) {
 		}
 	});
 
-	document.querySelector("#mngcform div.rename").addEventListener('click', function() {
-		let xhr = new XMLHttpRequest();
-		let data = 'arename=true&cido=' + this.parentElement.id + '&nname=' + this.parentElement.children[0].children['cname'].value;
+	document.querySelectorAll("#mngcform li div.rename").forEach(function(element) {
+		element.addEventListener('click', function() {
+			let xhr = new XMLHttpRequest();
+			let data = 'arename=true&cido=' + this.parentElement.id + '&nname=' + this.parentElement.children[0].children['cname'].value;
 
-		xhr.onreadystatechange = function () {
-			if (this.readyState == 4) {
-				if(this.status == 200) {
-					response = JSON.parse(this.responseText);
-					if(response == 1)
-						location.reload(false);
-					else
-						console.log("Error renaming client");
+			xhr.onreadystatechange = function () {
+				if (this.readyState == 4) {
+					if(this.status == 200) {
+						response = JSON.parse(this.responseText);
+						if(response == 1)
+							location.reload(false);
+						else
+							console.log("Error renaming client");
+					}
 				}
-			}
-		};
+			};
 
-		xhr.open("POST", document.location.href, true);
-		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-		xhr.send(data);
+			xhr.open("POST", document.location.href, true);
+			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+			xhr.send(data);
+		});
 	});
 
-	document.querySelector("#mngcform li div.remove").addEventListener('click', function() {
-		let xhr = new XMLHttpRequest();
-		let data = 'adel=true&cido=' + this.parentElement.id;
-		xhr.onreadystatechange = function () {
-			if (this.readyState == 4) {
-				if(this.status == 200) {
-					if(JSON.parse(this.responseText) == 1)
-						location.reload(false);
-					else
-						console.log("Error removing client");
+	document.querySelectorAll("#mngcform li div.remove").forEach(function(element) {
+		element.addEventListener('click', function() {
+			let xhr = new XMLHttpRequest();
+			let data = 'adel=true&cido=' + this.parentElement.id;
+			xhr.onreadystatechange = function () {
+				if (this.readyState == 4) {
+					if(this.status == 200) {
+						if(JSON.parse(this.responseText) == 1)
+							location.reload(false);
+						else
+							console.log("Error removing client");
+					}
 				}
-			}
-		};
+			};
 
-		xhr.open("POST", document.location.href, true);
-		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-		xhr.send(data);
+			xhr.open("POST", document.location.href, true);
+			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+			xhr.send(data);
+		});
 	});
 
-	document.querySelector("#mngcform li div.clientname input").addEventListener('mouseleave', function() {
-		if(this.defaultValue != this.value) {
-			this.style.display = 'block';
-			this.parentElement.parentElement.children[2].style.display = 'block';
-			this.parentElement.parentElement.children[3].style.display = 'block';
-		}
+	document.querySelectorAll("#mngcform li div.clientname input").forEach(function(element) {
+		element.addEventListener('mouseleave', function() {
+			if(this.defaultValue != this.value) {
+				this.style.display = 'block';
+				this.parentElement.parentElement.children[2].style.display = 'block';
+				this.parentElement.parentElement.children[3].style.display = 'block';
+			}
+		});
 	});
 
 	document.getElementById('edtitle').addEventListener('input', function() {
