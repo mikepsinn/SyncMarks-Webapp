@@ -4,6 +4,7 @@ ChangeLog
 -------------------------
 * Rework editing of clients
 * Rework editing of notifications
+* Do not return current client
   
 1.2.6 (2020-08-16)
 -------------------------

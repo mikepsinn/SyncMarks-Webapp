@@ -463,7 +463,8 @@ if(isset($_POST['caction'])) {
 		case "getclients":
 			e_log(8,"Try to get list of clients.");
 			$db = new PDO('sqlite:'.$database);
-			$query = "SELECT cid, IFNULL(cname, cid) cname, ctype, lastseen FROM clients WHERE uid = ".$userData['userID']." ORDER BY 2 COLLATE NOCASE ASC;";
+			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
+			$query = "SELECT cid, IFNULL(cname, cid) cname, ctype, lastseen FROM clients WHERE uid = ".$userData['userID']." AND NOT cid = '$client' ORDER BY 2 COLLATE NOCASE ASC;";
 			e_log(9,$query);
 			$statement = $db->prepare($query);
 			$statement->execute();
@@ -478,9 +479,12 @@ if(isset($_POST['caction'])) {
 					$myObj[$key]['date'] = 	$client['lastseen'];
 				}
 				die(json_encode($myObj));
-			}
-			else {
-				die();
+			} else {
+				$myObj[0]['id'] =	'0';
+				$myObj[0]['name'] =	'All Clients';
+				$myObj[0]['type'] =	'';
+				$myObj[0]['date'] =	'';
+				die(json_encode($myObj));
 			}
 			break;
 		case "tl":
