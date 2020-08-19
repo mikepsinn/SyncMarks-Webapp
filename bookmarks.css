@@ -31,7 +31,6 @@
 	font-family: FontAwesome,Roboto,Arial,Helvetica,sans-serif;
 	color: #29302e;
 	padding: 0 16px;
-	cursor: pointer;
 }
 .mmenu li:hover {
 	background-color: #EEEEEE;
@@ -239,6 +238,19 @@
 }
 .rename {
 	top: 4px;
+	pointer-events: none;
+	color: darkgray;
+}
+.renamea {
+	top: 4px;
+	color: #29302e;
+	pointer-events: all;
+	display: block;
+	font-size: 20px !important;
+	width: 30px;
+	text-align: center;
+	position: relative;
+	float: left;
 }
 .clientname input {
 	position: absolute;
@@ -884,6 +896,9 @@ input:checked + .slider:before {
 		opacity: 0.7;
 		top: 25px;
 		bottom: 25px;
+	}
+	.clientname input {
+		width: 180px !important;
 	}
 	#logfile::after {
 		content: " ";

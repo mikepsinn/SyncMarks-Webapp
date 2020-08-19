@@ -327,8 +327,10 @@ document.addEventListener("DOMContentLoaded", function(event) {
 		element.addEventListener('mouseleave', function() {
 			if(this.defaultValue != this.value) {
 				this.style.display = 'block';
-				this.parentElement.parentElement.children[2].style.display = 'block';
-				this.parentElement.parentElement.children[3].style.display = 'block';
+				this.parentElement.parentElement.children[2].classList.add('renamea');
+				this.parentElement.parentElement.children[1].classList.add('renamea');
+				this.parentElement.parentElement.children[1].classList.remove('rename');
+				this.parentElement.parentElement.children[2].classList.remove('remove');
 			}
 		});
 	});
