@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.6
+ * @version 1.2.7
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -67,7 +67,7 @@ if(isset($_POST['arename'])) {
 	$db = NULL;
 	
 	if($count == 1)
-		die(true);
+		die(bClientlist($userData['userID'], $database));
 	else
 		die(false);
 }
@@ -78,7 +78,7 @@ if(isset($_POST['adel'])) {
 	$count = $db->exec($query);
 	$db = NULL;
 	if($count > 0)
-		die(true);
+		die(bClientlist($userData['userID'], $database));
 	else
 		die(false);
 }
@@ -331,11 +331,9 @@ if(isset($_POST['caction'])) {
 			updateClient($database, $client, $ctype, $userData, $ctime);
 			if($bookmark['type'] == 'bookmark' && isset($bookmark['url'])) {
 				die(json_encode(addBookmark($database, $userData, $bookmark)));
-			}
-			else if($bookmark['type'] == 'folder') {
+			} else if($bookmark['type'] == 'folder') {
 				die(addFolder($database, $userData, $bookmark));
-			}
-			else {
+			} else {
 				e_log(1,"This bookmark is not added, some parameters are missing");
 				die(false);
 			}
@@ -356,8 +354,7 @@ if(isset($_POST['caction'])) {
 			updateClient($database, $client, $ctype, $userData, $ctime);
 			if(isset($bookmark['url'])) {
 				die(json_encode(delBookmark($database, $userData, $bookmark)));
-			}
-			else {
+			} else {
 				die(json_encode(delFolder($database, $userData, $bookmark)));
 			}
 			break;
@@ -404,7 +401,7 @@ if(isset($_POST['caction'])) {
 			$ctime = round(microtime(true) * 1000);
 			delUsermarks($userData['userID']);
 			$armarks = parseJSON($jmarks);
-			updateClient($database, $client, $ctype, $userData['userID'], $ctime, true);
+			updateClient($database, $client, $ctype, $userData, $ctime, true);
 			die(json_encode(importMarks($armarks,$userData['userID'],$database)));
 			break;
 		case "export":
@@ -441,13 +438,14 @@ if(isset($_POST['caction'])) {
 		case "rmessage":
 			$db = new PDO('sqlite:'.$database);
 			$message = filter_var($_POST['message'], FILTER_VALIDATE_INT);
+			$loop = filter_var($_POST['lp'], FILTER_SANITIZE_STRING) == 'aNoti' ? 1 : 0;
 			e_log(8,"Try to remove notification ".$message);
 			$query = "DELETE FROM `notifications` WHERE `userID` = ".$userData['userID']." AND `id` = $message;";
 			e_log(9,$query);
 			$count = $db->exec($query);
 			$db = NULL;
 			($count === 1) ? e_log(8,"Notification successfully removed") : e_log(9,"Error, removing notification");
-			echo $count;
+			die(notiList($userData['userID'], $loop, $database));
 			break;
 		case "soption":
 			$option = filter_var($_POST['option'], FILTER_SANITIZE_STRING);
@@ -465,7 +463,8 @@ if(isset($_POST['caction'])) {
 		case "getclients":
 			e_log(8,"Try to get list of clients.");
 			$db = new PDO('sqlite:'.$database);
-			$query = "SELECT cid, IFNULL(cname, cid) cname, ctype, lastseen FROM clients WHERE uid = ".$userData['userID']." ORDER BY 2 COLLATE NOCASE ASC;";
+			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
+			$query = "SELECT cid, IFNULL(cname, cid) cname, ctype, lastseen FROM clients WHERE uid = ".$userData['userID']." AND NOT cid = '$client' ORDER BY 2 COLLATE NOCASE ASC;";
 			e_log(9,$query);
 			$statement = $db->prepare($query);
 			$statement->execute();
@@ -480,9 +479,12 @@ if(isset($_POST['caction'])) {
 					$myObj[$key]['date'] = 	$client['lastseen'];
 				}
 				die(json_encode($myObj));
-			}
-			else {
-				die();
+			} else {
+				$myObj[0]['id'] =	'0';
+				$myObj[0]['name'] =	'All Clients';
+				$myObj[0]['type'] =	'';
+				$myObj[0]['date'] =	'';
+				die(json_encode($myObj));
 			}
 			break;
 		case "tl":
@@ -504,6 +506,7 @@ if(isset($_POST['caction'])) {
 			e_log(8,"Send name ".$clientData['cname']." back to client.");
 			die(json_encode($clientData));
 			break;
+
 	default:
 			die(json_encode("Unknown Action"));
 	}
@@ -1156,8 +1159,7 @@ function htmlHeader($ud) {
 			$userSelect.= "<option value='".$user['userID']."'>".$user['userName']."</option>";
 		}
 		$userSelect.= "</select>";
-	}
-	else {
+	} else {
 		$userSelect = "";
 	}
 
@@ -1239,37 +1241,6 @@ function htmlHeader($ud) {
 					</form>
 				</div>";
 
-	$query = "SELECT * FROM `notifications` WHERE `userID` = ".$ud['userID']." AND `nloop` = 1 ORDER BY `publish_date`";
-	$statement = $db->prepare($query);
-	$statement->execute();
-	$aNotitData = $statement->fetchAll(PDO::FETCH_ASSOC);
-	$aNotiList = "";
-	foreach($aNotitData as $key => $aNoti) {
-		$aNotiList.= "<div class='NotiTableRow'>
-					<div class='NotiTableCell'>
-						<span><a class='link' title='".$aNoti['title']."' href='".$aNoti['message']."'>".$aNoti['title']."</a></span>
-						<span class='ndate'>".date("d.m.Y H:i",$aNoti['publish_date'])."</span>
-					</div>
-					<div class='NotiTableCell'><a class='fa fa-trash-o' data-message='".$aNoti['id']."' href='#'></a></div>
-				</div>";
-	}
-
-	$query = "SELECT * FROM `notifications` WHERE `userID` = ".$ud['userID']." AND `nloop` = 0 ORDER BY `publish_date`";
-	$statement = $db->prepare($query);
-	$statement->execute();
-	$oNotitData = $statement->fetchAll(PDO::FETCH_ASSOC);
-
-	$oNotiList = "";
-	foreach($oNotitData as $key => $oNoti) {
-		$oNotiList.= "<div class='NotiTableRow'>
-				<div class='NotiTableCell'>
-					<span><a class='link' title='".$oNoti['title']."' href='".$oNoti['message']."'>".$oNoti['title']."</a></span>
-					<span class='ndate'>".date("d.m.Y H:i",$oNoti['publish_date'])."</span>
-				</div>
-				<div class='NotiTableCell'><a class='fa fa-trash-o' data-message='".$oNoti['id']."' href='#'></a></div>
-			</div>";
-	}
-
 	$uOptions = json_decode($ud['uOptions'],true);
 	if($uOptions['notifications'] == 1) {
 		$oswitch = "<label class='switch' title='Enable/Disable Notifications'><input id='cnoti' type='checkbox' checked><span class='slider round'></span></label>";
@@ -1277,34 +1248,41 @@ function htmlHeader($ud) {
 		$oswitch = "<label class='switch' title='Enable/Disable Notifications'><input id='cnoti' type='checkbox'><span class='slider round'></span></label>";
 	}
 
-	$nmessagesform = "<div id='nmessagesform' class='mbmdialog' style='width: 500px;'>
+	$nmessagesform = "<div id='nmessagesform' class='mmenu'>
 	<div class='tab'>
-	  <button class='tablinks' data-val='aNoti'>Actual Notifications</button>
-	  <button class='tablinks' data-val='oNoti'>Old Notifications</button>
+	  <button class='tablinks active' data-val='aNoti'>Active</button>
+	  <button class='tablinks' data-val='oNoti'>Archived</button>
 
 	  $oswitch
 
 	</div>
 	<div id='aNoti' class='tabcontent'style='display: block'>
-	  <h3>Actual Notifications</h3>
 	  <div class='NotiTable'>
 	  	<div class='NotiTableBody'>
-		  $aNotiList
+		  ".notiList($ud['userID'], 1, $database)."
 		</div>
 	  </div>
 	</div>
 	
 	<div id='oNoti' class='tabcontent' style='display: none'>
-	  <h3>Old Notifications</h3>
 	  <div class='NotiTable'>
 	  	<div class='NotiTableBody'>
-		  $oNotiList
+		  ".notiList($ud['userID'], 0, $database)."
 		</div>
 	  </div>
 	</div>
 	</div>";
 	
-	$query = "SELECT * FROM `clients` WHERE `uid` = ".$ud['userID']." ORDER BY `lastseen` DESC";
+	$mngclientform = "<div id='mngcform' class='mmenu'>".bClientlist($ud['userID'], $database)."</div>";
+	
+	$htmlHeader.= $mainmenu.$userform.$passwordform.$pbulletform.$logform.$mnguserform.$mngclientform.$nmessagesform;
+	$db = NULL;
+	return $htmlHeader;
+}
+
+function bClientlist($uid, $database) {
+	$db = new PDO('sqlite:'.$database);
+	$query = "SELECT * FROM `clients` WHERE `uid` = $uid ORDER BY `lastseen` DESC";
 	$statement = $db->prepare($query);
 	$statement->execute();
 	$clientData = $statement->fetchAll(PDO::FETCH_ASSOC);
@@ -1315,15 +1293,31 @@ function htmlHeader($ud) {
 		if(isset($client['cname'])) $cname = $client['cname'];
 		$timestamp = $client['lastseen'] / 1000;
 		$lastseen = (date('D, d. M. Y H:i', $timestamp));
-		$clientList.= "<li data-type='".$client['ctype']."' id='".$client['cid']."' class='client'><div class='clientname'>$cname<input type='text' name='cname' value='$cname'></div><div class='lastseen'>Last sync: $lastseen</div><div class='rename'>Rename</div><div class='remove'>Delete</div></li>";
+		$clientList.= "<li data-type='".$client['ctype']."' id='".$client['cid']."' class='client'><div class='clientname'>$cname<input type='text' name='cname' value='$cname'><div class='lastseen'>$lastseen</div></div><div class='fa fa-edit rename'></div><div class='fa fa-trash-o remove'></div></li>";
 	}
 	$clientList.= "</ul>";
-	
-	$mngclientform = "<div id='mngcform' class='mmenu'>$clientList</div>";
-	
-	$htmlHeader.= $mainmenu.$userform.$passwordform.$pbulletform.$logform.$mnguserform.$mngclientform.$nmessagesform;
-	$db = NULL;
-	return $htmlHeader;
+	return $clientList;
+}
+
+function notiList($uid, $loop, $database) {
+	$db = new PDO('sqlite:'.$database);
+	$query = "SELECT * FROM `notifications` WHERE `userID` = $uid AND `nloop` = $loop ORDER BY `publish_date`";
+	$statement = $db->prepare($query);
+	$statement->execute();
+	$aNotitData = $statement->fetchAll(PDO::FETCH_ASSOC);
+	$notiList = "";
+	foreach($aNotitData as $key => $aNoti) {
+		$notiList.= "<div class='NotiTableRow'>
+					<div class='NotiTableCell'>
+						<span><a class='link' title='".$aNoti['title']."' href='".$aNoti['message']."'>".$aNoti['title']."</a></span>
+						<span class='nlink'>".$aNoti['message']."</span>
+						<span class='ndate'>".date("d.m.Y H:i",$aNoti['publish_date'])."</span>
+					</div>
+					<div class='NotiTableCell'><a class='fa fa-trash-o' data-message='".$aNoti['id']."' href='#'></a></div>
+				</div>";
+	}
+
+	return $notiList;
 }
 
 function htmlFooter($uid) {

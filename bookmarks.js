@@ -1,7 +1,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.6
+ * @version 1.2.7
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -280,6 +280,12 @@ document.addEventListener("DOMContentLoaded", function(event) {
 		}
 	});
 
+	document.querySelectorAll('#mngcform .clientname').forEach(function(e) {
+		e.addEventListener('touchstart',function() {
+			this.children[0].style.display = 'block';
+		})
+	});
+
 	document.querySelectorAll("#mngcform li div.rename").forEach(function(element) {
 		element.addEventListener('click', function() {
 			let xhr = new XMLHttpRequest();
@@ -288,11 +294,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
 			xhr.onreadystatechange = function () {
 				if (this.readyState == 4) {
 					if(this.status == 200) {
-						response = JSON.parse(this.responseText);
-						if(response == 1)
-							location.reload(false);
-						else
-							console.log("Error renaming client");
+						document.getElementById('mngcform').innerHTML = this.responseText;
 					}
 				}
 			};
@@ -310,10 +312,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
 			xhr.onreadystatechange = function () {
 				if (this.readyState == 4) {
 					if(this.status == 200) {
-						if(JSON.parse(this.responseText) == 1)
-							location.reload(false);
-						else
-							console.log("Error removing client");
+						document.getElementById('mngcform').innerHTML = this.responseText;
 					}
 				}
 			};
@@ -328,8 +327,10 @@ document.addEventListener("DOMContentLoaded", function(event) {
 		element.addEventListener('mouseleave', function() {
 			if(this.defaultValue != this.value) {
 				this.style.display = 'block';
-				this.parentElement.parentElement.children[2].style.display = 'block';
-				this.parentElement.parentElement.children[3].style.display = 'block';
+				this.parentElement.parentElement.children[2].classList.add('renamea');
+				this.parentElement.parentElement.children[1].classList.add('renamea');
+				this.parentElement.parentElement.children[1].classList.remove('rename');
+				this.parentElement.parentElement.children[2].classList.remove('remove');
 			}
 		});
 	});
@@ -525,18 +526,13 @@ function openMessages(element) {
 }
 
 function delMessage(message) {
+	let loop = message.target.parentElement.parentElement.parentElement.parentElement.parentElement.id;
 	let xhr = new XMLHttpRequest();
-	let data = 'caction=rmessage&message=' + message.target.dataset['message'];
+	let data = 'caction=rmessage&lp=' + loop + '&message=' + message.target.dataset['message'];
 	xhr.onreadystatechange = function () {
 		if (this.readyState == 4) {
 			if(this.status == 200) {
-				if(this.responseText === "1") {
-					hideMenu();
-					console.log("Notification removed.");
-					location.reload();
-				} else {
-					alert("Error removing notification, please check server log");
-				}
+				document.querySelector('#'+loop+' .NotiTable .NotiTableBody').innerHTML = this.responseText;
 			}
 		}
 	};

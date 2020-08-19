@@ -1,5 +1,13 @@
 ChangeLog
 =========
+1.2.7 (2020-08-17)
+-------------------------
+* Rework editing of clients
+* Rework editing of notifications
+* Do not return current client
+* Fixed bug in client update
+* Optimized Styles
+  
 1.2.6 (2020-08-16)
 -------------------------
 * Fix renaming of clients
