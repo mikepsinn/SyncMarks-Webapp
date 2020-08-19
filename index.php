@@ -401,7 +401,7 @@ if(isset($_POST['caction'])) {
 			$ctime = round(microtime(true) * 1000);
 			delUsermarks($userData['userID']);
 			$armarks = parseJSON($jmarks);
-			updateClient($database, $client, $ctype, $userData['userID'], $ctime, true);
+			updateClient($database, $client, $ctype, $userData, $ctime, true);
 			die(json_encode(importMarks($armarks,$userData['userID'],$database)));
 			break;
 		case "export":
@@ -1248,16 +1248,15 @@ function htmlHeader($ud) {
 		$oswitch = "<label class='switch' title='Enable/Disable Notifications'><input id='cnoti' type='checkbox'><span class='slider round'></span></label>";
 	}
 
-	$nmessagesform = "<div id='nmessagesform' class='mbmdialog' style='width: 500px;'>
+	$nmessagesform = "<div id='nmessagesform' class='mmenu'>
 	<div class='tab'>
-	  <button class='tablinks' data-val='aNoti'>Actual Notifications</button>
-	  <button class='tablinks' data-val='oNoti'>Old Notifications</button>
+	  <button class='tablinks active' data-val='aNoti'>Active</button>
+	  <button class='tablinks' data-val='oNoti'>Archived</button>
 
 	  $oswitch
 
 	</div>
 	<div id='aNoti' class='tabcontent'style='display: block'>
-	  <h3>Actual Notifications</h3>
 	  <div class='NotiTable'>
 	  	<div class='NotiTableBody'>
 		  ".notiList($ud['userID'], 1, $database)."
@@ -1266,7 +1265,6 @@ function htmlHeader($ud) {
 	</div>
 	
 	<div id='oNoti' class='tabcontent' style='display: none'>
-	  <h3>Old Notifications</h3>
 	  <div class='NotiTable'>
 	  	<div class='NotiTableBody'>
 		  ".notiList($ud['userID'], 0, $database)."
@@ -1295,7 +1293,7 @@ function bClientlist($uid, $database) {
 		if(isset($client['cname'])) $cname = $client['cname'];
 		$timestamp = $client['lastseen'] / 1000;
 		$lastseen = (date('D, d. M. Y H:i', $timestamp));
-		$clientList.= "<li data-type='".$client['ctype']."' id='".$client['cid']."' class='client'><div class='clientname'>$cname<input type='text' name='cname' value='$cname'></div><div class='lastseen'>Last sync: $lastseen</div><div class='rename'>Rename</div><div class='remove'>Delete</div></li>";
+		$clientList.= "<li data-type='".$client['ctype']."' id='".$client['cid']."' class='client'><div class='clientname'>$cname<input type='text' name='cname' value='$cname'><div class='lastseen'>$lastseen</div></div><div class='fa fa-edit rename'></div><div class='fa fa-trash-o remove'></div></li>";
 	}
 	$clientList.= "</ul>";
 	return $clientList;
@@ -1312,6 +1310,7 @@ function notiList($uid, $loop, $database) {
 		$notiList.= "<div class='NotiTableRow'>
 					<div class='NotiTableCell'>
 						<span><a class='link' title='".$aNoti['title']."' href='".$aNoti['message']."'>".$aNoti['title']."</a></span>
+						<span class='nlink'>".$aNoti['message']."</span>
 						<span class='ndate'>".date("d.m.Y H:i",$aNoti['publish_date'])."</span>
 					</div>
 					<div class='NotiTableCell'><a class='fa fa-trash-o' data-message='".$aNoti['id']."' href='#'></a></div>

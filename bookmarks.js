@@ -280,6 +280,12 @@ document.addEventListener("DOMContentLoaded", function(event) {
 		}
 	});
 
+	document.querySelectorAll('#mngcform .clientname').forEach(function(e) {
+		e.addEventListener('touchstart',function() {
+			this.children[0].style.display = 'block';
+		})
+	});
+
 	document.querySelectorAll("#mngcform li div.rename").forEach(function(element) {
 		element.addEventListener('click', function() {
 			let xhr = new XMLHttpRequest();
