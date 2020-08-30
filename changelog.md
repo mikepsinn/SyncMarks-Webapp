@@ -1,5 +1,9 @@
 ChangeLog
 =========
+1.2.8 (2020-08-30)
+-------------------------
+* Fixed adding single bookmark
+  
 1.2.7 (2020-08-17)
 -------------------------
 * Rework editing of clients

@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.7
+ * @version 1.2.8
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -323,7 +323,8 @@ if(isset($_POST['logout'])) {
 if(isset($_POST['caction'])) {
 	switch($_POST['caction']) {
 		case "addmark":
-			$bookmark = validate_url(json_decode(rawurldecode($_POST['bookmark']),true));
+			$bookmark = json_decode(rawurldecode($_POST['bookmark']), true);			
+			$bookmark['url'] = validate_url($bookmark['url']);
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$ctype = filter_var($_POST['ctype'], FILTER_SANITIZE_STRING);
 			if($ctype == "chrome") $bookmark = cfolderMatching($bookmark);
