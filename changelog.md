@@ -3,6 +3,7 @@ ChangeLog
 1.2.9 (2020-08-30)
 -------------------------
 * Fixed a small export issue
+* Set lastseen for client only on import, export, startup sync
   
 1.2.8 (2020-08-30)
 -------------------------
