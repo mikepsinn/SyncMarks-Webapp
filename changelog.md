@@ -5,6 +5,7 @@ ChangeLog
 * Fixed a small export issue
 * Set lastseen for client only on import, export, startup sync
 * Fixed html encoding when exporting bookmarks
+* Fix removing clients
   
 1.2.8 (2020-08-30)
 -------------------------

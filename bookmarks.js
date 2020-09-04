@@ -59,7 +59,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
 
 	document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
 	document.querySelectorAll('.tablinks').forEach(tab => tab.addEventListener('click',openMessages, false));
-	document.querySelectorAll('.fa-trash-o').forEach(message => message.addEventListener('click',delMessage, false));
+	document.querySelectorAll('.NotiTableCell .fa-trash-o').forEach(message => message.addEventListener('click',delMessage, false));
 	document.querySelector('#cnoti').addEventListener('change',eNoti,false);
 
 	if(sessionStorage.getItem('gNoti') != 1) getNotifications();
