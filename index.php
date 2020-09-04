@@ -406,7 +406,7 @@ if(isset($_POST['caction'])) {
 			die(json_encode(importMarks($armarks,$userData['userID'],$database)));
 			break;
 		case "export":
-			e_log(8,"Browser requested bookmark import.");
+			e_log(8,"Browser requested bookmark import...");
 			$bookmarks = json_encode(getBookmarks($userData['userID'],$database));
 			echo $bookmarks;
 			e_log(8,count(json_decode($bookmarks))." bookmarks send to client.");
@@ -920,6 +920,7 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 		else {
 			e_log(8,"No bookmarks found to delete from the database");
 		}
+
 		return $bookmarkData;
 	}
 	else {
@@ -1537,8 +1538,15 @@ function getBookmarks($uid,$database) {
 	e_log(9,$query);
 	$statement->execute();
 	$userMarks = $statement->fetchAll(PDO::FETCH_ASSOC);
+	foreach($userMarks as &$element) {
+		$element['bmTitle'] = html_entity_decode($element['bmTitle']);
+	}
 	$db = NULL;
 	return $userMarks;
+}
+
+function c2hmarks($item, $key) {
+	html_entity_decode($item);
 }
 
 function doLogin($database,$realm) {
