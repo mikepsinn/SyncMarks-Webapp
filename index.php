@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.8
+ * @version 1.2.9
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -406,10 +406,11 @@ if(isset($_POST['caction'])) {
 			die(json_encode(importMarks($armarks,$userData['userID'],$database)));
 			break;
 		case "export":
-			$client = $_POST['client'];
-			$ctype = $_POST['ctype'];
-			$ctime = round(microtime(true) * 1000);
-			die(json_encode(getBookmarks($userData['userID'],$database)));
+			e_log(8,"Browser requested bookmark import.");
+			$bookmarks = json_encode(getBookmarks($userData['userID'],$database));
+			echo $bookmarks;
+			e_log(8,count(json_decode($bookmarks))." bookmarks send to client.");
+			die();
 			break;
 		case "getpurl":
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);

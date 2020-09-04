@@ -1,5 +1,9 @@
 ChangeLog
 =========
+1.2.9 (2020-08-30)
+-------------------------
+* Fixed a small export issue
+  
 1.2.8 (2020-08-30)
 -------------------------
 * Fixed adding single bookmark
