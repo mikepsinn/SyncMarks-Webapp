@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.8
+ * @version 1.2.9
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -329,7 +329,7 @@ if(isset($_POST['caction'])) {
 			$ctype = filter_var($_POST['ctype'], FILTER_SANITIZE_STRING);
 			if($ctype == "chrome") $bookmark = cfolderMatching($bookmark);
 			$ctime = $bookmark["added"];
-			updateClient($database, $client, $ctype, $userData, $ctime);
+			//updateClient($database, $client, $ctype, $userData, $ctime);
 			if($bookmark['type'] == 'bookmark' && isset($bookmark['url'])) {
 				die(json_encode(addBookmark($database, $userData, $bookmark)));
 			} else if($bookmark['type'] == 'folder') {
@@ -344,7 +344,7 @@ if(isset($_POST['caction'])) {
 			$client = $_POST['client'];
 			$ctype = $_POST['ctype'];
 			$ctime = round(microtime(true) * 1000);
-			updateClient($database, $client, $ctype, $userData, $ctime);
+			//updateClient($database, $client, $ctype, $userData, $ctime);
 			die(json_encode(moveBookmark($database, $userData, $bookmark)));
 			break;
 		case "delmark":
@@ -352,7 +352,7 @@ if(isset($_POST['caction'])) {
 			$client = $_POST['client'];
 			$ctype = $_POST['ctype'];
 			$ctime = round(microtime(true) * 1000);
-			updateClient($database, $client, $ctype, $userData, $ctime);
+			//updateClient($database, $client, $ctype, $userData, $ctime);
 			if(isset($bookmark['url'])) {
 				die(json_encode(delBookmark($database, $userData, $bookmark)));
 			} else {
@@ -406,10 +406,11 @@ if(isset($_POST['caction'])) {
 			die(json_encode(importMarks($armarks,$userData['userID'],$database)));
 			break;
 		case "export":
-			$client = $_POST['client'];
-			$ctype = $_POST['ctype'];
-			$ctime = round(microtime(true) * 1000);
-			die(json_encode(getBookmarks($userData['userID'],$database)));
+			e_log(8,"Browser requested bookmark import...");
+			$bookmarks = json_encode(getBookmarks($userData['userID'],$database));
+			echo $bookmarks;
+			e_log(8,count(json_decode($bookmarks))." bookmarks send to client.");
+			die();
 			break;
 		case "getpurl":
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
@@ -493,7 +494,7 @@ if(isset($_POST['caction'])) {
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$type = filter_var($_POST['t'], FILTER_SANITIZE_STRING);
 			$time = round(microtime(true) * 1000);
-			die(updateClient($database, $client, $type, $userData, $time));
+			//die(updateClient($database, $client, $type, $userData, $time));
 			break;
 		case "gname":
 			e_log(8,"Get clientname.");
@@ -919,6 +920,7 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 		else {
 			e_log(8,"No bookmarks found to delete from the database");
 		}
+
 		return $bookmarkData;
 	}
 	else {
@@ -1536,8 +1538,15 @@ function getBookmarks($uid,$database) {
 	e_log(9,$query);
 	$statement->execute();
 	$userMarks = $statement->fetchAll(PDO::FETCH_ASSOC);
+	foreach($userMarks as &$element) {
+		$element['bmTitle'] = html_entity_decode($element['bmTitle']);
+	}
 	$db = NULL;
 	return $userMarks;
+}
+
+function c2hmarks($item, $key) {
+	html_entity_decode($item);
 }
 
 function doLogin($database,$realm) {
