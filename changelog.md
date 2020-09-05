@@ -5,6 +5,7 @@ ChangeLog
 * Fix removing clients
 * Fix for css notifications table
 * Fix first client registration
+* Fix for editing client bookmarks
   
 1.2.9 (2020-09-04)
 -------------------------

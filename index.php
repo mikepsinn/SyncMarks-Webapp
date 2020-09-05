@@ -344,15 +344,17 @@ if(isset($_POST['caction'])) {
 			$client = $_POST['client'];
 			$ctype = $_POST['ctype'];
 			$ctime = round(microtime(true) * 1000);
-			//updateClient($database, $client, $ctype, $userData, $ctime);
 			die(json_encode(moveBookmark($database, $userData, $bookmark)));
+			break;
+		case "editmark":
+			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
+			die(editBookmark($bookmark, $database, $userData));
 			break;
 		case "delmark":
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
 			$client = $_POST['client'];
 			$ctype = $_POST['ctype'];
 			$ctime = round(microtime(true) * 1000);
-			//updateClient($database, $client, $ctype, $userData, $ctime);
 			if(isset($bookmark['url'])) {
 				die(json_encode(delBookmark($database, $userData, $bookmark)));
 			} else {
@@ -720,6 +722,42 @@ function delBookmark($database, $ud, $bm) {
 	e_log(9,$query);
 	$db->exec($query);
 	return true;
+}
+
+function editBookmark($bm, $database, $ud) {
+	$db = new PDO('sqlite:'.$database);
+	e_log(8,"Edit bookmark request, try to find the bookmark first by url...");
+	$query = "SELECT `bmID`  FROM `bookmarks` WHERE `bmURL` = '".$bm['url']."' AND `userID` = ".$ud['userID'];
+	e_log(9,$query);
+	$statement = $db->prepare($query);
+	$statement->execute();
+	$bmData = $statement->fetchAll(PDO::FETCH_ASSOC);
+
+	if(count($bmData) == 1) {
+		e_log(8,"Unique entry found, edit the title of the bookmark.");
+		$query = "UPDATE `bookmarks` SET `bmTitle` = '".$bm['title']."' WHERE `bmID` = '".$bmData[0]['bmID']."' AND userID = ".$ud["userID"].";";
+		e_log(9,$query);
+		$count = $db->exec($query);
+	} else {
+		e_log(8,"No unique bookmark found, try to find now by title...");
+		$query = "SELECT `bmID`  FROM `bookmarks` WHERE `bmTitle` = '".$bm['title']."' AND `userID` = ".$ud['userID'];
+		e_log(9,$query);
+		$statement = $db->prepare($query);
+		$statement->execute();
+		$bmData = $statement->fetchAll(PDO::FETCH_ASSOC);
+
+		if(count($bmData) == 1) {
+			e_log(8,"Unique entry found, edit the url of the bookmark.");
+			$query = "UPDATE `bookmarks` SET `bmURL` = '".$bm['url']."' WHERE `bmID` = '".$bmData[0]['bmID']."' AND userID = ".$ud["userID"].";";
+			e_log(9,$query);
+			$count = $db->exec($query);
+		} else {
+			e_log(8,"No Unique entry found, chancel operation and send error to client.");
+			$count = 0;
+		}
+	}
+
+	return $count;
 }
 
 function moveBookmark($database, $ud, $bm) {
