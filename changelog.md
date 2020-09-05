@@ -4,6 +4,7 @@ ChangeLog
 -------------------------
 * Fix removing clients
 * Fix for css notifications table
+* Fix first client registration
   
 1.2.9 (2020-09-04)
 -------------------------

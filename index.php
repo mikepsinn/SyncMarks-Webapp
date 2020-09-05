@@ -494,7 +494,7 @@ if(isset($_POST['caction'])) {
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$type = filter_var($_POST['t'], FILTER_SANITIZE_STRING);
 			$time = round(microtime(true) * 1000);
-			//die(updateClient($database, $client, $type, $userData, $time));
+			die(updateClient($database, $client, $type, $userData, $time));
 			break;
 		case "gname":
 			e_log(8,"Get clientname.");
@@ -958,7 +958,7 @@ function updateClient($dbase, $cl, $ct, $ud, $time, $sync = false) {
 		e_log(8,"Updating lastlogin for client $cl.");
 	}
 	else if(empty($clientData)) {
-		$query = "INSERT INTO `clients` (`cid`,`ctype`,`uid`,`lastseen`) VALUES ('".$cl."', '".$ct."', ".$uid.", '".$time."')";
+		$query = "INSERT INTO `clients` (`cid`,`cname`,`ctype`,`uid`,`lastseen`) VALUES ('".$cl."','".$cl."', '".$ct."', ".$uid.", '".$time."')";
 		e_log(9, $query);
 		$db->exec($query);
 		e_log(8,"New client detected. Register client $cl for user ".$ud["userName"]);
