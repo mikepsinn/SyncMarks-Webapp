@@ -3,6 +3,7 @@ ChangeLog
 1.2.10 (2020-09-05)
 -------------------------
 * Fix removing clients
+* Fix for css notifications table
   
 1.2.9 (2020-09-04)
 -------------------------
