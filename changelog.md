@@ -1,6 +1,13 @@
 ChangeLog
 =========
-1.2.9 (2020-08-30)
+1.2.10 (2020-09-05)
+-------------------------
+* Fix removing clients
+* Fix for css notifications table
+* Fix first client registration
+* Fix for editing client bookmarks
+  
+1.2.9 (2020-09-04)
 -------------------------
 * Fixed a small export issue
 * Set lastseen for client only on import, export, startup sync
