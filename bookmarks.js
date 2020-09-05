@@ -286,42 +286,8 @@ document.addEventListener("DOMContentLoaded", function(event) {
 		})
 	});
 
-	document.querySelectorAll("#mngcform li div.rename").forEach(function(element) {
-		element.addEventListener('click', function() {
-			let xhr = new XMLHttpRequest();
-			let data = 'arename=true&cido=' + this.parentElement.id + '&nname=' + this.parentElement.children[0].children['cname'].value;
-
-			xhr.onreadystatechange = function () {
-				if (this.readyState == 4) {
-					if(this.status == 200) {
-						document.getElementById('mngcform').innerHTML = this.responseText;
-					}
-				}
-			};
-
-			xhr.open("POST", document.location.href, true);
-			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-			xhr.send(data);
-		});
-	});
-
-	document.querySelectorAll("#mngcform li div.remove").forEach(function(element) {
-		element.addEventListener('click', function() {
-			let xhr = new XMLHttpRequest();
-			let data = 'adel=true&cido=' + this.parentElement.id;
-			xhr.onreadystatechange = function () {
-				if (this.readyState == 4) {
-					if(this.status == 200) {
-						document.getElementById('mngcform').innerHTML = this.responseText;
-					}
-				}
-			};
-
-			xhr.open("POST", document.location.href, true);
-			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-			xhr.send(data);
-		});
-	});
+	document.querySelectorAll("#mngcform li div.rename").forEach(function(element) {element.addEventListener('click', mvClient, false)});
+	document.querySelectorAll("#mngcform li div.remove").forEach(function(element) {element.addEventListener('click', delClient, false)});
 
 	document.querySelectorAll("#mngcform li div.clientname input").forEach(function(element) {
 		element.addEventListener('mouseleave', function() {
@@ -388,6 +354,40 @@ document.addEventListener("DOMContentLoaded", function(event) {
 	});
 
 });
+
+function delClient(element) {
+	let xhr = new XMLHttpRequest();
+	let data = 'adel=true&cido=' + element.srcElement.parentElement.id;
+	xhr.onreadystatechange = function () {
+		if (xhr.readyState == 4) {
+			if(xhr.status == 200) {
+				document.getElementById('mngcform').innerHTML = xhr.responseText;
+				document.querySelectorAll("#mngcform li div.remove").forEach(function(element) {element.addEventListener('click', delClient, false)});
+				document.querySelectorAll("#mngcform li div.rename").forEach(function(element) {element.addEventListener('click', mvClient, false)});
+			}
+		}
+	};
+	xhr.open("POST", document.location.href, true);
+	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	xhr.send(data);
+}
+
+function mvClient(element) {
+	let xhr = new XMLHttpRequest();
+	let data = 'arename=true&cido=' + element.srcElement.parentElement.id + '&nname=' + element.srcElement.parentElement.children[0].children['cname'].value;
+	xhr.onreadystatechange = function () {
+		if (xhr.readyState == 4) {
+			if(xhr.status == 200) {
+				document.getElementById('mngcform').innerHTML = xhr.responseText;
+				document.querySelectorAll("#mngcform li div.remove").forEach(function(element) {element.addEventListener('click', delClient, false)});
+				document.querySelectorAll("#mngcform li div.rename").forEach(function(element) {element.addEventListener('click', mvClient, false)});
+			}
+		}
+	};
+	xhr.open("POST", document.location.href, true);
+	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	xhr.send(data);
+}
 
 function resize(e){
 	let wdt = window.innerWidth - parseInt(e.x);

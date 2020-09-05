@@ -1,6 +1,10 @@
 ChangeLog
 =========
-1.2.9 (2020-08-30)
+1.2.10 (2020-09-05)
+-------------------------
+* Fix removing clients
+  
+1.2.9 (2020-09-04)
 -------------------------
 * Fixed a small export issue
 * Set lastseen for client only on import, export, startup sync
