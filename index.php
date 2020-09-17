@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.10
+ * @version 1.2.11
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -138,7 +138,9 @@ if(isset($_POST['mlog'])) {
 	if($userData['userType'] > 1) {
 		die(file_get_contents($logfile));
 	}	else {
-		die("Not allowed to read server logfile.");
+		$message = "Not allowed to read server logfile.";
+		e_log(2,$message);
+		die($message);
 	} 
 }
 
@@ -221,7 +223,7 @@ if(isset($_POST['pupdate'])) {
 			if($_POST['npassword'] === $_POST['cpassword']) {
 				e_log(8,"Userchange: New and confirmed password OK");
 				if($_POST['npassword'] != $_POST['opassword']) {
-					e_log(8,"Userchange: Old and new password NOT identical");
+					e_log(2,"Userchange: Old and new password NOT identical");
 					$password = password_hash($_POST['npassword'],PASSWORD_DEFAULT);
 					try {
 						$db = new PDO('sqlite:'.$database);
@@ -326,10 +328,9 @@ if(isset($_POST['caction'])) {
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']), true);			
 			$bookmark['url'] = validate_url($bookmark['url']);
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
-			$ctype = filter_var($_POST['ctype'], FILTER_SANITIZE_STRING);
-			if($ctype == "chrome") $bookmark = cfolderMatching($bookmark);
+			$ctype = getClientType($_SERVER['HTTP_USER_AGENT']);
+			if(strtolower($ctype) != "firefox") $bookmark = cfolderMatching($bookmark);
 			$ctime = $bookmark["added"];
-			//updateClient($database, $client, $ctype, $userData, $ctime);
 			if($bookmark['type'] == 'bookmark' && isset($bookmark['url'])) {
 				die(json_encode(addBookmark($database, $userData, $bookmark)));
 			} else if($bookmark['type'] == 'folder') {
@@ -342,7 +343,6 @@ if(isset($_POST['caction'])) {
 		case "movemark":
 			$bookmark = json_decode($_POST['bookmark'],true);
 			$client = $_POST['client'];
-			$ctype = $_POST['ctype'];
 			$ctime = round(microtime(true) * 1000);
 			die(json_encode(moveBookmark($database, $userData, $bookmark)));
 			break;
@@ -353,7 +353,6 @@ if(isset($_POST['caction'])) {
 		case "delmark":
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
 			$client = $_POST['client'];
-			$ctype = $_POST['ctype'];
 			$ctime = round(microtime(true) * 1000);
 			if(isset($bookmark['url'])) {
 				die(json_encode(delBookmark($database, $userData, $bookmark)));
@@ -363,7 +362,7 @@ if(isset($_POST['caction'])) {
 			break;
 		case "startup":
 			$client = $_POST['client'];
-			$ctype = $_POST['ctype'];
+			$ctype = getClientType($_SERVER['HTTP_USER_AGENT']);
 			$ctime = round(microtime(true) * 1000);
 			die(json_encode(getChanges($database, $client, $ctype, $userData, $ctime),JSON_UNESCAPED_SLASHES));
 			break;
@@ -400,7 +399,7 @@ if(isset($_POST['caction'])) {
 			}
 
 			$client = $_POST['client'];
-			$ctype = $_POST['ctype'];
+			$ctype = getClientType($_SERVER['HTTP_USER_AGENT']);
 			$ctime = round(microtime(true) * 1000);
 			delUsermarks($userData['userID']);
 			$armarks = parseJSON($jmarks);
@@ -494,7 +493,7 @@ if(isset($_POST['caction'])) {
 		case "tl":
 			e_log(8,"Get testrequest from saving client options.");
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
-			$type = filter_var($_POST['t'], FILTER_SANITIZE_STRING);
+			$type = getClientType($_SERVER['HTTP_USER_AGENT']);
 			$time = round(microtime(true) * 1000);
 			die(updateClient($database, $client, $type, $userData, $time));
 			break;
@@ -608,6 +607,16 @@ $bmTree = bmTree($userData,$database);
 echo "<div id='bookmarks'>$bmTree</div>";
 echo "<div id='hmarks' style='display: none'>$bmTree</div>";
 echo htmlFooter($userData['userID']);
+
+function getClientType($uas) {
+	if(strpos($uas,"Firefox")) return "Firefox";
+    elseif(strpos($uas, "Edg")) return "Edge";
+    elseif(strpos($uas, "OPR")) return "Opera";
+    elseif(strpos($uas, "Vivaldi")) return "Vivaldi";
+    elseif(strpos($uas, "Brave")) return "Brave";
+    elseif(strpos($uas, "SamsungBrowser")) return "Samsung Browser";
+    elseif(strpos($uas, "Chrome")) return "Chrome";
+}
 
 function validate_url($url) {
 	$url = filter_var(filter_var(urldecode($url), FILTER_SANITIZE_STRING), FILTER_SANITIZE_URL);
@@ -770,7 +779,7 @@ function moveBookmark($database, $ud, $bm) {
 	$folderData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
 	
 	if(is_null($folderData['bmID'])) {
-		e_log(8,"Folder not found, can`t move bookmark.");
+		e_log(2,"Folder not found, can`t move bookmark.");
 		return "Folder not found, bookmark not moved.";
 	}
 
@@ -795,7 +804,7 @@ function moveBookmark($database, $ud, $bm) {
 				return true;
 			}
 			else {
-				e_log(8,"Bookmark not moved, exiting");
+				e_log(2,"Bookmark not moved, exiting");
 				return "Bookmark not moved, exiting";
 			}
 		}
@@ -931,7 +940,7 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 		$bookmarkData = $statement->fetchAll(PDO::FETCH_ASSOC);
 	}
 	else {
-		e_log(8,"Client not found in database, registering now");
+		e_log(2,"Client not found in database, registering now");
 		updateClient($dbase, $cl, $ct, $ud, $time, true);
 		return "New client registered for user.";
 	}
@@ -996,7 +1005,7 @@ function updateClient($dbase, $cl, $ct, $ud, $time, $sync = false) {
 		e_log(8,"Updating lastlogin for client $cl.");
 	}
 	else if(empty($clientData)) {
-		$query = "INSERT INTO `clients` (`cid`,`cname`,`ctype`,`uid`,`lastseen`) VALUES ('".$cl."','".$cl."', '".$ct."', ".$uid.", '".$time."')";
+		$query = "INSERT INTO `clients` (`cid`,`cname`,`ctype`,`uid`,`lastseen`) VALUES ('".$cl."','".$cl."', '".$ct."', ".$uid.", '0')";
 		e_log(9, $query);
 		$db->exec($query);
 		e_log(8,"New client detected. Register client $cl for user ".$ud["userName"]);

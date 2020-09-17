@@ -1,6 +1,10 @@
 ChangeLog
 =========
-1.2.10 (2020-09-05)
+1.2.11 (2020-09-09)
+-------------------------
+* Detect browser at server level
+
+1.2.10 (2020-09-06)
 -------------------------
 * Fix removing clients
 * Fix for css notifications table
