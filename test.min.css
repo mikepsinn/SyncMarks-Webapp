@@ -1,0 +1,1 @@
+#rssdiv{border:1px solid #000;width:240px;position:fixed;z-index:100;top:10px;background:#fff;left:calc(50% - 120px);box-shadow:5px 5px 5px 0 rgba(0,0,0,.4);border-radius:5px;white-space:nowrap}#rssdiv li{list-style:none;padding:0 5px;text-overflow:ellipsis;overflow:hidden}#rssdiv li:hover{background:#dcdcdc}#rssdiv a{color:#000;text-decoration:none}

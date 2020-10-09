@@ -274,6 +274,21 @@
 .client[data-type="chrome"] {
 	background-image: url(images/chrlgo.png);
 }
+.client[data-type="edge"] {
+	background-image: url(images/edglgo.png);
+}
+.client[data-type="opera"] {
+	background-image: url(images/fflgo.png);
+}
+.client[data-type="vivaldi"] {
+	background-image: url(images/fflgo.png);
+}
+.client[data-type="brave"] {
+	background-image: url(images/fflgo.png);
+}
+.client[data-type="samsungbrowser"] {
+	background-image: url(images/chrlgo.png);
+}
 .client .clientname {
 	line-height: 1.2;
 	white-space: nowrap;

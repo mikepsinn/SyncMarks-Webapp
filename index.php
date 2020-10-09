@@ -614,7 +614,7 @@ function getClientType($uas) {
     elseif(strpos($uas, "OPR")) return "Opera";
     elseif(strpos($uas, "Vivaldi")) return "Vivaldi";
     elseif(strpos($uas, "Brave")) return "Brave";
-    elseif(strpos($uas, "SamsungBrowser")) return "Samsung Browser";
+    elseif(strpos($uas, "SamsungBrowser")) return "SamsungBrowser";
     elseif(strpos($uas, "Chrome")) return "Chrome";
 }
 
@@ -1343,7 +1343,7 @@ function bClientlist($uid, $database) {
 		if(isset($client['cname'])) $cname = $client['cname'];
 		$timestamp = $client['lastseen'] / 1000;
 		$lastseen = (date('D, d. M. Y H:i', $timestamp));
-		$clientList.= "<li data-type='".$client['ctype']."' id='".$client['cid']."' class='client'><div class='clientname'>$cname<input type='text' name='cname' value='$cname'><div class='lastseen'>$lastseen</div></div><div class='fa fa-edit rename'></div><div class='fa fa-trash-o remove'></div></li>";
+		$clientList.= "<li data-type='".strtolower($client['ctype'])."' id='".$client['cid']."' class='client'><div class='clientname'>$cname<input type='text' name='cname' value='$cname'><div class='lastseen'>$lastseen</div></div><div class='fa fa-edit rename'></div><div class='fa fa-trash-o remove'></div></li>";
 	}
 	$clientList.= "</ul>";
 	return $clientList;
