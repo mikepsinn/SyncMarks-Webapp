@@ -421,7 +421,8 @@ if(isset($_POST['caction'])) {
 			$title = getSiteTitle($url);
 			$db = new PDO('sqlite:'.$database);
 			e_log(8,"Get new pushed URL: ".$url);
-			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`repeat`,`nloop`,`publish_date`,`userID`) VALUES ('".$title."', '".$url."', ".$ctime.", '".$target."', '1', '".$ctime."', ".$userData['userID'].")";
+			$uidd = $userData['userID'];
+			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`repeat`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, $target,1,$ctime,$uidd)";
 			e_log(9,$query);
 			$erg = $db->exec($query);
 			if($erg !== 0) echo("URL successfully pushed.");
@@ -1061,9 +1062,9 @@ function getSiteTitle($url) {
 	$src = file_get_contents($url);
 	if(strlen($src) > 0) {
 		preg_match("/\<title\>(.*)\<\/title\>/i",$src,$title_arr);
-		$title = (strlen($title_arr[1]) > 0) ? $title_arr[1] : 'unknown';
+		$title = (strlen($title_arr[1]) > 0) ? strval($title_arr[1]) : 'unknown';
 		e_log(8,"Titel for site is '$title'");
-		return $title;
+		return mb_convert_encoding($title,"UTF-8");
 	}
 }
 
