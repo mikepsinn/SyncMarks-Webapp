@@ -422,7 +422,7 @@ if(isset($_POST['caction'])) {
 			$db = new PDO('sqlite:'.$database);
 			e_log(8,"Get new pushed URL: ".$url);
 			$uidd = $userData['userID'];
-			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`repeat`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, $target,1,$ctime,$uidd)";
+			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`repeat`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, '$target', 1, $ctime, $uidd)";
 			e_log(9,$query);
 			$erg = $db->exec($query);
 			if($erg !== 0) echo("URL successfully pushed.");
