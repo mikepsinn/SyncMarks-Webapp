@@ -422,7 +422,7 @@ if(isset($_POST['caction'])) {
 			$db = new PDO('sqlite:'.$database);
 			e_log(8,"Get new pushed URL: ".$url);
 			$uidd = $userData['userID'];
-			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`repeat`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, '$target', 1, $ctime, $uidd)";
+			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`repeat`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, $target, 1, $ctime, $uidd)";
 			e_log(9,$query);
 			$erg = $db->exec($query);
 			if($erg !== 0) echo("URL successfully pushed.");
@@ -1352,22 +1352,25 @@ function bClientlist($uid, $database) {
 
 function notiList($uid, $loop, $database) {
 	$db = new PDO('sqlite:'.$database);
-	$query = "SELECT * FROM `notifications` WHERE `userID` = $uid AND `nloop` = $loop ORDER BY `publish_date`";
+	$query = "SELECT n.id, n.title, n.message, n.publish_date, IFNULL(c.cname, n.repeat) AS client FROM notifications n LEFT JOIN clients c ON c.cid = n.repeat WHERE n.userID = $uid AND n.nloop = $loop ORDER BY n.publish_date";
 	$statement = $db->prepare($query);
 	$statement->execute();
 	$aNotitData = $statement->fetchAll(PDO::FETCH_ASSOC);
 	$notiList = "";
 	foreach($aNotitData as $key => $aNoti) {
+		if($aNoti['client'] == "0")
+			$cl = "All";
+		else
+			$cl = $aNoti['client'];
 		$notiList.= "<div class='NotiTableRow'>
 					<div class='NotiTableCell'>
 						<span><a class='link' title='".$aNoti['title']."' href='".$aNoti['message']."'>".$aNoti['title']."</a></span>
 						<span class='nlink'>".$aNoti['message']."</span>
-						<span class='ndate'>".date("d.m.Y H:i",$aNoti['publish_date'])."</span>
+						<span class='ndate'>".date("d.m.Y H:i",$aNoti['publish_date'])." | $cl</span>
 					</div>
 					<div class='NotiTableCell'><a class='fa fa-trash-o' data-message='".$aNoti['id']."' href='#'></a></div>
 				</div>";
 	}
-
 	return $notiList;
 }
 

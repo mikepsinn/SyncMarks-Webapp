@@ -533,6 +533,7 @@ function delMessage(message) {
 		if (this.readyState == 4) {
 			if(this.status == 200) {
 				document.querySelector('#'+loop+' .NotiTable .NotiTableBody').innerHTML = this.responseText;
+				document.querySelectorAll('.NotiTableCell .fa-trash-o').forEach(function(element) {element.addEventListener('click', delMessage, false)});
 			}
 		}
 	};

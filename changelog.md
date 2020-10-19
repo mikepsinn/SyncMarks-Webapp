@@ -1,5 +1,11 @@
 ChangeLog
 =========
+1.2.11 (2020-10-19)
+-------------------------
+* Add target info to notifications
+* Fix for removing notifications
+
+
 1.2.11 (2020-09-09)
 -------------------------
 * Detect browser at server level
