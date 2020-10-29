@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.11
+ * @version 1.2.12
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -392,9 +392,10 @@ if(isset($_POST['caction'])) {
 					$jerrmsg = 'Unknown error';
 				break;
 			}
-
+			
 			if(strlen($jerrmsg) > 0) {
 				e_log(1,"JSON error: ".$jerrmsg);
+				file_put_contents("import_error.json", urldecode($_POST['bookmark']),true);
 				die(json_encode($jerrmsg));
 			}
 

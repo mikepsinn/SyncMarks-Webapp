@@ -1,9 +1,10 @@
 ChangeLog
 =========
-1.2.11 (2020-10-19)
+1.2.12 (2020-10-19)
 -------------------------
 * Add target info to notifications
 * Fix for removing notifications
+* Add function to save json file for corrupt bookmark export
 
 
 1.2.11 (2020-09-09)
