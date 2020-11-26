@@ -70,9 +70,10 @@ document.addEventListener("DOMContentLoaded", function(event) {
 		}
 	});
 
-	document.querySelector("#mngcform input[type='text']").addEventListener('focus', function() {
-		this.select();
-	});
+	if(document.querySelector("#mngcform input[type='text']"))
+		document.querySelector("#mngcform input[type='text']").addEventListener('focus', function() {
+			this.select();
+		});
 
 	document.getElementById("save").addEventListener('click', function(event) {
 		event.preventDefault();

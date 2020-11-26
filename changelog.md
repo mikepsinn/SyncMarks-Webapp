@@ -5,6 +5,8 @@ ChangeLog
 * Add target info to notifications
 * Fix for removing notifications
 * Add function to save json file for corrupt bookmark export
+* Fix when user has no client registered
+* Fix for initialising DB
 
 
 1.2.11 (2020-09-09)
