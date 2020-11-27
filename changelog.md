@@ -9,6 +9,7 @@ ChangeLog
 * Fix for initialising DB
 * Add initial user/password to config file
 * Fix error in config file
+* Fix for creating database/directory
 
 
 1.2.11 (2020-09-09)

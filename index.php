@@ -1675,7 +1675,7 @@ function doLogin($database,$realm) {
 
 function initDB($database,$suser,$spwd) {
 	if(!file_exists(dirname($database))) {
-		if(!mkdir(dirname($database,0777,true))) {
+		if(!mkdir(dirname($database),0777,true)) {
 			e_log(1,"Directory for database couldn't created, please check privileges");
 		}
 		else {
