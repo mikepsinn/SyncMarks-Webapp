@@ -7,6 +7,8 @@ ChangeLog
 * Add function to save json file for corrupt bookmark export
 * Fix when user has no client registered
 * Fix for initialising DB
+* Add initial user/password to config file
+* Fix error in config file
 
 
 1.2.11 (2020-09-09)

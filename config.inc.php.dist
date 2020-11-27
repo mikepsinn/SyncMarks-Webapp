@@ -1,7 +1,9 @@
 <?php
 $database = __DIR__.'/database/bookmarks.db';
-$logfile = "/var/log/bookmark.log";
-$realm = "Bookmarks";
-$loglevel = 2;
-$sender = "bookmarks@yourdomain.com;
+$logfile = '/var/log/bookmark.log';
+$realm = 'Bookmarks';
+$loglevel = 2; // 	9=debug; 8=notice; 4=parse; 2=warn; 1=error
+$sender = 'bookmarks@yourdomain.com';
+$suser = 'admin';
+$spwd = 'mypass';
 ?>

@@ -13,7 +13,7 @@ if (!isset ($_SESSION['fauth'])) {
 
 include_once "config.inc.php";
 set_error_handler("e_log");
-if(!file_exists($database)) initDB($database);
+if(!file_exists($database)) initDB($database,$suser,$spwd);
 
 if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !isset($_SERVER['PHP_AUTH_PW']) || !isset($_SESSION['fauth'])) {
 	doLogin($database,$realm);
@@ -1673,7 +1673,7 @@ function doLogin($database,$realm) {
 	$db = NULL;
 }
 
-function initDB($database) {
+function initDB($database,$suser,$spwd) {
 	if(!file_exists(dirname($database))) {
 		if(!mkdir(dirname($database,0777,true))) {
 			e_log(1,"Directory for database couldn't created, please check privileges");
@@ -1699,15 +1699,16 @@ function initDB($database) {
 		e_log(9,$query);
 
 		$bmAdded = time();
-		$userPWD = password_hash("mypass",PASSWORD_DEFAULT);
+		$userPWD = password_hash($spwd,PASSWORD_DEFAULT);
 		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('menu________', 'root________', 0, 'Menu', 'folder', NULL, ".$bmAdded.", 1)";
 		$db->exec($query);
 		e_log(9,$query);
 		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', 'menu________', 0, 'GitHub Repository', 'bookmark', 'https://github.com/Offerel', ".$bmAdded.", 1)";
 		$db->exec($query);
 		e_log(9,$query);
-		$db->exec("INSERT INTO `users` (userName,userType,userHash) VALUES ('admin',2,'".$userPWD."');");
-		e_log(9,"INSERT INTO `users` (userName,userType,userHash) VALUES ('admin',2,'".$userPWD."');");
+		$query = "INSERT INTO `users` (userName,userType,userHash) VALUES ('$suser',2,'$userPWD');";
+		$db->exec($query);
+		e_log(9,$query);
 	}
 	catch(PDOException $e) {
 		e_log(1,'Exception : '.$e->getMessage());
