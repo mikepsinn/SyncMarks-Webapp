@@ -1700,10 +1700,10 @@ function initDB($database,$suser,$spwd) {
 
 		$bmAdded = time();
 		$userPWD = password_hash($spwd,PASSWORD_DEFAULT);
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('menu________', 'root________', 0, 'Menu', 'folder', NULL, ".$bmAdded.", 1)";
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('unfiled_____', 'root________', 0, 'Other Bookmarks', 'folder', NULL, ".$bmAdded.", 1)";
 		$db->exec($query);
 		e_log(9,$query);
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', 'menu________', 0, 'GitHub Repository', 'bookmark', 'https://github.com/Offerel', ".$bmAdded.", 1)";
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', 'unfiled_____', 0, 'GitHub Repository', 'bookmark', 'https://github.com/Offerel', ".$bmAdded.", 1)";
 		$db->exec($query);
 		e_log(9,$query);
 		$query = "INSERT INTO `users` (userName,userType,userHash) VALUES ('$suser',2,'$userPWD');";
