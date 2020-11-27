@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
 		bdiv.innerHTML = '';
 		allmarks.forEach(bookmark => {
 			bdiv.appendChild(bookmark);
-			if(bookmark.innerText.toUpperCase().includes(sfilter.toUpperCase())) {
+			if(bookmark.innerText.toUpperCase().includes(sfilter.toUpperCase()) || bookmark.firstChild.attributes.href.nodeValue.toUpperCase().includes(sfilter.toUpperCase())) {
 				bookmark.style.display = 'block';
 				bookmark.style.paddingLeft = '20px';
 			} else {

@@ -10,6 +10,7 @@ ChangeLog
 * Add initial user/password to config file
 * Fix error in config file
 * Fix for creating database/directory
+* Added search by url
 
 
 1.2.11 (2020-09-09)
