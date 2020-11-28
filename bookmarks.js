@@ -328,13 +328,14 @@ document.addEventListener("DOMContentLoaded", function(event) {
 					if(this.responseText == 1)
 						location.reload(false);
 					else
-						console.log("There was a problem adding the new folder.");
+						console.log("There was a problem adding the new folder."); 
 				}
 			}
 		};
 		xhr.open("POST", document.location.href, true);
 		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 		xhr.send(data);
+		hideMenu();
 		return false;
 	});
 
@@ -382,7 +383,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
 
 function delClient(element) {
 	let xhr = new XMLHttpRequest();
-	let data = 'adel=true&cido=' + element.srcElement.parentElement.id;
+	let data = 'adel=true&cido=' + element.target.parentElement.id;
 	xhr.onreadystatechange = function () {
 		if (xhr.readyState == 4) {
 			if(xhr.status == 200) {
@@ -399,7 +400,7 @@ function delClient(element) {
 
 function mvClient(element) {
 	let xhr = new XMLHttpRequest();
-	let data = 'arename=true&cido=' + element.srcElement.parentElement.id + '&nname=' + element.srcElement.parentElement.children[0].children['cname'].value;
+	let data = 'arename=true&cido=' + element.target.parentElement.id + '&nname=' + element.target.parentElement.children[0].children['cname'].value;
 	xhr.onreadystatechange = function () {
 		if (xhr.readyState == 4) {
 			if(xhr.status == 200) {
@@ -489,17 +490,13 @@ function onContextMenu(e){
 	hideMenu();
 	let menu = document.querySelector('.menu');
 	menu.style.display = 'block';
-	document.getElementById('bmid').value = e.srcElement.attributes.id.value;
-	document.getElementById('bmid').title = e.srcElement.attributes.title.value;
+	document.getElementById('bmid').value = e.target.attributes.id.value;
+	document.getElementById('bmid').title = e.target.attributes.title.value;
 	showMenu(e.pageX, e.pageY);
 	document.querySelector('#btnEdit').addEventListener('click', onClick, false);
 	document.querySelector('#btnMove').addEventListener('click', onClick, false);
 	document.querySelector('#btnDelete').addEventListener('click', onClick, false);
 	document.querySelector('#btnFolder').addEventListener('click', onClick, false);
-}
-
-function mkFolder(e) {
-	console.log(e);
 }
 
 function onClick(e){

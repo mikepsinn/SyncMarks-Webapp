@@ -12,6 +12,7 @@ ChangeLog
 * Fix for creating database/directory
 * Added search by url
 * Add creation of folders
+* Changed usage of srcElement
 
 
 1.2.11 (2020-09-09)

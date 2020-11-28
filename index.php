@@ -642,7 +642,7 @@ function cfolder($database,$ctime,$fname,$fbid,$ud) {
 			e_log(9,$query);
 			try {
 				$db->exec($query);
-				$res = 1;
+				$res = "1";
 			}
 			catch(PDOException $e) {
 				e_log(1,'INSERT failed: '.$e->getMessage());
