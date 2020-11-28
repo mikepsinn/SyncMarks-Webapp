@@ -366,6 +366,12 @@ if(isset($_POST['caction'])) {
 			$ctime = round(microtime(true) * 1000);
 			die(json_encode(getChanges($database, $client, $ctype, $userData, $ctime),JSON_UNESCAPED_SLASHES));
 			break;
+		case "cfolder":
+			$ctime = round(microtime(true) * 1000);
+			$fname = filter_var($_POST['fname'], FILTER_SANITIZE_STRING);
+			$fbid = filter_var($_POST['fbid'], FILTER_SANITIZE_STRING);
+			die(cfolder($database,$ctime,$fname,$fbid,$userData));
+			break;
 		case "import":
 			$jmarks = json_decode(urldecode($_POST['bookmark']),true);
 			$jerrmsg = "";
@@ -609,6 +615,49 @@ $bmTree = bmTree($userData,$database);
 echo "<div id='bookmarks'>$bmTree</div>";
 echo "<div id='hmarks' style='display: none'>$bmTree</div>";
 echo htmlFooter($userData['userID']);
+
+function cfolder($database,$ctime,$fname,$fbid,$ud) {
+	e_log(8,"Request to create folder $fname");
+	$db = new PDO('sqlite:'.$database);
+	e_log(8,"Try to get id of parentfolder");
+	$query = "SELECT `bmParentID`  FROM `bookmarks` WHERE `bmID` = '$fbid' AND `userID` = ".$ud['userID'];
+	e_log(9,$query);
+	$statement = $db->prepare($query);
+	$statement->execute();
+	$pdata = $statement->fetchAll(PDO::FETCH_ASSOC);
+	$res = '';
+	$parentid = $pdata[0]['bmParentID'];
+
+	if(count($pdata) == 1) {
+		e_log(8,"Try to get index folder");
+		$query = "SELECT MAX(`bmIndex`)+1 as nIndex FROM `bookmarks` WHERE `bmParentID` = '$parentid' AND `userID` = ".$ud['userID'];
+		e_log(9,$query);
+		$statement = $db->prepare($query);
+		$statement->execute();
+		$idata = $statement->fetchAll(PDO::FETCH_ASSOC);
+
+		if(count($idata) == 1) {
+			e_log(8,"Add new folder to db");
+			$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', '$parentid', ".$idata[0]['nIndex'].", '$fname', 'folder', $ctime, ".$ud["userID"].")";
+			e_log(9,$query);
+			try {
+				$db->exec($query);
+				$res = 1;
+			}
+			catch(PDOException $e) {
+				e_log(1,'INSERT failed: '.$e->getMessage());
+				$res = "Adding folder failed.";
+			}
+		} else {
+			$res = "No index found, folder not added";
+		}
+	} else {
+		$res = "Parent folder not found, folder not added";
+	}
+	
+	$db = NULL;
+	return $res;
+}
 
 function getClientType($uas) {
 	if(strpos($uas,"Firefox")) return "Firefox";
@@ -1066,6 +1115,8 @@ function getSiteTitle($url) {
 		$title = (strlen($title_arr[1]) > 0) ? strval($title_arr[1]) : 'unknown';
 		e_log(8,"Titel for site is '$title'");
 		return mb_convert_encoding($title,"UTF-8");
+	} else {
+		return "unknown";
 	}
 }
 
@@ -1412,6 +1463,12 @@ function htmlFooter($uid) {
 				<div class='dbutton'><button type='submit' id='mvsave' name='mvsave' value='Save' disabled>Save</button></div>
 				</form></div>";
 
+	$folderform = "<div id='folderf' class='mbmdialog'><h6>Create new folder</h6><form id='fadd' method='POST'>
+					<input placeholder='Foldername' type='text' id='fname' name='fname' value=''>
+					<input type='hidden' id='fbid' name='fbid' value=''>
+					<div class='dbutton'><button type='submit' id='fsave' name='fsave' value='Create' disabled>Create</button></div>
+					</form></div>";
+
 	$htmlFooter = "<div id='bmarkadd' class='mbmdialog' $mad>
 					<h6>Add Bookmark</h6>
 					<form id='bmadd' action='?madd' method='POST'>
@@ -1433,9 +1490,10 @@ function htmlFooter($uid) {
 			<li id='btnEdit' class='menu-item fa fa-pencil-square-o'>Edit</li>
 			<li id='btnMove' class='menu-item fa fa-arrows-alt'>Move</li>
 			<li id='btnDelete' class='menu-item fa fa-trash-o'>Delete</li>
+			<li id='btnFolder' class='menu-item fa fa-folder'>New Folder</li>
 			</ul>
 			</menu>";
-	return $menu.$editform.$moveform.$htmlFooter;
+	return $menu.$editform.$moveform.$folderform.$htmlFooter;
 }
 
 function getUserFolders($uid) {

@@ -302,6 +302,10 @@ document.addEventListener("DOMContentLoaded", function(event) {
 		});
 	});
 
+	document.getElementById('fname').addEventListener('input', function() {
+		document.getElementById('fsave').disabled = false;
+	});
+
 	document.getElementById('edtitle').addEventListener('input', function() {
 		document.getElementById('edsave').disabled = false;
 	});
@@ -312,6 +316,26 @@ document.addEventListener("DOMContentLoaded", function(event) {
 
 	document.getElementById('mvfolder').addEventListener('change', function() {
 		document.getElementById('mvsave').disabled = false;
+	});
+
+	document.getElementById('fsave').addEventListener('click', function(e) {
+		e.preventDefault();
+		let xhr = new XMLHttpRequest();
+		let data = 'caction=cfolder&fname=' + document.getElementById('fname').value + '&fbid=' + document.getElementById('fbid').value;
+		xhr.onreadystatechange = function () {
+			if (this.readyState == 4) {
+				if(this.status == 200) {
+					if(this.responseText == 1)
+						location.reload(false);
+					else
+						console.log("There was a problem adding the new folder.");
+				}
+			}
+		};
+		xhr.open("POST", document.location.href, true);
+		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+		xhr.send(data);
+		return false;
 	});
 
 	document.getElementById('edsave').addEventListener('click', function(e) {
@@ -456,7 +480,6 @@ function hideMenu(){
 	let menu = document.querySelector('.menu');
 	menu.classList.remove('show-menu');
 	menu.style.display = 'none';
-	
 	document.querySelectorAll('.mmenu').forEach(function(item) {item.style.display = 'none'});
 	document.querySelectorAll('.mbmdialog').forEach(function(item) {item.style.display = 'none'});
 }
@@ -472,6 +495,11 @@ function onContextMenu(e){
 	document.querySelector('#btnEdit').addEventListener('click', onClick, false);
 	document.querySelector('#btnMove').addEventListener('click', onClick, false);
 	document.querySelector('#btnDelete').addEventListener('click', onClick, false);
+	document.querySelector('#btnFolder').addEventListener('click', onClick, false);
+}
+
+function mkFolder(e) {
+	console.log(e);
 }
 
 function onClick(e){
@@ -501,7 +529,15 @@ function onClick(e){
 			document.getElementById('bmamove').style.display = 'block';
 			break;
 		case 'btnDelete':
-			delBookmark(document.getElementById('bmid').value, document.getElementById('bmid').title)
+			delBookmark(document.getElementById('bmid').value, document.getElementById('bmid').title);
+			break;
+		case 'btnFolder':
+			hideMenu();
+			document.getElementById('folderf').style.left = xpos;
+			document.getElementById('folderf').style.top = ypos;
+			document.getElementById('folderf').style.display = 'block';
+			document.getElementById('fbid').value = document.getElementById('bmid').value;
+			//mkFolder(document.getElementById('bmid').value);
 			break;
 		default:
 			break;

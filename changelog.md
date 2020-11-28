@@ -11,6 +11,7 @@ ChangeLog
 * Fix error in config file
 * Fix for creating database/directory
 * Added search by url
+* Add creation of folders
 
 
 1.2.11 (2020-09-09)
