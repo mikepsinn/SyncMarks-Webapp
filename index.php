@@ -325,7 +325,7 @@ if(isset($_POST['logout'])) {
 if(isset($_POST['caction'])) {
 	switch($_POST['caction']) {
 		case "addmark":
-			$bookmark = json_decode($_POST['bookmark'], true);			
+			$bookmark = json_decode(rawurldecode($_POST['bookmark']), true);			
 			$bookmark['url'] = validate_url($bookmark['url']);
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$ctype = getClientType($_SERVER['HTTP_USER_AGENT']);
