@@ -14,6 +14,7 @@ ChangeLog
 * Add creation of folders
 * Changed usage of srcElement
 * Fixed export error with malformed JSON
+* Fixed display of lastlogin
 
 
 1.2.11 (2020-09-09)

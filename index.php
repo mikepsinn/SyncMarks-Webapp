@@ -1248,7 +1248,7 @@ function htmlHeader($ud) {
 		<div class='hline'></div>
 	</div>
 	<button>&#8981;</button><input type='search' name='bmsearch' value=''>
-	<a id='mprofile' title=\"Last login: ".date("d.m.y H:i",$ud['userOldLogin'])."\">My Bookmarks</a>
+	<a id='mprofile' title=\"Last login: ".date("d.m.y H:i",(int)$ud['userOldLogin'])."\">My Bookmarks</a>
 		</div>";
 	
 	if($ud['userType'] == 2) {
@@ -1694,7 +1694,7 @@ function doLogin($database,$realm) {
 
 				if($seid != $userData[0]['sessionID']) {
 					e_log(8,"Save session to database.");
-					$query = "UPDATE `users` SET `userLastLogin`= $aTime, `sessionID` = '$seid', `userOldLogin`= $oTime WHERE `userID` = '$uid'";
+					$query = "UPDATE `users` SET `userLastLogin`= $aTime, `sessionID` = '$seid', `userOldLogin`= '$oTime' WHERE `userID` = '$uid'";
 					$db->exec($query);
 					e_log(9,$query);
 				}
