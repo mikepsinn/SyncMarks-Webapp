@@ -13,6 +13,7 @@ ChangeLog
 * Added search by url
 * Add creation of folders
 * Changed usage of srcElement
+* Fixed export error with malformed JSON
 
 
 1.2.11 (2020-09-09)

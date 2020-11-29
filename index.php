@@ -373,7 +373,7 @@ if(isset($_POST['caction'])) {
 			die(cfolder($database,$ctime,$fname,$fbid,$userData));
 			break;
 		case "import":
-			$jmarks = json_decode(urldecode($_POST['bookmark']),true);
+			$jmarks = json_decode($_POST['bookmark'],true);
 			$jerrmsg = "";
 			switch (json_last_error()) {
 				case JSON_ERROR_NONE:
