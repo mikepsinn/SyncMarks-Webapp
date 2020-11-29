@@ -1,11 +1,14 @@
 /* @media screen and (orientation:portrait) */
 .nlink {
-	float: left;
-	font-size: 12px;
-	color: #b1b1b3;
-	display: block;
-	width: 100%;
-	font-style: italic;
+    float: left;
+    font-size: 12px;
+    color: #b1b1b3;
+    display: block;
+    width: 100%;
+    font-style: italic;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
 }
 .mmenu {
 	position: fixed;
@@ -272,6 +275,21 @@
 	background-image: url(images/fflgo.png);
 }
 .client[data-type="chrome"] {
+	background-image: url(images/chrlgo.png);
+}
+.client[data-type="edge"] {
+	background-image: url(images/edglgo.png);
+}
+.client[data-type="opera"] {
+	background-image: url(images/fflgo.png);
+}
+.client[data-type="vivaldi"] {
+	background-image: url(images/fflgo.png);
+}
+.client[data-type="brave"] {
+	background-image: url(images/fflgo.png);
+}
+.client[data-type="samsungbrowser"] {
 	background-image: url(images/chrlgo.png);
 }
 .client .clientname {

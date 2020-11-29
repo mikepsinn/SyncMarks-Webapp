@@ -1,5 +1,22 @@
 ChangeLog
 =========
+1.2.12 (2020-10-19)
+-------------------------
+* Add target info to notifications
+* Fix for removing notifications
+* Add function to save json file for corrupt bookmark export
+* Fix when user has no client registered
+* Fix for initialising DB
+* Add initial user/password to config file
+* Fix error in config file
+* Fix for creating database/directory
+* Added search by url
+* Add creation of folders
+* Changed usage of srcElement
+* Fixed export error with malformed JSON
+* Fixed display of lastlogin
+
+
 1.2.11 (2020-09-09)
 -------------------------
 * Detect browser at server level

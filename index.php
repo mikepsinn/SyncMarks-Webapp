@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.11
+ * @version 1.2.12
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -13,7 +13,7 @@ if (!isset ($_SESSION['fauth'])) {
 
 include_once "config.inc.php";
 set_error_handler("e_log");
-if(!file_exists($database)) initDB($database);
+if(!file_exists($database)) initDB($database,$suser,$spwd);
 
 if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !isset($_SERVER['PHP_AUTH_PW']) || !isset($_SESSION['fauth'])) {
 	doLogin($database,$realm);
@@ -325,7 +325,7 @@ if(isset($_POST['logout'])) {
 if(isset($_POST['caction'])) {
 	switch($_POST['caction']) {
 		case "addmark":
-			$bookmark = json_decode(rawurldecode($_POST['bookmark']), true);			
+			$bookmark = json_decode($_POST['bookmark'], true);			
 			$bookmark['url'] = validate_url($bookmark['url']);
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$ctype = getClientType($_SERVER['HTTP_USER_AGENT']);
@@ -366,8 +366,14 @@ if(isset($_POST['caction'])) {
 			$ctime = round(microtime(true) * 1000);
 			die(json_encode(getChanges($database, $client, $ctype, $userData, $ctime),JSON_UNESCAPED_SLASHES));
 			break;
+		case "cfolder":
+			$ctime = round(microtime(true) * 1000);
+			$fname = filter_var($_POST['fname'], FILTER_SANITIZE_STRING);
+			$fbid = filter_var($_POST['fbid'], FILTER_SANITIZE_STRING);
+			die(cfolder($database,$ctime,$fname,$fbid,$userData));
+			break;
 		case "import":
-			$jmarks = json_decode(urldecode($_POST['bookmark']),true);
+			$jmarks = json_decode($_POST['bookmark'],true);
 			$jerrmsg = "";
 			switch (json_last_error()) {
 				case JSON_ERROR_NONE:
@@ -392,9 +398,10 @@ if(isset($_POST['caction'])) {
 					$jerrmsg = 'Unknown error';
 				break;
 			}
-
+			
 			if(strlen($jerrmsg) > 0) {
 				e_log(1,"JSON error: ".$jerrmsg);
+				file_put_contents("import_error.json", urldecode($_POST['bookmark']),true);
 				die(json_encode($jerrmsg));
 			}
 
@@ -421,7 +428,8 @@ if(isset($_POST['caction'])) {
 			$title = getSiteTitle($url);
 			$db = new PDO('sqlite:'.$database);
 			e_log(8,"Get new pushed URL: ".$url);
-			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`repeat`,`nloop`,`publish_date`,`userID`) VALUES ('".$title."', '".$url."', ".$ctime.", '".$target."', '1', '".$ctime."', ".$userData['userID'].")";
+			$uidd = $userData['userID'];
+			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`repeat`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, $target, 1, $ctime, $uidd)";
 			e_log(9,$query);
 			$erg = $db->exec($query);
 			if($erg !== 0) echo("URL successfully pushed.");
@@ -608,13 +616,56 @@ echo "<div id='bookmarks'>$bmTree</div>";
 echo "<div id='hmarks' style='display: none'>$bmTree</div>";
 echo htmlFooter($userData['userID']);
 
+function cfolder($database,$ctime,$fname,$fbid,$ud) {
+	e_log(8,"Request to create folder $fname");
+	$db = new PDO('sqlite:'.$database);
+	e_log(8,"Try to get id of parentfolder");
+	$query = "SELECT `bmParentID`  FROM `bookmarks` WHERE `bmID` = '$fbid' AND `userID` = ".$ud['userID'];
+	e_log(9,$query);
+	$statement = $db->prepare($query);
+	$statement->execute();
+	$pdata = $statement->fetchAll(PDO::FETCH_ASSOC);
+	$res = '';
+	$parentid = $pdata[0]['bmParentID'];
+
+	if(count($pdata) == 1) {
+		e_log(8,"Try to get index folder");
+		$query = "SELECT MAX(`bmIndex`)+1 as nIndex FROM `bookmarks` WHERE `bmParentID` = '$parentid' AND `userID` = ".$ud['userID'];
+		e_log(9,$query);
+		$statement = $db->prepare($query);
+		$statement->execute();
+		$idata = $statement->fetchAll(PDO::FETCH_ASSOC);
+
+		if(count($idata) == 1) {
+			e_log(8,"Add new folder to db");
+			$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', '$parentid', ".$idata[0]['nIndex'].", '$fname', 'folder', $ctime, ".$ud["userID"].")";
+			e_log(9,$query);
+			try {
+				$db->exec($query);
+				$res = "1";
+			}
+			catch(PDOException $e) {
+				e_log(1,'INSERT failed: '.$e->getMessage());
+				$res = "Adding folder failed.";
+			}
+		} else {
+			$res = "No index found, folder not added";
+		}
+	} else {
+		$res = "Parent folder not found, folder not added";
+	}
+	
+	$db = NULL;
+	return $res;
+}
+
 function getClientType($uas) {
 	if(strpos($uas,"Firefox")) return "Firefox";
     elseif(strpos($uas, "Edg")) return "Edge";
     elseif(strpos($uas, "OPR")) return "Opera";
     elseif(strpos($uas, "Vivaldi")) return "Vivaldi";
     elseif(strpos($uas, "Brave")) return "Brave";
-    elseif(strpos($uas, "SamsungBrowser")) return "Samsung Browser";
+    elseif(strpos($uas, "SamsungBrowser")) return "SamsungBrowser";
     elseif(strpos($uas, "Chrome")) return "Chrome";
 }
 
@@ -1061,9 +1112,11 @@ function getSiteTitle($url) {
 	$src = file_get_contents($url);
 	if(strlen($src) > 0) {
 		preg_match("/\<title\>(.*)\<\/title\>/i",$src,$title_arr);
-		$title = (strlen($title_arr[1]) > 0) ? $title_arr[1] : 'unknown';
+		$title = (strlen($title_arr[1]) > 0) ? strval($title_arr[1]) : 'unknown';
 		e_log(8,"Titel for site is '$title'");
-		return $title;
+		return mb_convert_encoding($title,"UTF-8");
+	} else {
+		return "unknown";
 	}
 }
 
@@ -1195,7 +1248,7 @@ function htmlHeader($ud) {
 		<div class='hline'></div>
 	</div>
 	<button>&#8981;</button><input type='search' name='bmsearch' value=''>
-	<a id='mprofile' title=\"Last login: ".date("d.m.y H:i",$ud['userOldLogin'])."\">My Bookmarks</a>
+	<a id='mprofile' title=\"Last login: ".date("d.m.y H:i",(int)$ud['userOldLogin'])."\">My Bookmarks</a>
 		</div>";
 	
 	if($ud['userType'] == 2) {
@@ -1343,7 +1396,7 @@ function bClientlist($uid, $database) {
 		if(isset($client['cname'])) $cname = $client['cname'];
 		$timestamp = $client['lastseen'] / 1000;
 		$lastseen = (date('D, d. M. Y H:i', $timestamp));
-		$clientList.= "<li data-type='".$client['ctype']."' id='".$client['cid']."' class='client'><div class='clientname'>$cname<input type='text' name='cname' value='$cname'><div class='lastseen'>$lastseen</div></div><div class='fa fa-edit rename'></div><div class='fa fa-trash-o remove'></div></li>";
+		$clientList.= "<li data-type='".strtolower($client['ctype'])."' id='".$client['cid']."' class='client'><div class='clientname'>$cname<input type='text' name='cname' value='$cname'><div class='lastseen'>$lastseen</div></div><div class='fa fa-edit rename'></div><div class='fa fa-trash-o remove'></div></li>";
 	}
 	$clientList.= "</ul>";
 	return $clientList;
@@ -1351,22 +1404,25 @@ function bClientlist($uid, $database) {
 
 function notiList($uid, $loop, $database) {
 	$db = new PDO('sqlite:'.$database);
-	$query = "SELECT * FROM `notifications` WHERE `userID` = $uid AND `nloop` = $loop ORDER BY `publish_date`";
+	$query = "SELECT n.id, n.title, n.message, n.publish_date, IFNULL(c.cname, n.repeat) AS client FROM notifications n LEFT JOIN clients c ON c.cid = n.repeat WHERE n.userID = $uid AND n.nloop = $loop ORDER BY n.publish_date";
 	$statement = $db->prepare($query);
 	$statement->execute();
 	$aNotitData = $statement->fetchAll(PDO::FETCH_ASSOC);
 	$notiList = "";
 	foreach($aNotitData as $key => $aNoti) {
+		if($aNoti['client'] == "0")
+			$cl = "All";
+		else
+			$cl = $aNoti['client'];
 		$notiList.= "<div class='NotiTableRow'>
 					<div class='NotiTableCell'>
 						<span><a class='link' title='".$aNoti['title']."' href='".$aNoti['message']."'>".$aNoti['title']."</a></span>
 						<span class='nlink'>".$aNoti['message']."</span>
-						<span class='ndate'>".date("d.m.Y H:i",$aNoti['publish_date'])."</span>
+						<span class='ndate'>".date("d.m.Y H:i",$aNoti['publish_date'])." | $cl</span>
 					</div>
 					<div class='NotiTableCell'><a class='fa fa-trash-o' data-message='".$aNoti['id']."' href='#'></a></div>
 				</div>";
 	}
-
 	return $notiList;
 }
 
@@ -1407,6 +1463,12 @@ function htmlFooter($uid) {
 				<div class='dbutton'><button type='submit' id='mvsave' name='mvsave' value='Save' disabled>Save</button></div>
 				</form></div>";
 
+	$folderform = "<div id='folderf' class='mbmdialog'><h6>Create new folder</h6><form id='fadd' method='POST'>
+					<input placeholder='Foldername' type='text' id='fname' name='fname' value=''>
+					<input type='hidden' id='fbid' name='fbid' value=''>
+					<div class='dbutton'><button type='submit' id='fsave' name='fsave' value='Create' disabled>Create</button></div>
+					</form></div>";
+
 	$htmlFooter = "<div id='bmarkadd' class='mbmdialog' $mad>
 					<h6>Add Bookmark</h6>
 					<form id='bmadd' action='?madd' method='POST'>
@@ -1428,9 +1490,10 @@ function htmlFooter($uid) {
 			<li id='btnEdit' class='menu-item fa fa-pencil-square-o'>Edit</li>
 			<li id='btnMove' class='menu-item fa fa-arrows-alt'>Move</li>
 			<li id='btnDelete' class='menu-item fa fa-trash-o'>Delete</li>
+			<li id='btnFolder' class='menu-item fa fa-folder'>New Folder</li>
 			</ul>
 			</menu>";
-	return $menu.$editform.$moveform.$htmlFooter;
+	return $menu.$editform.$moveform.$folderform.$htmlFooter;
 }
 
 function getUserFolders($uid) {
@@ -1631,7 +1694,7 @@ function doLogin($database,$realm) {
 
 				if($seid != $userData[0]['sessionID']) {
 					e_log(8,"Save session to database.");
-					$query = "UPDATE `users` SET `userLastLogin`= $aTime, `sessionID` = '$seid', `userOldLogin`= $oTime WHERE `userID` = '$uid'";
+					$query = "UPDATE `users` SET `userLastLogin`= $aTime, `sessionID` = '$seid', `userOldLogin`= '$oTime' WHERE `userID` = '$uid'";
 					$db->exec($query);
 					e_log(9,$query);
 				}
@@ -1668,9 +1731,9 @@ function doLogin($database,$realm) {
 	$db = NULL;
 }
 
-function initDB($database) {
+function initDB($database,$suser,$spwd) {
 	if(!file_exists(dirname($database))) {
-		if(!mkdir(dirname($database,0777,true))) {
+		if(!mkdir(dirname($database),0777,true)) {
 			e_log(1,"Directory for database couldn't created, please check privileges");
 		}
 		else {
@@ -1694,11 +1757,16 @@ function initDB($database) {
 		e_log(9,$query);
 
 		$bmAdded = time();
-		$userPWD = password_hash("mypass",PASSWORD_DEFAULT);
-		$db->exec("INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('0', '0', 0, 'GitHub Repository', 'bookmark', 'https://github.com/Offerel', ".$bmAdded.", 1)");
-		e_log(9,"INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('0', '0', 0, 'GitHub Repository', 'bookmark', 'https://github.com/Offerel', ".$bmAdded.", 1)");
-		$db->exec("INSERT INTO `users` (userName,userType,userHash) VALUES ('admin',2,'".$userPWD."');");
-		e_log(9,"INSERT INTO `users` (userName,userType,userHash) VALUES ('admin',2,'".$userPWD."');");
+		$userPWD = password_hash($spwd,PASSWORD_DEFAULT);
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('unfiled_____', 'root________', 0, 'Other Bookmarks', 'folder', NULL, ".$bmAdded.", 1)";
+		$db->exec($query);
+		e_log(9,$query);
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', 'unfiled_____', 0, 'GitHub Repository', 'bookmark', 'https://github.com/Offerel', ".$bmAdded.", 1)";
+		$db->exec($query);
+		e_log(9,$query);
+		$query = "INSERT INTO `users` (userName,userType,userHash) VALUES ('$suser',2,'$userPWD');";
+		$db->exec($query);
+		e_log(9,$query);
 	}
 	catch(PDOException $e) {
 		e_log(1,'Exception : '.$e->getMessage());
