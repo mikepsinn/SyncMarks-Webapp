@@ -326,11 +326,12 @@ if(isset($_POST['caction'])) {
 	switch($_POST['caction']) {
 		case "addmark":
 			$bookmark = json_decode($_POST['bookmark'], true);
-			$bookmark['url'] = validate_url($bookmark['url']);
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
-			$ctype = getClientType($_SERVER['HTTP_USER_AGENT']);
-			if(strtolower($ctype) != "firefox") $bookmark = cfolderMatching($bookmark);
+			if(array_key_exists('url',$bookmark)) $bookmark['url'] = validate_url($bookmark['url']);
+			if(strtolower(getClientType($_SERVER['HTTP_USER_AGENT'])) != "firefox") $bookmark = cfolderMatching($bookmark);
 			$ctime = $bookmark["added"];
+			e_log(8,$_POST['bookmark']);
+			//die();
 			if($bookmark['type'] == 'bookmark' && isset($bookmark['url'])) {
 				die(json_encode(addBookmark($database, $userData, $bookmark)));
 			} else if($bookmark['type'] == 'folder') {
@@ -348,7 +349,11 @@ if(isset($_POST['caction'])) {
 			break;
 		case "editmark":
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
-			die(editBookmark($bookmark, $database, $userData));
+			if(array_key_exists('url',$bookmark)) {
+				die(editBookmark($bookmark, $database, $userData));
+			} else {
+				die(editFolder($bookmark, $database, $userData));
+			}
 			break;
 		case "delmark":
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
@@ -782,6 +787,27 @@ function delBookmark($database, $ud, $bm) {
 	e_log(9,$query);
 	$db->exec($query);
 	return true;
+}
+
+function editFolder($bm, $database, $ud) {
+	$db = new PDO('sqlite:'.$database);
+	e_log(8,"Edit folder request, try to find the folder...");
+	$query = "SELECT * FROM `bookmarks` WHERE `bmIndex` >= ".$bm['index']." AND `bmType` = 'folder' AND `bmParentID` = '".$bm['parentId']."' AND `userID` = ".$ud['userID'].";";
+	e_log(9,$query);
+	$statement = $db->prepare($query);
+	$statement->execute();
+	$fData = $statement->fetchAll(PDO::FETCH_ASSOC);
+
+	if(count($fData) == 1) {
+		e_log(8,"Unique folder found, edit the folder");
+		$query = "UPDATE `bookmarks` SET `bmAction` = NULL, `bmTitle` = '".$bm['title']."' WHERE `bmID` = '".$fData[0]['bmID']."' AND userID = ".$ud["userID"].";";
+		e_log(9,$query);
+		$count = $db->exec($query);
+	} else {
+		e_log(8,"Folder not found, chancel operation and send error to client.");
+		$count = 0;
+	}
+	return $count;
 }
 
 function editBookmark($bm, $database, $ud) {
