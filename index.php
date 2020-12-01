@@ -326,12 +326,11 @@ if(isset($_POST['caction'])) {
 	switch($_POST['caction']) {
 		case "addmark":
 			$bookmark = json_decode($_POST['bookmark'], true);
+			e_log(8,"Try to add folder '".$bookmark['title']."'");
+			e_log(9,$_POST['bookmark']);
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			if(array_key_exists('url',$bookmark)) $bookmark['url'] = validate_url($bookmark['url']);
 			if(strtolower(getClientType($_SERVER['HTTP_USER_AGENT'])) != "firefox") $bookmark = cfolderMatching($bookmark);
-			$ctime = $bookmark["added"];
-			e_log(8,$_POST['bookmark']);
-			//die();
 			if($bookmark['type'] == 'bookmark' && isset($bookmark['url'])) {
 				die(json_encode(addBookmark($database, $userData, $bookmark)));
 			} else if($bookmark['type'] == 'folder') {
@@ -901,18 +900,19 @@ function addFolder($database, $ud, $bm) {
 	catch (PDOException $e) {
 		e_log(1,'DB connection failed: '.$e->getMessage());
 	}
-	
+	e_log(8,"Try to find if this folder exists already");
 	$query = "SELECT COUNT(*) AS bmcount  FROM `bookmarks` WHERE `bmTitle` = '".$bm['title']."' AND `bmParentID` = (SELECT `bmID` FROM `bookmarks` WHERE `bmTitle` = '".$bm['nfolder']."') AND `userID` = ".$ud['userID'];
+	e_log(9,$query);
 	$statement = $db->prepare($query);
 	$statement->execute();
 	$fdExistData = $statement->fetchAll(PDO::FETCH_ASSOC)[0]["bmcount"];
 	if($fdExistData > 0) {
-		e_log(8,"Folder not added, it exists already for this user");
+		e_log(8,"Folder not added, it exists already for this user, exit request");
 		return false;
 	}
 	
 	e_log(8,"Get folder data for adding folder");
-	$query = "SELECT MAX(`bmIndex`) +1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `bmParentId` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userId` = ".$ud['userID'].")";
+	$query = "SELECT IFNULL(-1,MAX(`bmIndex`)) + 1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `bmParentId` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userId` = ".$ud['userID'].")";
 	$statement = $db->prepare($query);
 	e_log(9,$query);
 	
@@ -920,8 +920,7 @@ function addFolder($database, $ud, $bm) {
 	$folderData = $statement->fetchAll();
 	
 	if (!empty($folderData)) {
-		e_log(8,"Add folder '".$bm['title']."'");
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$folderData[0]['bmParentID']."', ".$folderData[0]['nindex'].", '".$bm['title']."', '".$bm['type']."', ".$bm['added'].", ".$ud["userID"].")";
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$bm['folder']."', ".$folderData[0]['nindex'].", '".$bm['title']."', '".$bm['type']."', ".$bm['added'].", ".$ud["userID"].")";
 		e_log(9,$query);
 		$db->exec($query);
 		$db = NULL;

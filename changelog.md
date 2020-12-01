@@ -3,6 +3,7 @@ ChangeLog
 1.2.13 (2020-11-30)
 -------------------------
 * Fixed adding new folder
+* Fixed adding new folder from browser
 
 
 1.2.12 (2020-10-19)
