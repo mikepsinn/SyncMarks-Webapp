@@ -912,7 +912,7 @@ function addFolder($database, $ud, $bm) {
 	}
 	
 	e_log(8,"Get folder data for adding folder");
-	$query = "SELECT IFNULL(-1,MAX(`bmIndex`)) + 1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `bmParentId` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userId` = ".$ud['userID'].")";
+	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `bmParentId` = '".$bm['folder']."';";
 	$statement = $db->prepare($query);
 	e_log(9,$query);
 	
