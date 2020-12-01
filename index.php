@@ -325,12 +325,12 @@ if(isset($_POST['logout'])) {
 if(isset($_POST['caction'])) {
 	switch($_POST['caction']) {
 		case "addmark":
-			$bookmark = json_decode($_POST['bookmark'], true);			
-			$bookmark['url'] = validate_url($bookmark['url']);
+			$bookmark = json_decode($_POST['bookmark'], true);
+			e_log(8,"Try to add folder '".$bookmark['title']."'");
+			e_log(9,$_POST['bookmark']);
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
-			$ctype = getClientType($_SERVER['HTTP_USER_AGENT']);
-			if(strtolower($ctype) != "firefox") $bookmark = cfolderMatching($bookmark);
-			$ctime = $bookmark["added"];
+			if(array_key_exists('url',$bookmark)) $bookmark['url'] = validate_url($bookmark['url']);
+			if(strtolower(getClientType($_SERVER['HTTP_USER_AGENT'])) != "firefox") $bookmark = cfolderMatching($bookmark);
 			if($bookmark['type'] == 'bookmark' && isset($bookmark['url'])) {
 				die(json_encode(addBookmark($database, $userData, $bookmark)));
 			} else if($bookmark['type'] == 'folder') {
@@ -348,7 +348,11 @@ if(isset($_POST['caction'])) {
 			break;
 		case "editmark":
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
-			die(editBookmark($bookmark, $database, $userData));
+			if(array_key_exists('url',$bookmark)) {
+				die(editBookmark($bookmark, $database, $userData));
+			} else {
+				die(editFolder($bookmark, $database, $userData));
+			}
 			break;
 		case "delmark":
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
@@ -784,6 +788,27 @@ function delBookmark($database, $ud, $bm) {
 	return true;
 }
 
+function editFolder($bm, $database, $ud) {
+	$db = new PDO('sqlite:'.$database);
+	e_log(8,"Edit folder request, try to find the folder...");
+	$query = "SELECT * FROM `bookmarks` WHERE `bmIndex` >= ".$bm['index']." AND `bmType` = 'folder' AND `bmParentID` = '".$bm['parentId']."' AND `userID` = ".$ud['userID'].";";
+	e_log(9,$query);
+	$statement = $db->prepare($query);
+	$statement->execute();
+	$fData = $statement->fetchAll(PDO::FETCH_ASSOC);
+
+	if(count($fData) == 1) {
+		e_log(8,"Unique folder found, edit the folder");
+		$query = "UPDATE `bookmarks` SET `bmAction` = NULL, `bmTitle` = '".$bm['title']."' WHERE `bmID` = '".$fData[0]['bmID']."' AND userID = ".$ud["userID"].";";
+		e_log(9,$query);
+		$count = $db->exec($query);
+	} else {
+		e_log(8,"Folder not found, chancel operation and send error to client.");
+		$count = 0;
+	}
+	return $count;
+}
+
 function editBookmark($bm, $database, $ud) {
 	$db = new PDO('sqlite:'.$database);
 	e_log(8,"Edit bookmark request, try to find the bookmark first by url...");
@@ -875,18 +900,19 @@ function addFolder($database, $ud, $bm) {
 	catch (PDOException $e) {
 		e_log(1,'DB connection failed: '.$e->getMessage());
 	}
-	
+	e_log(8,"Try to find if this folder exists already");
 	$query = "SELECT COUNT(*) AS bmcount  FROM `bookmarks` WHERE `bmTitle` = '".$bm['title']."' AND `bmParentID` = (SELECT `bmID` FROM `bookmarks` WHERE `bmTitle` = '".$bm['nfolder']."') AND `userID` = ".$ud['userID'];
+	e_log(9,$query);
 	$statement = $db->prepare($query);
 	$statement->execute();
 	$fdExistData = $statement->fetchAll(PDO::FETCH_ASSOC)[0]["bmcount"];
 	if($fdExistData > 0) {
-		e_log(8,"Folder not added, it exists already for this user");
+		e_log(8,"Folder not added, it exists already for this user, exit request");
 		return false;
 	}
 	
 	e_log(8,"Get folder data for adding folder");
-	$query = "SELECT MAX(`bmIndex`) +1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `bmParentId` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userId` = ".$ud['userID'].")";
+	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `bmParentId` = '".$bm['folder']."' AND `userID` = ".$ud['userID'].";";
 	$statement = $db->prepare($query);
 	e_log(9,$query);
 	
@@ -894,8 +920,7 @@ function addFolder($database, $ud, $bm) {
 	$folderData = $statement->fetchAll();
 	
 	if (!empty($folderData)) {
-		e_log(8,"Add folder '".$bm['title']."'");
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$folderData[0]['bmParentID']."', ".$folderData[0]['nindex'].", '".$bm['title']."', '".$bm['type']."', ".$bm['added'].", ".$ud["userID"].")";
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$bm['folder']."', ".$folderData[0]['nindex'].", '".$bm['title']."', '".$bm['type']."', ".$bm['added'].", ".$ud["userID"].")";
 		e_log(9,$query);
 		$db->exec($query);
 		$db = NULL;
