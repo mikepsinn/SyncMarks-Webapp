@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.12
+ * @version 1.2.13
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -900,13 +900,22 @@ function addFolder($database, $ud, $bm) {
 	catch (PDOException $e) {
 		e_log(1,'DB connection failed: '.$e->getMessage());
 	}
+	$count = 0;
 	e_log(8,"Try to find if this folder exists already");
-	$query = "SELECT COUNT(*) AS bmcount  FROM `bookmarks` WHERE `bmTitle` = '".$bm['title']."' AND `bmParentID` = (SELECT `bmID` FROM `bookmarks` WHERE `bmTitle` = '".$bm['nfolder']."') AND `userID` = ".$ud['userID'];
+	$query = "SELECT COUNT(*) AS bmCount, bmAction, bmID  FROM `bookmarks` WHERE `bmTitle` = '".$bm['title']."' AND `bmParentID` = '".$bm['folder']."' AND `userID` = ".$ud['userID'].";";
 	e_log(9,$query);
 	$statement = $db->prepare($query);
 	$statement->execute();
-	$fdExistData = $statement->fetchAll(PDO::FETCH_ASSOC)[0]["bmcount"];
-	if($fdExistData > 0) {
+	$res = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
+
+	if($res["bmAction"]) {
+		e_log(8,"Remove temporary entry ".$res["bmID"]);
+		$query = "DELETE FROM `bookmarks` WHERE `bmID` = '".$res["bmID"]."' AND `userID` = ".$ud['userID'].";";
+		e_log(9,$query);
+		$count = $db->exec($query);
+	}
+
+	if($fdExist > 0 && $count != 1) {
 		e_log(8,"Folder not added, it exists already for this user, exit request");
 		return false;
 	}
