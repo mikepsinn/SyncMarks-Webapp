@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.13
+ * @version 1.2.14
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -915,7 +915,7 @@ function addFolder($database, $ud, $bm) {
 		$count = $db->exec($query);
 	}
 
-	if($fdExist > 0 && $count != 1) {
+	if($res["bmCount"] > 0 && $count != 1) {
 		e_log(8,"Folder not added, it exists already for this user, exit request");
 		return false;
 	}
@@ -967,13 +967,14 @@ function addBookmark($database, $ud, $bm) {
 		}
 	}
 	e_log(8,"Get folder data for adding bookmark");
-	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `bmParentId` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userId` = ".$ud['userID'].")";
+	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex`, `bmID` FROM `bookmarks` WHERE `userID` = ".$ud['userID']." AND `bmID` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = 'Lesezeichen-Menü' AND `userId` = ".$ud['userID'].");";
+
 	$statement = $db->prepare($query);
 	e_log(9,$query);
 	$statement->execute();
 	$folderData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
 	
-	if(is_null($folderData['bmParentID'])) {
+	if(is_null($folderData['bmID'])) {
 		e_log(8,"Folder not found, using 'unfiled_____'.");
 		$query = "SELECT MAX(`bmIndex`) +1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `userId` = ".$ud['userID'].";";
 		$statement = $db->prepare($query);
@@ -986,7 +987,7 @@ function addBookmark($database, $ud, $bm) {
 	if(!empty($folderData)) {
 		$title = htmlspecialchars($bm['title'],ENT_QUOTES,'UTF-8');
 		e_log(8,"Add bookmark '".$title."'");
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$folderData['bmParentID']."', ".$folderData['nindex'].", '".$title."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].")";
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$folderData['bmID']."', ".$folderData['nindex'].", '".$title."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].")";
 		e_log(9,$query);
 		try {
 			$db->exec($query);
@@ -1325,18 +1326,17 @@ function htmlHeader($ud) {
 		$mnguserform = "";
 	}
 
-	$clink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']; 
+	$clink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+	$version = explode (" ", file_get_contents('./changelog.md',NULL,NULL,21,20))[0];
+	
 	$bookmarklet = "javascript:void function(){window.open('$clink?title='+document.title+'&link='+encodeURIComponent(document.location.href),'bWindow','width=480,height=245',replace=!0)}();";	
 	$mainmenu = "<div id='mainmenu' class='mmenu'>
 					<ul>
-						<li id='meheader'><span class='logo'>&nbsp;</span><span class='text'>".$ud['userName']."<br>Last login: ".date("d.m.y H:i",$ud['userLastLogin'])."</span></li>
-						<li class='fa fa-user-circle-o' id='muser'>Username</li>
-						<li class='fa fa-unlock-alt' id='mpassword'>Password</li>
-						<li class='fa fa-desktop' id='clientedt'>Clients</li>
-						<li class='fa fa-commenting' id='pbullet'>Pushbullet</li>
+						<li id='meheader'><span class='appv'><a href='https://github.com/Offerel/SyncMarks-Webapp'>SyncMarks $version</a></span><span class='logo'>&nbsp;</span><span class='text'>".$ud['userName']."<br>Last login: ".date("d.m.y H:i",$ud['userLastLogin'])."</span></li>
+						<li class='fa fa-cogs' id='psettings'>Settings</li>
 						<li class='fa fa-bell' id='nmessages'>Notifications</li>
 						<li class='fa fa-external-link' id='bexport'>Export</li>
-						<li id='bmlet'><a href=\"$bookmarklet\">Bookmarklet</a></li>
+						
 						$admenu
 						<hr>
 						<li class='fa fa-sign-out' id='mlogout'>Logout</li>
@@ -1411,8 +1411,19 @@ function htmlHeader($ud) {
 	</div>";
 	
 	$mngclientform = "<div id='mngcform' class='mmenu'>".bClientlist($ud['userID'], $database)."</div>";
+	$mngsettingsform = "<div id='mngsform' class='mmenu'><h6>SyncMarks Settings</h6>
+	<table>
+		<tr><td>".$ud['userName']."</td><td class='bright'><button id='muser'>Edit</button></td></tr>
+		<tr><td>**********</td><td class='bright'><button id='mpassword'>Edit</button></td></tr>
+		<tr><td colspan=2 class='bcenter'><button id='clientedt'>Show Clients</button></td></tr>
+		<tr><td colspan=2 class='bcenter'><button id='pbullet'>Pushbullet</button></td></tr>
+		<tr><td>Notifications</td><td class='bright'>$oswitch</td></tr>
+	</table>
+	<div id='bmlet'><a href=\"$bookmarklet\">Bookmarklet</a></div>
 	
-	$htmlHeader.= $mainmenu.$userform.$passwordform.$pbulletform.$logform.$mnguserform.$mngclientform.$nmessagesform;
+	</div>";
+	
+	$htmlHeader.= $mainmenu.$userform.$passwordform.$pbulletform.$logform.$mnguserform.$mngclientform.$mngsettingsform.$nmessagesform;
 	$db = NULL;
 	return $htmlHeader;
 }

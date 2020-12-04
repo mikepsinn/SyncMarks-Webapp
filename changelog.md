@@ -1,5 +1,12 @@
 ChangeLog
 =========
+1.2.14 (2020-12-04)
+-------------------------
+* Reworked menu
+* Fixed adding new bookmark
+* Fixed folder variable
+
+
 1.2.13 (2020-11-30)
 -------------------------
 * Fixed adding new folder

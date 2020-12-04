@@ -10,6 +10,34 @@
     text-overflow: ellipsis;
     overflow: hidden;
 }
+.appv {
+	position: absolute;
+	right: 10px;
+	top: 10px;
+	font-weight: 700;
+	font-size: 1.1em;
+}
+.appv a {
+	color: white;
+	text-decoration: none;
+}
+.bright .switch {
+	position: relative;
+	display: inline-block;
+	width: 41px;
+	height: 20px;
+}
+.bright .slider::before {
+	position: absolute;
+	content: "";
+	height: 15px;
+	width: 15px;
+	left: 3px;
+	bottom: 3px;
+	background-color: white;
+	-webkit-transition: .2s;
+	transition: .2s;
+}
 .mmenu {
 	position: fixed;
 	top: 56px;
@@ -60,6 +88,7 @@
 	border: 1px solid #4776b7;
 	box-shadow: inset 0 1px 0 rgba(255,255,255,1),0 1px 3px rgba(0,0,0,.3);
 	text-shadow: 0 -1px 0 rgba(0,0,0,.4);
+	margin: 10px 0;
 }
 #bmlet:hover {
 	background-color: unset;
@@ -429,6 +458,41 @@ hr {
 	width: 32% !important;
 	float: left;
 	margin-left: 3px;
+}
+#mngsform h6 {
+	margin: 0;
+	font-size: 1em;
+	font-family: Roboto,Arial,Helvetica,sans-serif;
+}
+#mngsform table {
+	width: 100%;
+}
+.bright {
+	text-align: right;
+}
+.bcenter {
+	text-align: center;
+}
+.bcenter button {
+	width: 150px;
+}
+#mngsform {
+	padding: 10px;
+}
+#mngsform button {
+	background-color: transparent;
+	border: 1px solid #bbb;
+	text-transform: uppercase;
+	color: #0879d9;
+	font-weight: 700;
+	margin-inline-start: 3px;
+	padding: 3px 6px;
+	border-radius: 4px;
+}
+#mngsform button:hover {
+	background-color: #0879d9;
+	color: #fff;
+	border-color: #0879d9;
 }
 input[type="submit"]:disabled {
 	background: darkgray !important;

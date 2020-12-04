@@ -1,7 +1,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.13
+ * @version 1.2.14
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -148,7 +148,8 @@ document.addEventListener("DOMContentLoaded", function(event) {
 		document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
 	});
 
-	document.getElementById('muser').addEventListener('click', function() {
+	document.getElementById('muser').addEventListener('click', function(e) {
+		e.preventDefault();
 		hideMenu();
 		document.getElementById('userform').style.display = 'block';
 		document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
@@ -179,6 +180,12 @@ document.addEventListener("DOMContentLoaded", function(event) {
 	document.getElementById('clientedt').addEventListener('click', function() {
 		hideMenu();
 		document.getElementById('mngcform').style.display = 'block';
+		document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
+	});
+
+	document.getElementById('psettings').addEventListener('click', function() {
+		hideMenu();
+		document.getElementById('mngsform').style.display = 'block';
 		document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
 	});
 
