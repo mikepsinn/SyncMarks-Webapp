@@ -1,8 +1,9 @@
 ChangeLog
 =========
-1.2.14 (2020-12-04)
+1.2.14 (2020-12-05)
 -------------------------
 * Reworked menu
+* Reworked Pushbullet
 * Fixed adding new bookmark
 * Fixed folder variable
 

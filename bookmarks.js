@@ -61,6 +61,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
 	document.querySelectorAll('.tablinks').forEach(tab => tab.addEventListener('click',openMessages, false));
 	document.querySelectorAll('.NotiTableCell .fa-trash-o').forEach(message => message.addEventListener('click',delMessage, false));
 	document.querySelector('#cnoti').addEventListener('change',eNoti,false);
+	document.querySelector('#pbe').addEventListener('change',ePb,false);
 
 	if(sessionStorage.getItem('gNoti') != 1) getNotifications();
 
@@ -611,6 +612,39 @@ function eNoti(e) {
 	} else {
 		setOption("notifications",0);
 	}
+}
+
+function ePb(e) {
+	var nval = e.target.checked;
+	console.log(nval);
+	/*
+	if(nval) {
+		if (!("Notification" in window)) {
+			alert("This browser does not support desktop notification");
+			setOption("notifications",0);
+		}
+		else if (Notification.permission === "granted") {
+			var notification = new Notification("Syncmarks", {
+				body: "Notifications will be enabled for Syncmarks.",
+				icon: './images/bookmarks192.png'
+			});
+			setOption("notifications",1);
+		}
+		else if (Notification.permission !== "denied") {
+			Notification.requestPermission().then(function (permission) {
+				if (permission === "granted") {
+					var notification = new Notification("Syncmarks", {
+						body: "Notifications will be enabled for Syncmarks.",
+						icon: './images/bookmarks192.png'
+					});
+					setOption("notifications",1);
+				}
+			});
+		}
+	} else {
+		setOption("notifications",0);
+	}
+	*/
 }
 
 function setOption(option,val) {

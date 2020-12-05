@@ -262,12 +262,19 @@ if(isset($_POST['pbupdate'])) {
 		
 		$token = edcrpt('en', $_POST['ptoken']);
 		$device = edcrpt('en', $_POST['pdevice']);
+		$pbEnable = filter_var($_POST['pbe'],FILTER_VALIDATE_BOOLEAN) ? '1' : '0';
+
+		$oOptionsA = json_decode($userData['uOptions'],true);
+		$oOptionsA['pAPI'] = $token;
+		$oOptionsA['pDevice'] = $device;
+		$oOptionsA['pbEnable'] = $pbEnable;
 
 		try {
 			$db = new PDO('sqlite:'.$database);
-			$sql = "UPDATE `users` SET `pAPI`='".$token."', `pDevice`='".$device."' WHERE `userID`=".$userData['userID'];
-			$db->exec($sql);
-			e_log(9,$sql);
+			$query = "UPDATE `users` SET `uOptions`='".json_encode($oOptionsA)."' WHERE `userID`=".$userData['userID'];
+			e_log(9,$query);
+			$count = $db->exec($query);
+			($count === 1) ? e_log(8,"Option saved") : e_log(9,"Error, saving option");
 		}
 		catch(PDOException $e) {
 			e_log(1,'Exception : '.$e->getMessage());
@@ -583,14 +590,11 @@ if(isset($_GET['link'])) {
 	$bookmark['type'] = 'bookmark';
 	$bookmark['added'] = round(microtime(true) * 1000);
 	
-	if(isset($_GET['push']) && $_GET['push']=='false') {
-		$push = false;
-	} else {
-		$push = true;
-	}
-	
-	if(strlen($userData['pAPI']) > 0 && strlen($userData['pDevice']) > 0 && $push) {
+	$options = json_decode($userData['uOptions'],true);
+	if(strlen($options['pAPI']) > 1 && strlen($options['pDevice']) > 1 && $options['pbEnable'] == "1") {
 		pushlink($title,$url,$userData);
+	} else {
+		e_log(9,"Cant send push, missing data. Please check options");
 	}
 	
 	$res = addBookmark($database, $userData, $bookmark);
@@ -685,8 +689,9 @@ function validate_url($url) {
 }
 
 function pushlink($title,$url,$userdata) {
-	$token = edcrpt('de', $userdata['pAPI']);
-	$device = edcrpt('de', $userdata['pDevice']);
+	$pddata = json_decode($userdata['uOptions'],true);
+	$token = edcrpt('de', $pddata['pAPI']);
+	$device = edcrpt('de', $pddata['pDevice']);
 	e_log(8,"Send Push Notification to device. Token: $token, Device: $device");
 	$data = json_encode(array(
 		'type' => 'link',
@@ -1332,11 +1337,10 @@ function htmlHeader($ud) {
 	$bookmarklet = "javascript:void function(){window.open('$clink?title='+document.title+'&link='+encodeURIComponent(document.location.href),'bWindow','width=480,height=245',replace=!0)}();";	
 	$mainmenu = "<div id='mainmenu' class='mmenu'>
 					<ul>
-						<li id='meheader'><span class='appv'><a href='https://github.com/Offerel/SyncMarks-Webapp'>SyncMarks $version</a></span><span class='logo'>&nbsp;</span><span class='text'>".$ud['userName']."<br>Last login: ".date("d.m.y H:i",$ud['userLastLogin'])."</span></li>
+						<li id='meheader'><span class='appv'><a href='https://github.com/Offerel/SyncMarks-Webapp'>SyncMarks $version</a></span><span class='logo'>&nbsp;</span><span class='text'>".$ud['userName']."<br>Last login: ".date("d.m.y H:i",$ud['userOldLogin'])."</span></li>
 						<li class='fa fa-cogs' id='psettings'>Settings</li>
 						<li class='fa fa-bell' id='nmessages'>Notifications</li>
 						<li class='fa fa-external-link' id='bexport'>Export</li>
-						
 						$admenu
 						<hr>
 						<li class='fa fa-sign-out' id='mlogout'>Logout</li>
@@ -1366,19 +1370,26 @@ function htmlHeader($ud) {
 					</form>
 				</div>";
 
+	$uOptions = json_decode($ud['uOptions'],true);
+
+	if($uOptions['pbEnable'] == 1) {
+		$pbswitch = "<label class='switch' title='Enable/Disable Pushbullet'><input id='pbe' name='pbe' value='1' type='checkbox' checked><span class='slider round'></span></label>";
+	} else {
+		$pbswitch = "<label class='switch' title='Enable/Disable Pushbullet'><input id='pbe' name='pbe' value='1' type='checkbox'><span class='slider round'></span></label>";
+	}
+
 	$pbulletform = "<div id='pbulletform' class='mbmdialog'>
 				<h6>Pushbullet</h6>
 				<div class='dialogdescr'>Maintain your API Token and Device ID. 
 				</div>
-					<form action='".$_SERVER['PHP_SELF']."' method='POST'>					
-						<input placeholder='API Token' type='text' id='ptoken' name='ptoken' value='".edcrpt('de', $ud['pAPI'])."' />
-						<input placeholder='Device ID' type='text' id='pdevice' name='pdevice' value='".edcrpt('de', $ud['pDevice'])."' />
+					<form action='".$_SERVER['PHP_SELF']."' method='POST'>$pbswitch
+						<input placeholder='API Token' type='text' id='ptoken' name='ptoken' value='".edcrpt('de',json_decode($ud['uOptions'],true)['pAPI'])."' />
+						<input placeholder='Device ID' type='text' id='pdevice' name='pdevice' value='".edcrpt('de',json_decode($ud['uOptions'],true)['pDevice'])."' />
 						<input required placeholder='Password' type='password' id='password' name='password' autocomplete='current-password' value='' />
 						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='pbupdate' value='Save'>Save</button></div>
 					</form>
 				</div>";
 
-	$uOptions = json_decode($ud['uOptions'],true);
 	if($uOptions['notifications'] == 1) {
 		$oswitch = "<label class='switch' title='Enable/Disable Notifications'><input id='cnoti' type='checkbox' checked><span class='slider round'></span></label>";
 	} else {

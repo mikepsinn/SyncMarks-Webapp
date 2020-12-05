@@ -26,6 +26,8 @@
 	display: inline-block;
 	width: 41px;
 	height: 20px;
+	right: 0;
+	top: 0;
 }
 .bright .slider::before {
 	position: absolute;
