@@ -427,6 +427,9 @@ if(isset($_POST['caction'])) {
 		case "export":
 			e_log(8,"Browser requested bookmark import...");
 			$bookmarks = json_encode(getBookmarks($userData['userID'],$database));
+			if($loglevel = 9) {
+				file_put_contents("export_".preg_replace('/[^A-Za-z0-9\-]/', '', $userData['userName'])."_".time().".json",$bookmarks);
+			}
 			echo $bookmarks;
 			e_log(8,count(json_decode($bookmarks))." bookmarks send to client.");
 			die();
