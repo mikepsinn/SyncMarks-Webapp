@@ -1338,9 +1338,9 @@ function htmlHeader($ud) {
 	$mainmenu = "<div id='mainmenu' class='mmenu'>
 					<ul>
 						<li id='meheader'><span class='appv'><a href='https://github.com/Offerel/SyncMarks-Webapp'>SyncMarks $version</a></span><span class='logo'>&nbsp;</span><span class='text'>".$ud['userName']."<br>Last login: ".date("d.m.y H:i",$ud['userOldLogin'])."</span></li>
-						<li class='fa fa-cogs' id='psettings'>Settings</li>
 						<li class='fa fa-bell' id='nmessages'>Notifications</li>
 						<li class='fa fa-external-link' id='bexport'>Export</li>
+						<li class='fa fa-cogs' id='psettings'>Settings</li>
 						$admenu
 						<hr>
 						<li class='fa fa-sign-out' id='mlogout'>Logout</li>

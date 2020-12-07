@@ -203,6 +203,7 @@
 .mbmdialog button:disabled {
 	pointer-events: none;
 	color: #bbb;
+	background-color: #eee;
 }
 .mbmdialog input {
 	width: 100%;
