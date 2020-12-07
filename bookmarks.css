@@ -170,8 +170,10 @@
 	font-size: 1.2em;
 }
 .mbmdialog .dbutton {
-	float: right;
-	margin-top: 5px;
+    margin-top: 5px;
+    text-align: right;
+    margin-right: -4px;
+    margin-bottom: -20px;
 }
 .mbmdialog .dialogdescr {
 	opacity: 0.85;
@@ -179,14 +181,19 @@
 	margin: 5px 0;
 }
 .mbmdialog button {
-	background-color: transparent;
-	border: 1px solid #bbb;
-	text-transform: uppercase;
-	color: #0879D9;
-	font-weight: bold;
-	margin-inline-start: 3px;
-	padding: 3px 6px;
-	border-radius: 4px;
+    background-color: rgb(33,150,243);
+    border: none;
+    text-transform: uppercase;
+    color: white;
+    font-weight: 500;
+    margin-inline-start: 3px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    box-shadow: 0 3px 1px -2px rgba(0, 0, 0, 0.2), 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12);
+    font-family: "Roboto", "Segoe UI", BlinkMacSystemFont, system-ui;
+    line-height: 20px;
+    outline: none;
+    cursor: pointer;
 }
 .mbmdialog button:hover {
 	background-color: #0879D9;
@@ -462,9 +469,10 @@ hr {
 	margin-left: 3px;
 }
 #mngsform h6 {
-	margin: 0;
-	font-size: 1em;
-	font-family: Roboto,Arial,Helvetica,sans-serif;
+    margin: 0;
+    font-size: 1em;
+    font-family: Roboto,Arial,Helvetica,sans-serif;
+    padding: 3px;
 }
 #mngsform table {
 	width: 100%;
@@ -480,16 +488,22 @@ hr {
 }
 #mngsform {
 	padding: 10px;
+	width: calc(100% - 20px);
 }
 #mngsform button {
-	background-color: transparent;
-	border: 1px solid #bbb;
-	text-transform: uppercase;
-	color: #0879d9;
-	font-weight: 700;
-	margin-inline-start: 3px;
-	padding: 3px 6px;
-	border-radius: 4px;
+    background-color: rgb(33,150,243);
+    border: none;
+    text-transform: uppercase;
+    color: white;
+    font-weight: 500;
+    margin-inline-start: 3px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    box-shadow: 0 3px 1px -2px rgba(0, 0, 0, 0.2), 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12);
+    font-family: "Roboto", "Segoe UI", BlinkMacSystemFont, system-ui;
+    line-height: 20px;
+    outline: none;
+    cursor: pointer;
 }
 #mngsform button:hover {
 	background-color: #0879d9;
@@ -547,31 +561,44 @@ input[type="submit"]:disabled {
 	bottom: 0;
 }
 #close {
-	position: absolute;
-	right: 0;
-	padding: 3px 5px;
-	background: wheat;
-	font-size: 1em;
-	top: 0px;
-	z-index: 1;
-	visibility: hidden;
-	width: calc(100% - 14px);
-	text-align: right;
+    position: absolute;
+    right: 0;
+    padding: 3px 5px;
+    background: #e1e1e1;
+    top: 0px;
+    z-index: 1;
+    visibility: hidden;
+    width: calc(100% - 14px);
+    text-align: right;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #ccc;
 }
 #lfiletext {
-	top: 35px;
-	display: block;
-	position: absolute;
-	width: calc(100% - 10px);
-	overflow: auto;
-	bottom: 0px;
-	padding-left: 10px;
+    top: 36px;
+    display: block;
+    position: absolute;
+    width: calc(100% - 10px);
+    overflow: auto;
+    bottom: 0;
+    padding-left: 10px;
 }
 #close button {
-	border-radius: 5px;
-	border: 1px solid;
-	border-color: #bbb;
-	height: 25px;
+    border-radius: 4px;
+    border: none;
+    background-color: rgb(33,150,243);
+    color: white;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-inline-start: 3px;
+    padding: 3px 6px;
+    box-shadow: 0 3px 1px -2px rgba(0, 0, 0, 0.2), 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12);
+    font-family: "Roboto", "Segoe UI", BlinkMacSystemFont, system-ui;
+    line-height: 20px;
+    outline: none;
+    cursor: pointer;
+}
+#close button:hover {
+    background-color: #0879d9;
 }
 #footer {
 	height: 70px;
@@ -977,12 +1004,16 @@ input:checked + .slider:before {
 	text-align: center;
 }
 @media screen and (min-device-width: 1024px) {
+	#mngsform {
+		padding: 10px;
+		width: 300px;
+	}
 	#logfile {
 		width: 50%;
-		opacity: 0.7;
-		top: 25px;
+		opacity: .7;
+		top: 24px;
 		bottom: 25px;
-	}
+	}	
 	.clientname input {
 		width: 180px !important;
 	}
@@ -991,11 +1022,11 @@ input:checked + .slider:before {
 		background-color: #ccc;
 		position: absolute;
 		left: 0;
-		width: 3px;
+		width: 4px;
 		height: 100%;
 		cursor: w-resize;
-		top: 0px;
-	}
+		top: 0;
+	}	
 	.NotiTableCell .fa {
 		display: none;
 	}
