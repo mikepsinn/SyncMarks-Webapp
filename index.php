@@ -333,7 +333,7 @@ if(isset($_POST['caction'])) {
 	switch($_POST['caction']) {
 		case "addmark":
 			$bookmark = json_decode($_POST['bookmark'], true);
-			e_log(8,"Try to add folder '".$bookmark['title']."'");
+			e_log(8,"Try to add entry '".$bookmark['title']."'");
 			e_log(9,$_POST['bookmark']);
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			if(array_key_exists('url',$bookmark)) $bookmark['url'] = validate_url($bookmark['url']);
@@ -427,7 +427,7 @@ if(isset($_POST['caction'])) {
 		case "export":
 			e_log(8,"Browser requested bookmark import...");
 			$bookmarks = json_encode(getBookmarks($userData['userID'],$database));
-			if($loglevel = 9) {
+			if($loglevel = 9 && $cexpjson == true) {
 				file_put_contents("export_".preg_replace('/[^A-Za-z0-9\-]/', '', $userData['userName'])."_".time().".json",$bookmarks);
 			}
 			echo $bookmarks;
@@ -560,7 +560,7 @@ if(isset($_GET['gurls'])) {
 		die(json_encode($myObj));
 	}
 	else {
-		die();
+		die(json_encode(""));
 	}
 }
 
@@ -716,12 +716,12 @@ function pushlink($title,$url,$userdata) {
 }
 
 function edcrpt($action, $text) {
+	global $enckey, $enchash;
+	e_log(8,"enckey: ".$enckey."|enchash: ".$enchash);
     $output = false;
     $encrypt_method = "AES-256-CBC";
-    $secret_key = 'p4M7kU49DVGB73dM';
-    $secret_iv = 'Hd6uRkLHmg3Z59d7';
-    $key = hash('sha256', $secret_key);
-    $iv = substr(hash('sha256', $secret_iv), 0, 16);
+    $key = hash('sha256', $enckey);
+    $iv = substr(hash('sha256', $enchash), 0, 16);
 
     if ( $action == 'en' ) {
         $output = openssl_encrypt($text, $encrypt_method, $key, 0, $iv);
@@ -975,7 +975,7 @@ function addBookmark($database, $ud, $bm) {
 		}
 	}
 	e_log(8,"Get folder data for adding bookmark");
-	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex`, `bmID` FROM `bookmarks` WHERE `userID` = ".$ud['userID']." AND `bmID` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = 'Lesezeichen-Menü' AND `userId` = ".$ud['userID'].");";
+	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex`, `bmID` FROM `bookmarks` WHERE `userID` = ".$ud['userID']." AND `bmID` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userId` = ".$ud['userID'].");";
 
 	$statement = $db->prepare($query);
 	e_log(9,$query);

@@ -6,4 +6,7 @@ $loglevel = 2; // 	9=debug; 8=notice; 4=parse; 2=warn; 1=error
 $sender = 'bookmarks@yourdomain.com';
 $suser = 'admin';
 $spwd = 'mypass';
+$cexpjson = false; // if set to true, this creates a json file which is send to browser on import, containing your bookmarks
+$enckey = 'Cu1815ZRtooY9SYX'; // random key for encryption
+$enchash = '2EOkV9DPTndhcAU7'; // random hash for encryption
 ?>
