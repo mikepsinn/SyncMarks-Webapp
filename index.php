@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.12
+ * @version 1.2.14
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -262,12 +262,19 @@ if(isset($_POST['pbupdate'])) {
 		
 		$token = edcrpt('en', $_POST['ptoken']);
 		$device = edcrpt('en', $_POST['pdevice']);
+		$pbEnable = filter_var($_POST['pbe'],FILTER_VALIDATE_BOOLEAN) ? '1' : '0';
+
+		$oOptionsA = json_decode($userData['uOptions'],true);
+		$oOptionsA['pAPI'] = $token;
+		$oOptionsA['pDevice'] = $device;
+		$oOptionsA['pbEnable'] = $pbEnable;
 
 		try {
 			$db = new PDO('sqlite:'.$database);
-			$sql = "UPDATE `users` SET `pAPI`='".$token."', `pDevice`='".$device."' WHERE `userID`=".$userData['userID'];
-			$db->exec($sql);
-			e_log(9,$sql);
+			$query = "UPDATE `users` SET `uOptions`='".json_encode($oOptionsA)."' WHERE `userID`=".$userData['userID'];
+			e_log(9,$query);
+			$count = $db->exec($query);
+			($count === 1) ? e_log(8,"Option saved") : e_log(9,"Error, saving option");
 		}
 		catch(PDOException $e) {
 			e_log(1,'Exception : '.$e->getMessage());
@@ -326,7 +333,7 @@ if(isset($_POST['caction'])) {
 	switch($_POST['caction']) {
 		case "addmark":
 			$bookmark = json_decode($_POST['bookmark'], true);
-			e_log(8,"Try to add folder '".$bookmark['title']."'");
+			e_log(8,"Try to add entry '".$bookmark['title']."'");
 			e_log(9,$_POST['bookmark']);
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			if(array_key_exists('url',$bookmark)) $bookmark['url'] = validate_url($bookmark['url']);
@@ -420,6 +427,9 @@ if(isset($_POST['caction'])) {
 		case "export":
 			e_log(8,"Browser requested bookmark import...");
 			$bookmarks = json_encode(getBookmarks($userData['userID'],$database));
+			if($loglevel = 9 && $cexpjson == true) {
+				file_put_contents("export_".preg_replace('/[^A-Za-z0-9\-]/', '', $userData['userName'])."_".time().".json",$bookmarks);
+			}
 			echo $bookmarks;
 			e_log(8,count(json_decode($bookmarks))." bookmarks send to client.");
 			die();
@@ -550,7 +560,7 @@ if(isset($_GET['gurls'])) {
 		die(json_encode($myObj));
 	}
 	else {
-		die();
+		die(json_encode(""));
 	}
 }
 
@@ -583,14 +593,11 @@ if(isset($_GET['link'])) {
 	$bookmark['type'] = 'bookmark';
 	$bookmark['added'] = round(microtime(true) * 1000);
 	
-	if(isset($_GET['push']) && $_GET['push']=='false') {
-		$push = false;
-	} else {
-		$push = true;
-	}
-	
-	if(strlen($userData['pAPI']) > 0 && strlen($userData['pDevice']) > 0 && $push) {
+	$options = json_decode($userData['uOptions'],true);
+	if(strlen($options['pAPI']) > 1 && strlen($options['pDevice']) > 1 && $options['pbEnable'] == "1") {
 		pushlink($title,$url,$userData);
+	} else {
+		e_log(9,"Cant send push, missing data. Please check options");
 	}
 	
 	$res = addBookmark($database, $userData, $bookmark);
@@ -685,8 +692,9 @@ function validate_url($url) {
 }
 
 function pushlink($title,$url,$userdata) {
-	$token = edcrpt('de', $userdata['pAPI']);
-	$device = edcrpt('de', $userdata['pDevice']);
+	$pddata = json_decode($userdata['uOptions'],true);
+	$token = edcrpt('de', $pddata['pAPI']);
+	$device = edcrpt('de', $pddata['pDevice']);
 	e_log(8,"Send Push Notification to device. Token: $token, Device: $device");
 	$data = json_encode(array(
 		'type' => 'link',
@@ -708,12 +716,12 @@ function pushlink($title,$url,$userdata) {
 }
 
 function edcrpt($action, $text) {
+	global $enckey, $enchash;
+	e_log(8,"enckey: ".$enckey."|enchash: ".$enchash);
     $output = false;
     $encrypt_method = "AES-256-CBC";
-    $secret_key = 'p4M7kU49DVGB73dM';
-    $secret_iv = 'Hd6uRkLHmg3Z59d7';
-    $key = hash('sha256', $secret_key);
-    $iv = substr(hash('sha256', $secret_iv), 0, 16);
+    $key = hash('sha256', $enckey);
+    $iv = substr(hash('sha256', $enchash), 0, 16);
 
     if ( $action == 'en' ) {
         $output = openssl_encrypt($text, $encrypt_method, $key, 0, $iv);
@@ -900,13 +908,22 @@ function addFolder($database, $ud, $bm) {
 	catch (PDOException $e) {
 		e_log(1,'DB connection failed: '.$e->getMessage());
 	}
+	$count = 0;
 	e_log(8,"Try to find if this folder exists already");
-	$query = "SELECT COUNT(*) AS bmcount  FROM `bookmarks` WHERE `bmTitle` = '".$bm['title']."' AND `bmParentID` = (SELECT `bmID` FROM `bookmarks` WHERE `bmTitle` = '".$bm['nfolder']."') AND `userID` = ".$ud['userID'];
+	$query = "SELECT COUNT(*) AS bmCount, bmAction, bmID  FROM `bookmarks` WHERE `bmTitle` = '".$bm['title']."' AND `bmParentID` = '".$bm['folder']."' AND `userID` = ".$ud['userID'].";";
 	e_log(9,$query);
 	$statement = $db->prepare($query);
 	$statement->execute();
-	$fdExistData = $statement->fetchAll(PDO::FETCH_ASSOC)[0]["bmcount"];
-	if($fdExistData > 0) {
+	$res = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
+
+	if($res["bmAction"]) {
+		e_log(8,"Remove temporary entry ".$res["bmID"]);
+		$query = "DELETE FROM `bookmarks` WHERE `bmID` = '".$res["bmID"]."' AND `userID` = ".$ud['userID'].";";
+		e_log(9,$query);
+		$count = $db->exec($query);
+	}
+
+	if($res["bmCount"] > 0 && $count != 1) {
 		e_log(8,"Folder not added, it exists already for this user, exit request");
 		return false;
 	}
@@ -958,15 +975,16 @@ function addBookmark($database, $ud, $bm) {
 		}
 	}
 	e_log(8,"Get folder data for adding bookmark");
-	$query = "SELECT MAX(`bmIndex`) +1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `bmParentId` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userId` = ".$ud['userID'].")";
+	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex`, `bmID` FROM `bookmarks` WHERE `userID` = ".$ud['userID']." AND `bmID` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userId` = ".$ud['userID'].");";
+
 	$statement = $db->prepare($query);
 	e_log(9,$query);
 	$statement->execute();
 	$folderData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
 	
-	if(is_null($folderData['bmParentID'])) {
+	if(is_null($folderData['bmID'])) {
 		e_log(8,"Folder not found, using 'unfiled_____'.");
-		$query = "SELECT MAX(`bmIndex`) +1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `userId` = 1";
+		$query = "SELECT MAX(`bmIndex`) +1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `userId` = ".$ud['userID'].";";
 		$statement = $db->prepare($query);
 		e_log(9,$query);
 		$statement->execute();
@@ -977,7 +995,7 @@ function addBookmark($database, $ud, $bm) {
 	if(!empty($folderData)) {
 		$title = htmlspecialchars($bm['title'],ENT_QUOTES,'UTF-8');
 		e_log(8,"Add bookmark '".$title."'");
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$folderData['bmParentID']."', ".$folderData['nindex'].", '".$title."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].")";
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$folderData['bmID']."', ".$folderData['nindex'].", '".$title."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].")";
 		e_log(9,$query);
 		try {
 			$db->exec($query);
@@ -1316,18 +1334,16 @@ function htmlHeader($ud) {
 		$mnguserform = "";
 	}
 
-	$clink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']; 
+	$clink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+	$version = explode (" ", file_get_contents('./changelog.md',NULL,NULL,21,20))[0];
+	
 	$bookmarklet = "javascript:void function(){window.open('$clink?title='+document.title+'&link='+encodeURIComponent(document.location.href),'bWindow','width=480,height=245',replace=!0)}();";	
 	$mainmenu = "<div id='mainmenu' class='mmenu'>
 					<ul>
-						<li id='meheader'><span class='logo'>&nbsp;</span><span class='text'>".$ud['userName']."<br>Last login: ".date("d.m.y H:i",$ud['userLastLogin'])."</span></li>
-						<li class='fa fa-user-circle-o' id='muser'>Username</li>
-						<li class='fa fa-unlock-alt' id='mpassword'>Password</li>
-						<li class='fa fa-desktop' id='clientedt'>Clients</li>
-						<li class='fa fa-commenting' id='pbullet'>Pushbullet</li>
+						<li id='meheader'><span class='appv'><a href='https://github.com/Offerel/SyncMarks-Webapp'>SyncMarks $version</a></span><span class='logo'>&nbsp;</span><span class='text'>".$ud['userName']."<br>Last login: ".date("d.m.y H:i",$ud['userOldLogin'])."</span></li>
 						<li class='fa fa-bell' id='nmessages'>Notifications</li>
 						<li class='fa fa-external-link' id='bexport'>Export</li>
-						<li id='bmlet'><a href=\"$bookmarklet\">Bookmarklet</a></li>
+						<li class='fa fa-cogs' id='psettings'>Settings</li>
 						$admenu
 						<hr>
 						<li class='fa fa-sign-out' id='mlogout'>Logout</li>
@@ -1357,19 +1373,26 @@ function htmlHeader($ud) {
 					</form>
 				</div>";
 
+	$uOptions = json_decode($ud['uOptions'],true);
+
+	if($uOptions['pbEnable'] == 1) {
+		$pbswitch = "<label class='switch' title='Enable/Disable Pushbullet'><input id='pbe' name='pbe' value='1' type='checkbox' checked><span class='slider round'></span></label>";
+	} else {
+		$pbswitch = "<label class='switch' title='Enable/Disable Pushbullet'><input id='pbe' name='pbe' value='1' type='checkbox'><span class='slider round'></span></label>";
+	}
+
 	$pbulletform = "<div id='pbulletform' class='mbmdialog'>
 				<h6>Pushbullet</h6>
 				<div class='dialogdescr'>Maintain your API Token and Device ID. 
 				</div>
-					<form action='".$_SERVER['PHP_SELF']."' method='POST'>					
-						<input placeholder='API Token' type='text' id='ptoken' name='ptoken' value='".edcrpt('de', $ud['pAPI'])."' />
-						<input placeholder='Device ID' type='text' id='pdevice' name='pdevice' value='".edcrpt('de', $ud['pDevice'])."' />
+					<form action='".$_SERVER['PHP_SELF']."' method='POST'>$pbswitch
+						<input placeholder='API Token' type='text' id='ptoken' name='ptoken' value='".edcrpt('de',json_decode($ud['uOptions'],true)['pAPI'])."' />
+						<input placeholder='Device ID' type='text' id='pdevice' name='pdevice' value='".edcrpt('de',json_decode($ud['uOptions'],true)['pDevice'])."' />
 						<input required placeholder='Password' type='password' id='password' name='password' autocomplete='current-password' value='' />
 						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='pbupdate' value='Save'>Save</button></div>
 					</form>
 				</div>";
 
-	$uOptions = json_decode($ud['uOptions'],true);
 	if($uOptions['notifications'] == 1) {
 		$oswitch = "<label class='switch' title='Enable/Disable Notifications'><input id='cnoti' type='checkbox' checked><span class='slider round'></span></label>";
 	} else {
@@ -1402,8 +1425,19 @@ function htmlHeader($ud) {
 	</div>";
 	
 	$mngclientform = "<div id='mngcform' class='mmenu'>".bClientlist($ud['userID'], $database)."</div>";
+	$mngsettingsform = "<div id='mngsform' class='mmenu'><h6>SyncMarks Settings</h6>
+	<table>
+		<tr><td>".$ud['userName']."</td><td class='bright'><button id='muser'>Edit</button></td></tr>
+		<tr><td>**********</td><td class='bright'><button id='mpassword'>Edit</button></td></tr>
+		<tr><td colspan=2 class='bcenter'><button id='clientedt'>Show Clients</button></td></tr>
+		<tr><td colspan=2 class='bcenter'><button id='pbullet'>Pushbullet</button></td></tr>
+		<tr><td>Notifications</td><td class='bright'>$oswitch</td></tr>
+	</table>
+	<div id='bmlet'><a href=\"$bookmarklet\">Bookmarklet</a></div>
 	
-	$htmlHeader.= $mainmenu.$userform.$passwordform.$pbulletform.$logform.$mnguserform.$mngclientform.$nmessagesform;
+	</div>";
+	
+	$htmlHeader.= $mainmenu.$userform.$passwordform.$pbulletform.$logform.$mnguserform.$mngclientform.$mngsettingsform.$nmessagesform;
 	$db = NULL;
 	return $htmlHeader;
 }
@@ -1421,7 +1455,7 @@ function bClientlist($uid, $database) {
 		if(isset($client['cname'])) $cname = $client['cname'];
 		$timestamp = $client['lastseen'] / 1000;
 		$lastseen = (date('D, d. M. Y H:i', $timestamp));
-		$clientList.= "<li data-type='".strtolower($client['ctype'])."' id='".$client['cid']."' class='client'><div class='clientname'>$cname<input type='text' name='cname' value='$cname'><div class='lastseen'>$lastseen</div></div><div class='fa fa-edit rename'></div><div class='fa fa-trash-o remove'></div></li>";
+		$clientList.= "<li title='".$client['cid']."' data-type='".strtolower($client['ctype'])."' id='".$client['cid']."' class='client'><div class='clientname'>$cname<input type='text' name='cname' value='$cname'><div class='lastseen'>$lastseen</div></div><div class='fa fa-edit rename'></div><div class='fa fa-trash-o remove'></div></li>";
 	}
 	$clientList.= "</ul>";
 	return $clientList;

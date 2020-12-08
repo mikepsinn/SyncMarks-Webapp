@@ -1,5 +1,15 @@
 ChangeLog
 =========
+1.2.14 (2020-12-05)
+-------------------------
+* Reworked menu
+* Reworked Pushbullet
+* Reworked CSS
+* Fixed adding new bookmark
+* Fixed folder variable
+* Added client id as hint
+
+
 1.2.13 (2020-11-30)
 -------------------------
 * Fixed adding new folder
