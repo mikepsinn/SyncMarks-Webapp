@@ -560,7 +560,7 @@ if(isset($_GET['gurls'])) {
 		die(json_encode($myObj));
 	}
 	else {
-		die(json_encode(""));
+		die();
 	}
 }
 
@@ -975,14 +975,14 @@ function addBookmark($database, $ud, $bm) {
 		}
 	}
 	e_log(8,"Get folder data for adding bookmark");
-	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex`, `bmID` FROM `bookmarks` WHERE `userID` = ".$ud['userID']." AND `bmID` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userId` = ".$ud['userID'].");";
+	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex`, `bmParentID` FROM `bookmarks` WHERE `userID` = ".$ud['userID']." AND `bmParentID` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userId` = ".$ud['userID'].");";
 
 	$statement = $db->prepare($query);
 	e_log(9,$query);
 	$statement->execute();
 	$folderData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
 	
-	if(is_null($folderData['bmID'])) {
+	if(is_null($folderData['bmParentID'])) {
 		e_log(8,"Folder not found, using 'unfiled_____'.");
 		$query = "SELECT MAX(`bmIndex`) +1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `userId` = ".$ud['userID'].";";
 		$statement = $db->prepare($query);
@@ -995,7 +995,7 @@ function addBookmark($database, $ud, $bm) {
 	if(!empty($folderData)) {
 		$title = htmlspecialchars($bm['title'],ENT_QUOTES,'UTF-8');
 		e_log(8,"Add bookmark '".$title."'");
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$folderData['bmID']."', ".$folderData['nindex'].", '".$title."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].")";
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$folderData['bmParentID']."', ".$folderData['nindex'].", '".$title."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].")";
 		e_log(9,$query);
 		try {
 			$db->exec($query);
@@ -1270,6 +1270,7 @@ function minFile($infile) {
 function htmlHeader($ud) {
 	global $database;
 	$db = new PDO('sqlite:'.$database);
+	$version = explode (" ", file_get_contents('./changelog.md',NULL,NULL,22,20))[0];
 	$htmlHeader = "<!DOCTYPE html>
 		<html>
 			<head>
@@ -1280,7 +1281,7 @@ function htmlHeader($ud) {
 				<link rel='shortcut icon' type='image/x-icon' href='./images/bookmarks.ico'>
 				<link rel='manifest' href='manifest.json'>
 				<meta name='theme-color' content='#0879D9'>
-				<title>Bookmarks</title>
+				<title>SyncMarks v$version</title>
 			</head>
 			<body>";
 	
@@ -1291,7 +1292,7 @@ function htmlHeader($ud) {
 		<div class='hline'></div>
 	</div>
 	<button>&#8981;</button><input type='search' name='bmsearch' value=''>
-	<a id='mprofile' title=\"Last login: ".date("d.m.y H:i",(int)$ud['userOldLogin'])."\">My Bookmarks</a>
+	<a id='mprofile' title='v$version'>SyncMarks</a>
 		</div>";
 	
 	if($ud['userType'] == 2) {
@@ -1335,8 +1336,6 @@ function htmlHeader($ud) {
 	}
 
 	$clink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-	$version = explode (" ", file_get_contents('./changelog.md',NULL,NULL,21,20))[0];
-	
 	$bookmarklet = "javascript:void function(){window.open('$clink?title='+document.title+'&link='+encodeURIComponent(document.location.href),'bWindow','width=480,height=245',replace=!0)}();";	
 	$mainmenu = "<div id='mainmenu' class='mmenu'>
 					<ul>

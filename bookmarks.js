@@ -131,7 +131,6 @@ document.addEventListener("DOMContentLoaded", function(event) {
 
 	document.getElementById('hmenu').addEventListener('click', function() {
 		var mainmenu = document.getElementById('mainmenu');
-		document.querySelector('#menu button').style.background = 'transparent';
 		document.querySelector('#bookmarks').addEventListener('click', hideMenu, false);
 
 		if(mainmenu.style.display === 'block') {
