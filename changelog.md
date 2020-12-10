@@ -3,6 +3,7 @@ ChangeLog
 1.2.15 (2020-12-09)
 -------------------------
 * Changed GUI
+* Fix for import bookmark with quote
 
 
 1.2.14 (2020-12-05)
