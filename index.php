@@ -717,7 +717,6 @@ function pushlink($title,$url,$userdata) {
 
 function edcrpt($action, $text) {
 	global $enckey, $enchash;
-	e_log(8,"enckey: ".$enckey."|enchash: ".$enchash);
     $output = false;
     $encrypt_method = "AES-256-CBC";
     $key = hash('sha256', $enckey);
@@ -1426,10 +1425,15 @@ function htmlHeader($ud) {
 	$mngclientform = "<div id='mngcform' class='mmenu'>".bClientlist($ud['userID'], $database)."</div>";
 	$mngsettingsform = "<div id='mngsform' class='mmenu'><h6>SyncMarks Settings</h6>
 	<table>
-		<tr><td>".$ud['userName']."</td><td class='bright'><button id='muser'>Edit</button></td></tr>
-		<tr><td>**********</td><td class='bright'><button id='mpassword'>Edit</button></td></tr>
+		<tr><td colspan='2' style='height: 5px;'></td></tr>
+		<tr><td><span class='rdesc'>Username:</span>".$ud['userName']."</td><td class='bright'><button id='muser'>Edit</button></td></tr>
+		<tr><td colspan='2' style='height: 5px;'></td></tr>
+		<tr><td><span class='rdesc'>Password:</span>**********</td><td class='bright'><button id='mpassword'>Edit</button></td></tr>
+		<tr><td colspan='2' style='height: 5px;'></td></tr>
 		<tr><td colspan=2 class='bcenter'><button id='clientedt'>Show Clients</button></td></tr>
+		<tr><td colspan='2' style='height: 2px;'></td></tr>
 		<tr><td colspan=2 class='bcenter'><button id='pbullet'>Pushbullet</button></td></tr>
+		<tr><td colspan='2' style='height: 5px;'></td></tr>
 		<tr><td>Notifications</td><td class='bright'>$oswitch</td></tr>
 	</table>
 	<div id='bmlet'><a href=\"$bookmarklet\">Bookmarklet</a></div>
@@ -1654,12 +1658,7 @@ function importMarks($bookmarks,$uid,$database) {
 	
 	foreach ($bookmarks as $bookmark) {
 		$title = htmlspecialchars($bookmark['bmTitle'],ENT_QUOTES,'UTF-8');
-		if(strlen($bookmark['dateGroupModified'])>0) {
-			$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`bmModified`,`userID`) VALUES ('".$bookmark['bmID']."', '".$bookmark['bmParentID']."', ".$bookmark['bmIndex'].", '$title', '".$bookmark['bmType']."', '".$bookmark['bmURL']."', ".$bookmark['bmAdded'].", ".$bookmark['dateGroupModified'].", ".$uid.")";
-		}
-		else {
-			$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bookmark['bmID']."', '".$bookmark['bmParentID']."', ".$bookmark['bmIndex'].", '$title', '".$bookmark['bmType']."', '".$bookmark['bmURL']."', ".$bookmark['bmAdded'].", ".$uid.")";
-		}
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`bmModified`,`userID`) VALUES ('".$bookmark['bmID']."', '".$bookmark['bmParentID']."', ".$bookmark['bmIndex'].", '$title', '".$bookmark['bmType']."', '".$bookmark['bmURL']."', ".$bookmark['bmAdded'].", coalesce(NULL,".$bookmark['dateGroupModified']."), ".$uid.")";
 		e_log(9,$query);
 		$db->query($query);
 	}

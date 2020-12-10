@@ -472,10 +472,11 @@ hr {
     margin: 0;
     font-size: 1em;
     font-family: Roboto,Arial,Helvetica,sans-serif;
-    padding: 3px;
 }
 #mngsform table {
 	width: 100%;
+	border-collapse: collapse;
+	border-spacing: 0;
 }
 .bright {
 	text-align: right;
@@ -637,6 +638,12 @@ input[type="submit"]:disabled {
 	background: transparent;
 	font-size: 20px;
 	cursor: default;
+}
+span.rdesc {
+    font-size: 0.75em;
+    color: darkgrey;
+    width: 100%;
+    display: block;
 }
 #bookmarks {
 	display: block;
