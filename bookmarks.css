@@ -211,6 +211,7 @@
 	border: 0;
 	border-bottom: 1px solid #bbb;
 	font-size: 1.2em;
+	outline: 0;
 }
 .mbmdialog input:disabled {
 	background-color: transparent;
@@ -305,6 +306,7 @@
 	width: 200px !important;
 	line-height: unset !important;
 	border: 1px solid #bbb;
+	outline: 0;
 }
 .clientname:hover > input {
 	display: block;
