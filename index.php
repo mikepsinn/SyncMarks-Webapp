@@ -11,6 +11,7 @@ if (!isset ($_SESSION['fauth'])) {
     session_start();
 }
 
+include_once "config.inc.php.dist";
 include_once "config.inc.php";
 set_error_handler("e_log");
 if(!file_exists($database)) initDB($database,$suser,$spwd);
@@ -1779,7 +1780,7 @@ function doLogin($database,$realm) {
 				<link rel='shortcut icon' type='image/x-icon' href='.images/bookmarks.ico'>
 				<link rel='manifest' href='./manifest.json'>
 				<meta name='theme-color' content='#0879D9'>
-				<title>Bookmarks</title>
+				<title>SyncMarks</title>
 			</head>
 			<body>
 				You must login to use this tool.

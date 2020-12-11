@@ -1,12 +1,12 @@
 <?php
-$database = __DIR__.'/database/bookmarks.db';
-$logfile = '/var/log/bookmark.log';
-$realm = 'Bookmarks';
+$database = __DIR__.'/database/bookmarks.db'; // Path to database
+$logfile = '/var/log/bookmark.log'; // Full path to logfile
+$realm = 'SyncMarks'; // Used for logging in
 $loglevel = 2; // 	9=debug; 8=notice; 4=parse; 2=warn; 1=error
-$sender = 'bookmarks@yourdomain.com';
-$suser = 'admin';
-$spwd = 'mypass';
-$cexpjson = false; // if set to true, this creates a json file which is send to browser on import, containing your bookmarks
+$sender = 'bookmarks@yourdomain.com'; // From which sender address will informational mails be send
+$suser = 'admin'; // Used for firstime login
+$spwd = 'mypass'; // Used for firstime login
+$cexpjson = false; // if set to true (and loglevel >= 9), this creates a json file which is send to browser on import, containing your bookmarks
 $enckey = 'Cu1815ZRtooY9SYX'; // random key for encryption
 $enchash = '2EOkV9DPTndhcAU7'; // random hash for encryption
 ?>
