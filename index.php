@@ -412,7 +412,7 @@ if(isset($_POST['caction'])) {
 			
 			if(strlen($jerrmsg) > 0) {
 				e_log(1,"JSON error: ".$jerrmsg);
-				file_put_contents("import_error.json", urldecode($_POST['bookmark']),true);
+				file_put_contents("import_error.json",urldecode($_POST['bookmark']),true);
 				die(json_encode($jerrmsg));
 			}
 
@@ -552,7 +552,7 @@ if(isset($_GET['gurls'])) {
 	
 	if (!empty($notificationData)) {
 		foreach($notificationData as $key => $notification) {
-			$myObj[$key]['title'] = html_entity_decode($notification['title']);
+			$myObj[$key]['title'] = html_entity_decode($notification['title'],ENT_QUOTES,'UTF-8');
 			$myObj[$key]['url'] = $notification['message'];
 			$myObj[$key]['nkey'] = $notification['id'];
 			$myObj[$key]['nOption'] = $uOptions['notifications'];
@@ -1031,6 +1031,9 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 		e_log(9,$query);
 		$statement->execute();
 		$bookmarkData = $statement->fetchAll(PDO::FETCH_ASSOC);
+		foreach($bookmarkData as $key => $entry) {
+			$bookmarkData[$key]['bmTitle'] = html_entity_decode($entry['bmTitle'],ENT_QUOTES,'UTF-8');
+		}
 	}
 	else {
 		e_log(2,"Client not found in database, registering now");
@@ -1060,7 +1063,6 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 		else {
 			e_log(8,"No bookmarks found to delete from the database");
 		}
-
 		return $bookmarkData;
 	}
 	else {
@@ -1632,7 +1634,7 @@ function makeHTMLTree($arr) {
 	
 	foreach($arr as $bm) {
 		if($bm['bmType'] == "bookmark") {
-			$title = htmlspecialchars_decode($bm['bmTitle'],ENT_QUOTES);
+			$title = html_entity_decode($bm['bmTitle'],ENT_QUOTES,'UTF-8');
 			$bookmark = "\n<li class='file'><a id='".$bm['bmID']."' title='".$title."' rel='noopener' target='_blank' href='".$bm['bmURL']."'>".$title."</a></li>%ID".$bm['bmParentID'];
 			$bookmarks = str_replace("%ID".$bm['bmParentID'], $bookmark, $bookmarks);
 		}
@@ -1707,14 +1709,14 @@ function getBookmarks($uid,$database) {
 	$statement->execute();
 	$userMarks = $statement->fetchAll(PDO::FETCH_ASSOC);
 	foreach($userMarks as &$element) {
-		$element['bmTitle'] = html_entity_decode($element['bmTitle']);
+		$element['bmTitle'] = html_entity_decode($element['bmTitle'],ENT_QUOTES,'UTF-8');
 	}
 	$db = NULL;
 	return $userMarks;
 }
 
 function c2hmarks($item, $key) {
-	html_entity_decode($item);
+	html_entity_decode($item,ENT_QUOTES,'UTF-8');
 }
 
 function doLogin($database,$realm) {
