@@ -1033,7 +1033,7 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 		$statement->execute();
 		$bookmarkData = $statement->fetchAll(PDO::FETCH_ASSOC);
 		foreach($bookmarkData as $key => $entry) {
-			$bookmarkData[$key]['bmTitle'] = html_entity_decode($entry['bmTitle'],ENT_QUOTES,'UTF-8');
+			$bookmarkData[$key]['bmTitle'] = html_entity_decode($entry['bmTitle'],ENT_QUOTES,'UTF-8'); 
 		}
 	}
 	else {
