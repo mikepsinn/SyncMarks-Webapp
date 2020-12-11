@@ -1635,7 +1635,7 @@ function makeHTMLTree($arr) {
 	
 	foreach($arr as $bm) {
 		if($bm['bmType'] == "bookmark") {
-			$title = html_entity_decode($bm['bmTitle'],ENT_QUOTES,'UTF-8');
+			$title = html_entity_decode($bm['bmTitle'],ENT_QUOTES,'UTF-8'); 
 			$bookmark = "\n<li class='file'><a id='".$bm['bmID']."' title='".$title."' rel='noopener' target='_blank' href='".$bm['bmURL']."'>".$title."</a></li>%ID".$bm['bmParentID'];
 			$bookmarks = str_replace("%ID".$bm['bmParentID'], $bookmark, $bookmarks);
 		}
