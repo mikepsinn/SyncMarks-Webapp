@@ -42,12 +42,12 @@
 }
 .mmenu {
 	position: fixed;
-	top: 56px;
+	top: 51px;
 	z-index: 10;
 	left: 5px;
 	width: 100%;
 	background-color: white;
-	border-radius: 3px;
+	border-radius: 4px;
 	border: 1px solid #d8d8d8;
 	display: none;
 	margin-left: -7px;
@@ -105,8 +105,7 @@
 	background-color: #bbb;
 }
 .hline {
-	width: 35px;
-	height: 5px;
+	height: 3px;
 	background-color: white;
 	margin: 6px 0;
 }
@@ -137,7 +136,7 @@
 	padding: 3px 0 5px 50px;
 }
 #hmenu {
-	width: 35px;
+	width: 25px;
 	padding: 9px 10px;
 	background-color: transparent;
 	cursor: pointer;
@@ -157,7 +156,7 @@
 	box-sizing: border-box;
 	box-shadow: 1px 1px 4px rgba(0,0,0,.2);
 	border: 1px solid #bbb;
-	z-index: 10;
+	z-index: 11;
 	background-color: #fff;
 	padding: 24px;
 	margin: 0 auto;
@@ -212,6 +211,7 @@
 	border: 0;
 	border-bottom: 1px solid #bbb;
 	font-size: 1.2em;
+	outline: 0;
 }
 .mbmdialog input:disabled {
 	background-color: transparent;
@@ -306,6 +306,7 @@
 	width: 200px !important;
 	line-height: unset !important;
 	border: 1px solid #bbb;
+	outline: 0;
 }
 .clientname:hover > input {
 	display: block;
@@ -473,10 +474,11 @@ hr {
     margin: 0;
     font-size: 1em;
     font-family: Roboto,Arial,Helvetica,sans-serif;
-    padding: 3px;
 }
 #mngsform table {
 	width: 100%;
+	border-collapse: collapse;
+	border-spacing: 0;
 }
 .bright {
 	text-align: right;
@@ -547,7 +549,7 @@ input[type="submit"]:disabled {
 	position: absolute;
 	right: 0;
 	width: 100%;
-	top: 55px;
+	top: 51px;
 	border: 0;
 	font-family: consolas, courier new;
 	font-size: 0.8em;
@@ -622,12 +624,12 @@ input[type="submit"]:disabled {
 }
 #menu {
 	position: absolute;
-	height: 56px;
+	height: 51px;
 	background: #0879D9;
 	left: 0;
 	right: 0;
 	top: 0;
-	font-family: Segoe UI;
+	font-family: Roboto,Helvetica Neue,sans-serif,Segoe UI;
 	text-align: left;
 }
 #menu a {
@@ -636,7 +638,14 @@ input[type="submit"]:disabled {
 	display: block;
 	line-height: 50px;
 	background: transparent;
-	font-size: 24px;
+	font-size: 20px;
+	cursor: default;
+}
+span.rdesc {
+    font-size: 0.75em;
+    color: darkgrey;
+    width: 100%;
+    display: block;
 }
 #bookmarks {
 	display: block;
@@ -649,7 +658,7 @@ input[type="submit"]:disabled {
 	padding: 4px;
 	font-family: Segoe UI;
 	bottom: 0;
-	top: 56px;
+	top: 51px;
 	font-size: 0.9em;
 }
 #bookmarks ol.tree {
@@ -1005,6 +1014,9 @@ input:checked + .slider:before {
 	text-align: center;
 }
 @media screen and (min-device-width: 1024px) {
+	#meheader {
+		border-radius: 4px 4px 0 0;
+	}
 	#mngsform {
 		padding: 10px;
 		width: 300px;
@@ -1012,7 +1024,6 @@ input:checked + .slider:before {
 	#logfile {
 		width: 50%;
 		opacity: .7;
-		top: 24px;
 		bottom: 25px;
 	}	
 	.clientname input {
@@ -1031,15 +1042,12 @@ input:checked + .slider:before {
 	.NotiTableCell .fa {
 		display: none;
 	}
-	.mbmdialog {
-		top: 30px;
-	}
 	.mmenu {
-		top: 30px;
 		bottom: unset;
 		box-shadow: 1px 1px 4px rgba(0,0,0,.2);
 		margin: 0 auto;
 		width: 300px;
+		top: 57px;
 	}
 	.client .clientname {
 		width: calc(100% - 65px) !important;
@@ -1056,66 +1064,7 @@ input:checked + .slider:before {
 	#nmessagesform {
 		width: 580px;
 	}
-	#menu {
-	height: 23px;
-	background: #e1e1e1;
-	text-align: center;
-	border-bottom: 1px solid #bbb;
-	}
-	#menu .asform {
-		background-color: #f7f7f7;
-		color: #29302e;
-		border-color: #b0b0b0;
-		border-width: 1px 0px 1px 1px;
-		border-style: solid;
-	}
-	#menu a {
-		line-height: 23px;
-		color: #333;
-		font-size: unset;
-	}
-	#menu a:hover {
-		background: lightgray;
-		color: black;
-	}
-	#hmenu {
-		width: 10px;
-		padding: 3px 10px;
-		margin-right: 10px;
-	}
-	#hmenu:hover {
-		background-color: darkgray;
-	}
-	.hline {
-		width: 2px;
-		height: 2px;
-		background-color: black;
-		margin: 3px 0;
-	}
-	#menu button {
-		color: darkgrey;
-		font-size: 23px;
-		top: -9px;
-	}
-	#menu button.asform {
-		background-color: #f7f7f7;
-		color: #424242;
-		width: 40px;
-		height: 20px;
-		top: 2px;
-		line-height: 10px;
-		font-size: 15px;
-		border-width: 1px 1px 1px 0;
-		border-style: solid;
-	}
-	#menu input {
-		color: white;
-		font-size: 0.8em;
-		height: 20px;
-		top: 2px;
-	}
 	#bookmarks {
-		top: 24px;
 		bottom: 24px;
 	}
 	#bookmarks li {

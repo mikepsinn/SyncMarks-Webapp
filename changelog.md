@@ -1,5 +1,13 @@
 ChangeLog
 =========
+1.2.15 (2020-12-09)
+-------------------------
+* Changes in GUI
+* Changes in include files
+* Fix for import bookmark with quote
+* Fix for encoding
+
+
 1.2.14 (2020-12-05)
 -------------------------
 * Reworked menu

@@ -11,6 +11,7 @@ if (!isset ($_SESSION['fauth'])) {
     session_start();
 }
 
+include_once "config.inc.php.dist";
 include_once "config.inc.php";
 set_error_handler("e_log");
 if(!file_exists($database)) initDB($database,$suser,$spwd);
@@ -412,7 +413,7 @@ if(isset($_POST['caction'])) {
 			
 			if(strlen($jerrmsg) > 0) {
 				e_log(1,"JSON error: ".$jerrmsg);
-				file_put_contents("import_error.json", urldecode($_POST['bookmark']),true);
+				file_put_contents("import_error.json",urldecode($_POST['bookmark']),true);
 				die(json_encode($jerrmsg));
 			}
 
@@ -552,7 +553,7 @@ if(isset($_GET['gurls'])) {
 	
 	if (!empty($notificationData)) {
 		foreach($notificationData as $key => $notification) {
-			$myObj[$key]['title'] = html_entity_decode($notification['title']);
+			$myObj[$key]['title'] = html_entity_decode($notification['title'],ENT_QUOTES,'UTF-8');
 			$myObj[$key]['url'] = $notification['message'];
 			$myObj[$key]['nkey'] = $notification['id'];
 			$myObj[$key]['nOption'] = $uOptions['notifications'];
@@ -560,7 +561,7 @@ if(isset($_GET['gurls'])) {
 		die(json_encode($myObj));
 	}
 	else {
-		die(json_encode(""));
+		die();
 	}
 }
 
@@ -717,7 +718,6 @@ function pushlink($title,$url,$userdata) {
 
 function edcrpt($action, $text) {
 	global $enckey, $enchash;
-	e_log(8,"enckey: ".$enckey."|enchash: ".$enchash);
     $output = false;
     $encrypt_method = "AES-256-CBC";
     $key = hash('sha256', $enckey);
@@ -975,14 +975,14 @@ function addBookmark($database, $ud, $bm) {
 		}
 	}
 	e_log(8,"Get folder data for adding bookmark");
-	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex`, `bmID` FROM `bookmarks` WHERE `userID` = ".$ud['userID']." AND `bmID` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userId` = ".$ud['userID'].");";
+	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex`, `bmParentID` FROM `bookmarks` WHERE `userID` = ".$ud['userID']." AND `bmParentID` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userId` = ".$ud['userID'].");";
 
 	$statement = $db->prepare($query);
 	e_log(9,$query);
 	$statement->execute();
 	$folderData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
 	
-	if(is_null($folderData['bmID'])) {
+	if(is_null($folderData['bmParentID'])) {
 		e_log(8,"Folder not found, using 'unfiled_____'.");
 		$query = "SELECT MAX(`bmIndex`) +1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `userId` = ".$ud['userID'].";";
 		$statement = $db->prepare($query);
@@ -995,7 +995,7 @@ function addBookmark($database, $ud, $bm) {
 	if(!empty($folderData)) {
 		$title = htmlspecialchars($bm['title'],ENT_QUOTES,'UTF-8');
 		e_log(8,"Add bookmark '".$title."'");
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$folderData['bmID']."', ".$folderData['nindex'].", '".$title."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].")";
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$folderData['bmParentID']."', ".$folderData['nindex'].", '".$title."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].")";
 		e_log(9,$query);
 		try {
 			$db->exec($query);
@@ -1032,6 +1032,9 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 		e_log(9,$query);
 		$statement->execute();
 		$bookmarkData = $statement->fetchAll(PDO::FETCH_ASSOC);
+		foreach($bookmarkData as $key => $entry) {
+			$bookmarkData[$key]['bmTitle'] = html_entity_decode($entry['bmTitle'],ENT_QUOTES,'UTF-8'); 
+		}
 	}
 	else {
 		e_log(2,"Client not found in database, registering now");
@@ -1061,7 +1064,6 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 		else {
 			e_log(8,"No bookmarks found to delete from the database");
 		}
-
 		return $bookmarkData;
 	}
 	else {
@@ -1157,7 +1159,7 @@ function getSiteTitle($url) {
 		preg_match("/\<title\>(.*)\<\/title\>/i",$src,$title_arr);
 		$title = (strlen($title_arr[1]) > 0) ? strval($title_arr[1]) : 'unknown';
 		e_log(8,"Titel for site is '$title'");
-		return mb_convert_encoding($title,"UTF-8");
+		return  htmlspecialchars(mb_convert_encoding($title,"UTF-8"),ENT_QUOTES,'UTF-8');
 	} else {
 		return "unknown";
 	}
@@ -1270,6 +1272,7 @@ function minFile($infile) {
 function htmlHeader($ud) {
 	global $database;
 	$db = new PDO('sqlite:'.$database);
+	$version = explode (" ", file_get_contents('./changelog.md',NULL,NULL,22,20))[0];
 	$htmlHeader = "<!DOCTYPE html>
 		<html>
 			<head>
@@ -1280,7 +1283,7 @@ function htmlHeader($ud) {
 				<link rel='shortcut icon' type='image/x-icon' href='./images/bookmarks.ico'>
 				<link rel='manifest' href='manifest.json'>
 				<meta name='theme-color' content='#0879D9'>
-				<title>Bookmarks</title>
+				<title>SyncMarks v$version</title>
 			</head>
 			<body>";
 	
@@ -1291,7 +1294,7 @@ function htmlHeader($ud) {
 		<div class='hline'></div>
 	</div>
 	<button>&#8981;</button><input type='search' name='bmsearch' value=''>
-	<a id='mprofile' title=\"Last login: ".date("d.m.y H:i",(int)$ud['userOldLogin'])."\">My Bookmarks</a>
+	<a id='mprofile' title='v$version'>SyncMarks</a>
 		</div>";
 	
 	if($ud['userType'] == 2) {
@@ -1335,8 +1338,6 @@ function htmlHeader($ud) {
 	}
 
 	$clink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-	$version = explode (" ", file_get_contents('./changelog.md',NULL,NULL,21,20))[0];
-	
 	$bookmarklet = "javascript:void function(){window.open('$clink?title='+document.title+'&link='+encodeURIComponent(document.location.href),'bWindow','width=480,height=245',replace=!0)}();";	
 	$mainmenu = "<div id='mainmenu' class='mmenu'>
 					<ul>
@@ -1427,10 +1428,15 @@ function htmlHeader($ud) {
 	$mngclientform = "<div id='mngcform' class='mmenu'>".bClientlist($ud['userID'], $database)."</div>";
 	$mngsettingsform = "<div id='mngsform' class='mmenu'><h6>SyncMarks Settings</h6>
 	<table>
-		<tr><td>".$ud['userName']."</td><td class='bright'><button id='muser'>Edit</button></td></tr>
-		<tr><td>**********</td><td class='bright'><button id='mpassword'>Edit</button></td></tr>
+		<tr><td colspan='2' style='height: 5px;'></td></tr>
+		<tr><td><span class='rdesc'>Username:</span>".$ud['userName']."</td><td class='bright'><button id='muser'>Edit</button></td></tr>
+		<tr><td colspan='2' style='height: 5px;'></td></tr>
+		<tr><td><span class='rdesc'>Password:</span>**********</td><td class='bright'><button id='mpassword'>Edit</button></td></tr>
+		<tr><td colspan='2' style='height: 5px;'></td></tr>
 		<tr><td colspan=2 class='bcenter'><button id='clientedt'>Show Clients</button></td></tr>
+		<tr><td colspan='2' style='height: 2px;'></td></tr>
 		<tr><td colspan=2 class='bcenter'><button id='pbullet'>Pushbullet</button></td></tr>
+		<tr><td colspan='2' style='height: 5px;'></td></tr>
 		<tr><td>Notifications</td><td class='bright'>$oswitch</td></tr>
 	</table>
 	<div id='bmlet'><a href=\"$bookmarklet\">Bookmarklet</a></div>
@@ -1629,7 +1635,7 @@ function makeHTMLTree($arr) {
 	
 	foreach($arr as $bm) {
 		if($bm['bmType'] == "bookmark") {
-			$title = htmlspecialchars_decode($bm['bmTitle'],ENT_QUOTES);
+			$title = html_entity_decode($bm['bmTitle'],ENT_QUOTES,'UTF-8'); 
 			$bookmark = "\n<li class='file'><a id='".$bm['bmID']."' title='".$title."' rel='noopener' target='_blank' href='".$bm['bmURL']."'>".$title."</a></li>%ID".$bm['bmParentID'];
 			$bookmarks = str_replace("%ID".$bm['bmParentID'], $bookmark, $bookmarks);
 		}
@@ -1654,12 +1660,8 @@ function importMarks($bookmarks,$uid,$database) {
 	$db->beginTransaction();
 	
 	foreach ($bookmarks as $bookmark) {
-		if(strlen($bookmark['dateGroupModified'])>0) {
-			$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`bmModified`,`userID`) VALUES ('".$bookmark['bmID']."', '".$bookmark['bmParentID']."', ".$bookmark['bmIndex'].", '".$bookmark['bmTitle']."', '".$bookmark['bmType']."', '".$bookmark['bmURL']."', ".$bookmark['bmAdded'].", ".$bookmark['dateGroupModified'].", ".$uid.")";
-		}
-		else {
-			$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bookmark['bmID']."', '".$bookmark['bmParentID']."', ".$bookmark['bmIndex'].", '".$bookmark['bmTitle']."', '".$bookmark['bmType']."', '".$bookmark['bmURL']."', ".$bookmark['bmAdded'].", ".$uid.")";
-		}
+		$title = htmlspecialchars($bookmark['bmTitle'],ENT_QUOTES,'UTF-8');
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`bmModified`,`userID`) VALUES ('".$bookmark['bmID']."', '".$bookmark['bmParentID']."', ".$bookmark['bmIndex'].", '$title', '".$bookmark['bmType']."', '".$bookmark['bmURL']."', ".$bookmark['bmAdded'].", coalesce(NULL,".$bookmark['dateGroupModified']."), ".$uid.")";
 		e_log(9,$query);
 		$db->query($query);
 	}
@@ -1708,14 +1710,14 @@ function getBookmarks($uid,$database) {
 	$statement->execute();
 	$userMarks = $statement->fetchAll(PDO::FETCH_ASSOC);
 	foreach($userMarks as &$element) {
-		$element['bmTitle'] = html_entity_decode($element['bmTitle']);
+		$element['bmTitle'] = html_entity_decode($element['bmTitle'],ENT_QUOTES,'UTF-8');
 	}
 	$db = NULL;
 	return $userMarks;
 }
 
 function c2hmarks($item, $key) {
-	html_entity_decode($item);
+	html_entity_decode($item,ENT_QUOTES,'UTF-8');
 }
 
 function doLogin($database,$realm) {
@@ -1778,7 +1780,7 @@ function doLogin($database,$realm) {
 				<link rel='shortcut icon' type='image/x-icon' href='.images/bookmarks.ico'>
 				<link rel='manifest' href='./manifest.json'>
 				<meta name='theme-color' content='#0879D9'>
-				<title>Bookmarks</title>
+				<title>SyncMarks</title>
 			</head>
 			<body>
 				You must login to use this tool.
