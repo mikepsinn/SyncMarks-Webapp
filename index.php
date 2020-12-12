@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.14
+ * @version 1.2.16
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -954,7 +954,8 @@ function addBookmark($database, $ud, $bm) {
 	$db = new PDO('sqlite:'.$database);
 	$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 	e_log(8,"Check if bookmark already exists for user.");
-	$query = "SELECT COUNT(*) AS bmcount, MAX(bmAction) as bmaction FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' and userID = ".$ud["userID"];
+	file_put_contents("bm.txt",print_r($bm,true),true);
+	$query = "SELECT `bmID`, COUNT(*) AS `bmcount`, MAX(`bmAction`) AS `bmaction` FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' AND `bmParentID` = '".$bm["folder"]."' AND `userID` = ".$ud["userID"].";";
 	e_log(9,$query);
 	$statement = $db->prepare($query);
 	$statement->execute();
@@ -962,55 +963,43 @@ function addBookmark($database, $ud, $bm) {
 	if($bmExistData[0]["bmcount"] > 0) {
 		if($bmExistData[0]["bmaction"] == 1) {
 			e_log(8,"Undelete removed bookmark.");
-			$query = "UPDATE `bookmarks` SET `bmAction` = NULL WHERE `bmUrl` = '".$bm['url']."' AND userID = ".$ud["userID"].";";
+			$query = "UPDATE `bookmarks` SET `bmAction` = NULL WHERE `bmID` = '".$bmExistData[0]["bmID"]."' AND userID = ".$ud["userID"].";";
 			$db->exec($query);
 			e_log(9,$query);
-			$message = "Bookmark not added, it exists already for this user, instead bookmark is undeleted now on old position.";
+			$message = "Bookmark not added at server, it already exists for this user, bookmark undeleted now.";
 			e_log(8,$message);
 			return $message;
 		}
 		else {
-			e_log(8,"Bookmark not added, it exists already for this user");
-			return "Bookmark not added, it exists already for this user";
+			$message = "Bookmark not added at server, it already exists";
+			e_log(8,$message);
+			return $message;
 		}
 	}
-	e_log(8,"Get folder data for adding bookmark");
-	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex`, `bmParentID` FROM `bookmarks` WHERE `userID` = ".$ud['userID']." AND `bmParentID` IN (SELECT `bmId` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userId` = ".$ud['userID'].");";
-
+	e_log(8,"Get folder for adding bookmark");
+	$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmID` = '".$bm["folder"]."' AND `userID` = ".$ud['userID']." UNION ALL SELECT 'unfiled_____' WHERE NOT EXISTS (SELECT 1 FROM `bookmarks` WHERE `bmID` = '".$bm["folder"]."');";
 	$statement = $db->prepare($query);
 	e_log(9,$query);
 	$statement->execute();
-	$folderData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
+	$folderID = $statement->fetchAll(PDO::FETCH_ASSOC)[0]['bmID'];
+
+	e_log(8,"Get new index for bookmark");
+	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex` FROM `bookmarks` WHERE `userID` = ".$ud['userID']." AND `bmParentID` = '$folderID';";
+	$statement = $db->prepare($query);
+	e_log(9,$query);
+	$statement->execute();
+	$nindex = $statement->fetchAll(PDO::FETCH_ASSOC)[0]['nindex'];
 	
-	if(is_null($folderData['bmParentID'])) {
-		e_log(8,"Folder not found, using 'unfiled_____'.");
-		$query = "SELECT MAX(`bmIndex`) +1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `userId` = ".$ud['userID'].";";
-		$statement = $db->prepare($query);
-		e_log(9,$query);
-		$statement->execute();
-		$folderData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
-		$folderData['bmParentID'] = 'unfiled_____';
-	}
-	
-	if(!empty($folderData)) {
-		$title = htmlspecialchars($bm['title'],ENT_QUOTES,'UTF-8');
-		e_log(8,"Add bookmark '".$title."'");
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$folderData['bmParentID']."', ".$folderData['nindex'].", '".$title."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].")";
-		e_log(9,$query);
-		try {
-			$db->exec($query);
-		}
-		catch(PDOException $e) {
-			e_log(1,'INSERT failed: '.$e->getMessage());
-			return "Adding bookmark failed.";
-		}
-		$db = NULL;
-		return 1;
-	}
-	else {
-		$db = NULL;
-		e_log(1,"Couldn't add bookmark, folder do not exists.");
-		return "Couldn't add bookmark, folder do not exists.";
+	$title = htmlspecialchars($bm['title'],ENT_QUOTES,'UTF-8');
+	e_log(8,"Add bookmark '".$title."'");
+	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '$folderID', $nindex, '".$title."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].");";
+	e_log(9,$query);
+
+	try {
+		$db->exec($query);
+	} catch(PDOException $e) {
+		e_log(1,'INSERT failed: '.$e->getMessage());
+		return "Adding bookmark failed.";
 	}
 }
 
@@ -1661,7 +1650,8 @@ function importMarks($bookmarks,$uid,$database) {
 	
 	foreach ($bookmarks as $bookmark) {
 		$title = htmlspecialchars($bookmark['bmTitle'],ENT_QUOTES,'UTF-8');
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`bmModified`,`userID`) VALUES ('".$bookmark['bmID']."', '".$bookmark['bmParentID']."', ".$bookmark['bmIndex'].", '$title', '".$bookmark['bmType']."', '".$bookmark['bmURL']."', ".$bookmark['bmAdded'].", coalesce(NULL,".$bookmark['dateGroupModified']."), ".$uid.")";
+		$dateGroupModified = strlen($bookmark['dateGroupModified']) == 0 ? "NULL" : $bookmark['dateGroupModified'];
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`bmModified`,`userID`) VALUES ('".$bookmark['bmID']."', '".$bookmark['bmParentID']."', ".$bookmark['bmIndex'].", '$title', '".$bookmark['bmType']."', '".$bookmark['bmURL']."', ".$bookmark['bmAdded'].", coalesce(NULL,$dateGroupModified), ".$uid.");";
 		e_log(9,$query);
 		$db->query($query);
 	}
