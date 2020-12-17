@@ -387,6 +387,7 @@ if(isset($_POST['caction'])) {
 		case "import":
 			$jmarks = json_decode($_POST['bookmark'],true);
 			$jerrmsg = "";
+			$client = $_POST['client'];
 			switch (json_last_error()) {
 				case JSON_ERROR_NONE:
 					$jerrmsg = '';
@@ -413,7 +414,8 @@ if(isset($_POST['caction'])) {
 			
 			if(strlen($jerrmsg) > 0) {
 				e_log(1,"JSON error: ".$jerrmsg);
-				file_put_contents("import_error.json",urldecode($_POST['bookmark']),true);
+				$filename = "import_".substr($client,0,8)."_".time().".json";
+				file_put_contents($filename,urldecode($_POST['bookmark']),true);
 				die(json_encode($jerrmsg));
 			}
 
@@ -427,9 +429,11 @@ if(isset($_POST['caction'])) {
 			break;
 		case "export":
 			e_log(8,"Browser requested bookmark import...");
+			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$bookmarks = json_encode(getBookmarks($userData['userID'],$database));
 			if($loglevel = 9 && $cexpjson == true) {
-				file_put_contents("export_".preg_replace('/[^A-Za-z0-9\-]/', '', $userData['userName'])."_".time().".json",$bookmarks);
+				$filename = "export_".substr($client,0,8)."_".time().".json";
+				file_put_contents($filename,$bookmarks,true);
 			}
 			echo $bookmarks;
 			e_log(8,count(json_decode($bookmarks))." bookmarks send to client.");
@@ -856,7 +860,7 @@ function editBookmark($bm, $database, $ud) {
 function moveBookmark($database, $ud, $bm) {
 	$db = new PDO('sqlite:'.$database);
 	e_log(8,"Bookmark seems to be moved, checking current folder data");
-	$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userID` = ".$ud['userID'];
+	$query = "SELECT `bmID`, `bmParentID` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userID` = ".$ud['userID'].";";
 	$statement = $db->prepare($query);
 	e_log(9,$query);
 	$statement->execute();
@@ -869,7 +873,7 @@ function moveBookmark($database, $ud, $bm) {
 
 	if(array_key_exists("url", $bm)) {
 		e_log(8,"Checking bookmark data before moving it");
-		$query = "SELECT * FROM `bookmarks` WHERE `userID`= ".$ud["userID"]." AND `bmURL` = '".$bm["url"]."'";
+		$query = "SELECT * FROM `bookmarks` WHERE `userID`= ".$ud["userID"]." AND `bmURL` = '".$bm["url"]."';";
 		$statement = $db->prepare($query);
 		e_log(9,$query);
 		$statement->execute();
@@ -1016,7 +1020,7 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 	if($clientData) {
 		$lastseen = $clientData["lastseen"];
 		e_log(8,"Get changed bookmarks for client $cl");
-		$query = "SELECT b.bmID AS fdID, b.bmTitle AS fdName, b.bmIndex AS fdIndex, a.bmIndex, a.bmTitle, a.bmType, a.bmURL, a.bmAdded, a.bmModified, a.bmAction FROM bookmarks a INNER JOIN bookmarks b ON b.bmID = a.bmParentID WHERE (a.bmAdded >= $lastseen AND a.userID = $uid) OR (a.bmAction = 1 AND a.bmAdded >= $lastseen AND a.userID = $uid)";
+		$query = "SELECT b.bmID AS fdID, b.bmTitle AS fdName, b.bmIndex AS fdIndex, a.bmID, a.bmIndex, a.bmTitle, a.bmType, a.bmURL, a.bmAdded, a.bmModified, a.bmAction FROM bookmarks a INNER JOIN bookmarks b ON b.bmID = a.bmParentID WHERE (a.bmAdded >= $lastseen AND a.userID = $uid) OR (a.bmAction = 1 AND a.bmAdded >= $lastseen AND a.userID = $uid);";
 		$statement = $db->prepare($query);
 		e_log(9,$query);
 		$statement->execute();
@@ -1032,6 +1036,7 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 	}
 
 	if (!empty($bookmarkData)) {
+		global $cexpjson;
 		updateClient($dbase, $cl, $ct, $ud, $time, true);
 		e_log(8,"Try to find bookmarks, which could be completely deleted");
 		$query = "SELECT bmID FROM bookmarks WHERE bmAdded <= (SELECT MIN(lastseen) FROM clients WHERE uid = $uid AND lastseen > 1) AND bmAction = 1";
@@ -1053,6 +1058,11 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 		else {
 			e_log(8,"No bookmarks found to delete from the database");
 		}
+
+		$filename = "changes_".substr($cl,0,8)."_".time().".json";
+		if($cexpjson && $loglevel = 9) file_put_contents($filename,json_encode($bookmarkData),true);
+
+		e_log(8,"Found ".count($bookmarkData)." changes. Sending them to the client");
 		return $bookmarkData;
 	}
 	else {
