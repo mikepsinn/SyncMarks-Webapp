@@ -1271,7 +1271,8 @@ function minFile($infile) {
 function htmlHeader($ud) {
 	global $database;
 	$db = new PDO('sqlite:'.$database);
-	$version = explode (" ", file_get_contents('./changelog.md',NULL,NULL,22,20))[0];
+	$version = explode ("\n", file_get_contents('./changelog.md',NULL,NULL,0,30))[2];
+	$version = substr($version,0,strpos($version, " "));
 	$htmlHeader = "<!DOCTYPE html>
 		<html>
 			<head>
