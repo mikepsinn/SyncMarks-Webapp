@@ -1450,7 +1450,7 @@ function htmlHeader($ud) {
 
 function bClientlist($uid, $database) {
 	$db = new PDO('sqlite:'.$database);
-	$query = "SELECT * FROM `clients` WHERE `uid` = $uid ORDER BY `lastseen` DESC";
+	$query = "SELECT * FROM `clients` WHERE `uid` = $uid ORDER BY `lastseen` DESC;";
 	$statement = $db->prepare($query);
 	$statement->execute();
 	$clientData = $statement->fetchAll(PDO::FETCH_ASSOC);
@@ -1469,7 +1469,7 @@ function bClientlist($uid, $database) {
 
 function notiList($uid, $loop, $database) {
 	$db = new PDO('sqlite:'.$database);
-	$query = "SELECT n.id, n.title, n.message, n.publish_date, IFNULL(c.cname, n.repeat) AS client FROM notifications n LEFT JOIN clients c ON c.cid = n.repeat WHERE n.userID = $uid AND n.nloop = $loop ORDER BY n.publish_date";
+	$query = "SELECT n.id, n.title, n.message, n.publish_date, IFNULL(c.cname, n.repeat) AS client FROM notifications n LEFT JOIN clients c ON c.cid = n.repeat WHERE n.userID = $uid AND n.nloop = $loop ORDER BY n.publish_date;";
 	$statement = $db->prepare($query);
 	$statement->execute();
 	$aNotitData = $statement->fetchAll(PDO::FETCH_ASSOC);
@@ -1757,7 +1757,7 @@ function doLogin($database,$realm) {
 
 				if($seid != $userData[0]['sessionID']) {
 					e_log(8,"Save session to database.");
-					$query = "UPDATE `users` SET `userLastLogin`= $aTime, `sessionID` = '$seid', `userOldLogin`= '$oTime' WHERE `userID` = '$uid'";
+					$query = "UPDATE `users` SET `userLastLogin`= $aTime, `sessionID` = '$seid', `userOldLogin`= '$oTime' WHERE `userID` = '$uid';";
 					$db->exec($query);
 					e_log(9,$query);
 				}
