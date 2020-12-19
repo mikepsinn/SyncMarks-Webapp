@@ -1,6 +1,6 @@
 <?php
-$database = __DIR__.'/database/bookmarks.db'; // Path to database
-$logfile = '/var/log/bookmark.log'; // Full path to logfile
+$database = __DIR__.'/database/syncmarks.db'; // Path to database
+$logfile = '/var/log/syncmarks.log'; // Full path to logfile
 $realm = 'SyncMarks'; // Used for logging in
 $loglevel = 2; // 	9=debug; 8=notice; 4=parse; 2=warn; 1=error
 $sender = 'bookmarks@yourdomain.com'; // From which sender address will informational mails be send

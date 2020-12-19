@@ -3,7 +3,7 @@ ChangeLog
 1.2.17 (2020-12-12)
 -------------------------
 * Fix XHR response
-* Remove tesfile creation
+* Changed tesfile creation
 
 
 1.2.16 (2020-12-12)
