@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.17
+ * @version 1.2.18
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -192,26 +192,22 @@ if(isset($_POST['madd'])) {
 }
 
 if(isset($_POST['mdel'])) {
-	$bmID = $_POST['id'];
-	$userID = $userData['userID'];
+	//$bmID = $_POST['id'];
+	$bmID = filter_var($_POST['id'], FILTER_SANITIZE_STRING);
+	//$userID = $userData['userID'];
 
-	try {
-		$db = new PDO('sqlite:'.$database);
-		$query = "UPDATE `bookmarks` SET `bmAction`= 1, `bmAdded`= '".round(microtime(true) * 1000)."' WHERE `bmID` = '".$bmID."' AND `userID` = ".$userID;
-		$db->exec($query);
-	}
-	catch(PDOException $e) {
-		e_log(1,'Exception : '.$e->getMessage());
-	}
-	$db = NULL;
-	if(!isset($_POST['rc'])) {
-		e_log(8,"Manual deleted bookmark ".$bmID);
-		e_log(9,$query);
-		die(bmTree($userData,$database));
+	$delMark = delMark($bmID);
+
+	if($delMark != 0) {
+		if(!isset($_POST['rc'])) {
+			e_log(8,"Deleted bookmark ".$bmID);
+			die(bmTree($userData,$database));
+		} else {
+			e_log(8,"Bookmark ".$bmID." deleted by Roundcube");
+			die();
+		}
 	} else {
-		e_log(8,"Bookmark ".$bmID." removed by Roundcube");
-		e_log(9,$query);
-		die();
+		e_log(2,"There was an problem removing the bookmark, please check the logfile");
 	}
 }
 
@@ -364,13 +360,34 @@ if(isset($_POST['caction'])) {
 			break;
 		case "delmark":
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
+
 			$client = $_POST['client'];
 			$ctime = round(microtime(true) * 1000);
+
+			$db = new PDO('sqlite:'.$database);
+			e_log(8,"Try to identify bookmark");
+
 			if(isset($bookmark['url'])) {
-				die(json_encode(delBookmark($database, $userData, $bookmark)));
+				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'bookmark' AND `bmIndex` = ".$bookmark['index']." AND `bmURL` = '".$bookmark['url']."' AND `userID` = ".$userData['userID'].";";
+				//die(json_encode(delBookmark($database, $userData, $bookmark)));
 			} else {
-				die(json_encode(delFolder($database, $userData, $bookmark)));
+				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmIndex` = ".$bookmark['index']." AND `bmTitle` = '".$bookmark['title']."' AND `userID` = ".$userData['userID'].";";
+				//die(json_encode(delFolder($database, $userData, $bookmark)));
 			}
+
+			e_log(9,$query);
+			$statement = $db->prepare($query);
+			$statement->execute();
+			$bData = $statement->fetchAll(PDO::FETCH_ASSOC);
+
+			if(count($bData) == 1) {
+				die(json_encode(delMark($bData[0]['bmID'])));
+			} else {
+				$message = "No unique bookmark found, bookmark not removed";
+				e_log(2,$message);
+				die(json_encode($message));
+			}
+
 			break;
 		case "startup":
 			$client = $_POST['client'];
@@ -632,6 +649,51 @@ echo "<div id='bookmarks'>$bmTree</div>";
 echo "<div id='hmarks' style='display: none'>$bmTree</div>";
 echo htmlFooter($userData['userID']);
 
+function delMark($bmID) {
+	global $userData,$database;
+	e_log(8,"Delete bookmark '$bmID'");
+	$db = new PDO('sqlite:'.$database);
+	$query = "UPDATE `bookmarks` SET `bmAction`= 1, `bmAdded`= '".round(microtime(true) * 1000)."' WHERE `bmID` = '$bmID' AND `userID` = ".$userData['userID'].";";
+	e_log(9,$query);
+
+	try {
+		$db->exec($query);
+	} catch(PDOException $e) {
+		e_log(1,'Exception : '.$e->getMessage());
+	}
+
+	$query = "SELECT `bmParentID`, `bmIndex`, `bmURL` FROM `bookmarks` WHERE `bmID` = '$bmID' AND `userID` = ".$userData['userID'].";";
+	e_log(9,$query);
+	$statement = $db->prepare($query);
+	$statement->execute();
+	$dData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
+
+	$query = "SELECT * FROM `bookmarks` WHERE `bmParentID` = '".$dData['bmParentID']."' AND `userID` = ".$userData['userID']." AND `bmIndex` > ".$dData['bmIndex']." ORDER BY bmIndex;";
+	e_log(9,$query);
+	$statement = $db->prepare($query);
+	$statement->execute();
+	$sData = $statement->fetchAll(PDO::FETCH_ASSOC);
+
+	e_log(8,"Shift index from other bookmarks in the folder");
+	$count = 0;
+	foreach ($sData as &$sMark) {
+		$nIndex = $sMark['bmIndex'] - 1;
+		$query = "UPDATE `bookmarks` SET `bmIndex`= $nIndex WHERE `bmID` = '".$sMark['bmID']."' AND `userID` = ".$userData['userID'].";";
+		e_log(9,$query);
+		$count = $db->exec($query);
+	}
+
+	if(!isset($dData['bmURL'])) {
+		e_log(8,"Bookmark is folder");
+		$query = "DELETE FROM `bookmarks` WHERE `bmParentID` = '$bmID' AND `userID` = ".$userData['userID'].";";
+		e_log(9,$query);
+		$db->exec($query);
+	}
+
+	$db = NULL;
+	return $count;
+}
+
 function cfolder($database,$ctime,$fname,$fbid,$ud) {
 	e_log(8,"Request to create folder $fname");
 	$db = new PDO('sqlite:'.$database);
@@ -778,6 +840,7 @@ $content.="$umarks\r\n</DL><p>";
 	echo $content;
 }
 
+/*
 function delFolder($database, $ud, $bm) {
 	$db = new PDO('sqlite:'.$database);
 	e_log(8,"Remove folder");
@@ -790,7 +853,8 @@ function delFolder($database, $ud, $bm) {
 	$db->exec($query);
 	return true;
 }
-
+*/
+/*
 function delBookmark($database, $ud, $bm) {
 	$db = new PDO('sqlite:'.$database);
 	e_log(8,"Remove bookmark");
@@ -799,6 +863,7 @@ function delBookmark($database, $ud, $bm) {
 	$db->exec($query);
 	return true;
 }
+*/
 
 function editFolder($bm, $database, $ud) {
 	$db = new PDO('sqlite:'.$database);

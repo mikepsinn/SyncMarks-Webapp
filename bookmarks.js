@@ -1,7 +1,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.17
+ * @version 1.2.18
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -453,6 +453,7 @@ function delBookmark(id, title) {
 		xhr.onreadystatechange = function () {
 			if (this.readyState == 4) {
 				if(this.status == 200) {
+					hideMenu();
 					document.getElementById('bookmarks').innerHTML = this.responseText;
 					document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
 				}
