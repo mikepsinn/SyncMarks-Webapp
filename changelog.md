@@ -3,6 +3,7 @@ ChangeLog
 1.2.18 (2020-12-21)
 -------------------------
 * Regenerate index at bookmark removal
+* Add context menu for non-system-folders
 
 
 1.2.17 (2020-12-12)

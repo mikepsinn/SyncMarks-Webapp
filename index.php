@@ -33,7 +33,15 @@ if(!isset($userData)) $userData = getUserdata($database);
 
 if(isset($_POST['bmedt'])) {
 	$db = new PDO('sqlite:'.$database);
-	$query = "UPDATE `bookmarks` SET `bmTitle` = '".$_POST['title']."', `bmURL` = '".validate_url($_POST['url'])."', `bmAdded` = '".round(microtime(true) * 1000)."' WHERE `bmID` = '".$_POST['id']."' AND `userID` = ".$userData['userID'];
+	e_log(8,"Edit entry '".$_POST['title']."'");
+
+	if(strlen($_POST['url']) > 4)
+		$url = '\''.validate_url($_POST['url']).'\'';
+	else
+		$url = 'NULL';
+
+	$query = "UPDATE `bookmarks` SET `bmTitle` = '".$_POST['title']."', `bmURL` = $url, `bmAdded` = '".round(microtime(true) * 1000)."' WHERE `bmID` = '".$_POST['id']."' AND `userID` = ".$userData['userID'];
+	e_log(9,$query);
 	$db->exec($query);
 	$count = $db = NULL;
 	if($count > 0)
@@ -1706,7 +1714,8 @@ function makeHTMLTree($arr) {
 		}
 		
 		if($bm['bmType'] == "folder") {
-			$nFolder = "\n<li id='f_".$bm['bmID']."'><label for=\"".$bm['bmTitle']."\">".$bm['bmTitle']."</label><input class='ffolder' value='".$bm['bmID']."' id=\"".$bm['bmTitle']."\" type=\"checkbox\"><ol>%ID".$bm['bmID']."\n</ol></li>";
+			$fclass = strpos($bm['bmID'], '_____') === false ? "class='folder'" : "";
+			$nFolder = "\n<li $fclass id='f_".$bm['bmID']."'><label for=\"".$bm['bmTitle']."\">".$bm['bmTitle']."</label><input class='ffolder' value='".$bm['bmID']."' id=\"".$bm['bmTitle']."\" type=\"checkbox\"><ol>%ID".$bm['bmID']."\n</ol></li>";
 			if(strpos($bookmarks, "%ID".$bm['bmParentID']) > 0) {
 				$nFolder = "\n".$nFolder."\n%ID".$bm['bmParentID'];
 				$bookmarks = str_replace("%ID".$bm['bmParentID'], $nFolder, $bookmarks);
