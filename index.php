@@ -16,7 +16,7 @@ include_once "config.inc.php";
 set_error_handler("e_log");
 if(!file_exists($database)) initDB($database,$suser,$spwd);
 
-if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !isset($_SERVER['PHP_AUTH_PW']) || !isset($_SESSION['fauth'])) {
+if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !isset($_SERVER['PHP_AUTH_PW'])) {
 	doLogin($database,$realm);
 }
 else {
@@ -200,10 +200,7 @@ if(isset($_POST['madd'])) {
 }
 
 if(isset($_POST['mdel'])) {
-	//$bmID = $_POST['id'];
 	$bmID = filter_var($_POST['id'], FILTER_SANITIZE_STRING);
-	//$userID = $userData['userID'];
-
 	$delMark = delMark($bmID);
 
 	if($delMark != 0) {
@@ -377,10 +374,8 @@ if(isset($_POST['caction'])) {
 
 			if(isset($bookmark['url'])) {
 				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'bookmark' AND `bmIndex` = ".$bookmark['index']." AND `bmURL` = '".$bookmark['url']."' AND `userID` = ".$userData['userID'].";";
-				//die(json_encode(delBookmark($database, $userData, $bookmark)));
 			} else {
 				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmIndex` = ".$bookmark['index']." AND `bmTitle` = '".$bookmark['title']."' AND `userID` = ".$userData['userID'].";";
-				//die(json_encode(delFolder($database, $userData, $bookmark)));
 			}
 
 			e_log(9,$query);
@@ -848,31 +843,6 @@ $content.="$umarks\r\n</DL><p>";
 	echo $content;
 }
 
-/*
-function delFolder($database, $ud, $bm) {
-	$db = new PDO('sqlite:'.$database);
-	e_log(8,"Remove folder");
-	$query = "UPDATE `bookmarks` SET `bmAction`= 1, `bmAdded`= '".round(microtime(true) * 1000)."' WHERE `bmID` = '".$bm['id']."' AND `userID` = ".$ud['userID'];
-	e_log(9,$query);
-	$db->exec($query);
-	e_log(8,"Remove bookmarks for that folder");
-	$query = "UPDATE `bookmarks` SET `bmAction`= 1, `bmAdded`= '".round(microtime(true) * 1000)."' WHERE `bmParentID` = '".$bm['id']."' AND `userID` = ".$ud['userID'];
-	e_log(9,$query);
-	$db->exec($query);
-	return true;
-}
-*/
-/*
-function delBookmark($database, $ud, $bm) {
-	$db = new PDO('sqlite:'.$database);
-	e_log(8,"Remove bookmark");
-	$query = "UPDATE `bookmarks` SET `bmAction`= 1, `bmAdded`= '".round(microtime(true) * 1000)."' WHERE `bmURL` = '".$bm['url']."' AND `userID` = ".$ud['userID'];
-	e_log(9,$query);
-	$db->exec($query);
-	return true;
-}
-*/
-
 function editFolder($bm, $database, $ud) {
 	$db = new PDO('sqlite:'.$database);
 	e_log(8,"Edit folder request, try to find the folder...");
@@ -1238,7 +1208,6 @@ function getSiteTitle($url) {
 }
 
 function getUserdata($database) {
-	e_log(8,"Get userdata from the database");
 	try {
 		$db = new PDO('sqlite:'.$database);
 	}
@@ -1248,7 +1217,6 @@ function getUserdata($database) {
 	
 	$query = "SELECT * FROM `users` WHERE `userName`='".$_SERVER['PHP_AUTH_USER']."'";
 	$statement = $db->prepare($query);
-	e_log(9,$query);
 	
 	try {
 		 $statement->execute();
@@ -1638,20 +1606,17 @@ function getUserFolders($uid) {
 	global $database;
 	try {
 		$db = new PDO('sqlite:'.$database);
-	}
-	catch (PDOException $e) {
+	} catch (PDOException $e) {
 		e_log(1,'DB connection failed: '.$e->getMessage());
 	}
 	
 	$statement = $db->prepare("SELECT * FROM `bookmarks` WHERE `bmType` = 'folder' and `userID` = ".$uid);
-
-	e_log(8,"Get folders for user ".$_SERVER['PHP_AUTH_USER']);
+	e_log(8,"Get bookmark folders for user");
 	e_log(9,"SELECT * FROM `bookmarks` WHERE `bmType` = 'folder' and `userID` = ".$uid);
 	
 	try {
 		 $statement->execute();
-	}
-	catch(PDOException $e) {
+	} catch(PDOException $e) {
 		e_log(1,'DB query failed: '.$e->getMessage());
 		return false;
 	}
@@ -1781,7 +1746,7 @@ function getBookmarks($uid,$database) {
 	
 	$query = "SELECT * FROM `bookmarks` WHERE `bmAction` IS NULL AND `userID` = ".$uid;
 	$statement = $db->prepare($query);
-	e_log(8,"Get bookmarks for user ".$_SERVER['PHP_AUTH_USER']);
+	e_log(8,"Get bookmarks");
 	e_log(9,$query);
 	$statement->execute();
 	$userMarks = $statement->fetchAll(PDO::FETCH_ASSOC);
@@ -1883,7 +1848,7 @@ function initDB($database,$suser,$spwd) {
 		$query = "CREATE TABLE `bookmarks` (`bmID`	TEXT NOT NULL, `bmParentID`	TEXT NOT NULL, `bmIndex` INTEGER NOT NULL, `bmTitle` TEXT, `bmType`	TEXT NOT NULL, `bmURL` TEXT, `bmAdded` TEXT NOT NULL, `bmModified` TEXT, `userID` INTEGER NOT NULL, `bmAction` INTEGER, PRIMARY KEY(`bmID`))";
 		$db->exec($query);
 		e_log(9,$query);
-		$query = "CREATE TABLE `users` (`userID` INTEGER NOT NULL, `userName` TEXT UNIQUE NOT NULL, `userType` INTEGER NOT NULL, `userHash`	TEXT NOT NULL, `userLastLogin` INT(11), `sessionID`	VARCHAR(255) UNIQUE, `userOldLogin`	INT(11), `pAPI`	VARCHAR(255) UNIQUE, `pDevice` VARCHAR(255) UNIQUE, `uOptions` TEXT, PRIMARY KEY(`userID`));";
+		$query = "CREATE TABLE `users` (`userID` INTEGER NOT NULL, `userName` TEXT UNIQUE NOT NULL, `userType` INTEGER NOT NULL, `userHash`	TEXT NOT NULL, `userLastLogin` INT(11), `sessionID`	VARCHAR(255) UNIQUE, `userOldLogin`	INT(11), `uOptions` TEXT, PRIMARY KEY(`userID`));";
 		$db->exec($query);
 		e_log(9,$query);
 		$query = "CREATE TABLE `clients` (`cid` TEXT NOT NULL UNIQUE,`cname` TEXT, `ctype` TEXT NOT NULL, `uid`	INTEGER NOT NULL, `lastseen` TEXT NOT NULL, PRIMARY KEY(`cid`));";

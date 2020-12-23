@@ -583,7 +583,6 @@ function onClick(e){
 			document.getElementById('folderf').style.top = ypos;
 			document.getElementById('folderf').style.display = 'block';
 			document.getElementById('fbid').value = document.getElementById('bmid').value;
-			//mkFolder(document.getElementById('bmid').value);
 			break;
 		default:
 			break;
