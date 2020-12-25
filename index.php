@@ -654,13 +654,14 @@ echo htmlFooter($userData['userID']);
 
 function delMark($bmID) {
 	global $userData,$database;
+	$count = 0;
 	e_log(8,"Delete bookmark '$bmID'");
 	$db = new PDO('sqlite:'.$database);
 	$query = "UPDATE `bookmarks` SET `bmAction`= 1, `bmAdded`= '".round(microtime(true) * 1000)."' WHERE `bmID` = '$bmID' AND `userID` = ".$userData['userID'].";";
 	e_log(9,$query);
 
 	try {
-		$db->exec($query);
+		$count = $db->exec($query);
 	} catch(PDOException $e) {
 		e_log(1,'Exception : '.$e->getMessage());
 	}
@@ -678,13 +679,15 @@ function delMark($bmID) {
 	$sData = $statement->fetchAll(PDO::FETCH_ASSOC);
 
 	e_log(8,"Shift index from other bookmarks in the folder");
-	$count = 0;
+	
 	foreach ($sData as &$sMark) {
 		$nIndex = $sMark['bmIndex'] - 1;
 		$query = "UPDATE `bookmarks` SET `bmIndex`= $nIndex WHERE `bmID` = '".$sMark['bmID']."' AND `userID` = ".$userData['userID'].";";
 		e_log(9,$query);
 		$count = $db->exec($query);
+		e_log(8,"count innen: ".$count);
 	}
+	e_log(8,"count außen: ".$count);
 
 	if(!isset($dData['bmURL'])) {
 		e_log(8,"Bookmark is folder");
