@@ -22,7 +22,7 @@ if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !iss
 else {
 	$db = new PDO('sqlite:'.$database);
 	e_log(8,"Update lastseen date for user");
-	$query = "UPDATE `users` SET `userLastLogin`=".time()." WHERE `userName` = '".$_SERVER['PHP_AUTH_USER']."'";
+	$query = "UPDATE `users` SET `userLastLogin`=".time()." WHERE `userName` = '".$_SERVER['PHP_AUTH_USER']."';";
 	e_log(9,$query);
 	$db->exec($query);
 	$db = NULL;
@@ -163,7 +163,7 @@ if(isset($_POST['mclear'])) {
 if(isset($_POST['madd'])) {
 	$bmParentID = $_POST['folder'];
 	$bmURL = validate_url(trim($_POST['url']));
-	e_log(8,"Try to add manually new bookmark: ".$bmURL);
+	e_log(8,"Try to add manually new bookmark ".$bmURL);
 	$bmID = unique_code(12);
 	$bmIndex = getIndex($bmParentID);
 	if(strpos($bmURL,'http') != 0) {
@@ -341,9 +341,15 @@ if(isset($_POST['caction'])) {
 			if(array_key_exists('url',$bookmark)) $bookmark['url'] = validate_url($bookmark['url']);
 			if(strtolower(getClientType($_SERVER['HTTP_USER_AGENT'])) != "firefox") $bookmark = cfolderMatching($bookmark);
 			if($bookmark['type'] == 'bookmark' && isset($bookmark['url'])) {
-				die(json_encode(addBookmark($database, $userData, $bookmark)));
+				$response = json_encode(addBookmark($database, $userData, $bookmark));
+				$ctime = round(microtime(true) * 1000);
+				updateClient($database, $client, strtolower(getClientType($_SERVER['HTTP_USER_AGENT'])), $userData, $ctime, true);
+				die($response);
 			} else if($bookmark['type'] == 'folder') {
-				die(addFolder($database, $userData, $bookmark));
+				$response = addFolder($database, $userData, $bookmark);
+				$ctime = round(microtime(true) * 1000);
+				updateClient($database, $client, strtolower(getClientType($_SERVER['HTTP_USER_AGENT'])), $userData, $ctime, true);
+				die($response);
 			} else {
 				e_log(1,"This bookmark is not added, some parameters are missing");
 				die(false);
@@ -351,9 +357,11 @@ if(isset($_POST['caction'])) {
 			break;
 		case "movemark":
 			$bookmark = json_decode($_POST['bookmark'],true);
-			$client = $_POST['client'];
+			$client = $client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$ctime = round(microtime(true) * 1000);
-			die(json_encode(moveBookmark($database, $userData, $bookmark)));
+			$response = json_encode(moveBookmark($database, $userData, $bookmark));
+			updateClient($database, $client, strtolower(getClientType($_SERVER['HTTP_USER_AGENT'])), $userData, $ctime, true);
+			die($response);
 			break;
 		case "editmark":
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
@@ -514,7 +522,7 @@ if(isset($_POST['caction'])) {
 			e_log(8,"Try to get list of clients.");
 			$db = new PDO('sqlite:'.$database);
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
-			$query = "SELECT cid, IFNULL(cname, cid) cname, ctype, lastseen FROM clients WHERE uid = ".$userData['userID']." AND NOT cid = '$client' ORDER BY 2 COLLATE NOCASE ASC;";
+			$query = "SELECT `cid`, IFNULL(`cname`, `cid`) `cname`, `ctype`, `lastseen` FROM `clients` WHERE `uid` = ".$userData['userID']." AND NOT `cid` = '$client' ORDER BY 2 COLLATE NOCASE ASC;";
 			e_log(9,$query);
 			$statement = $db->prepare($query);
 			$statement->execute();
@@ -677,17 +685,13 @@ function delMark($bmID) {
 	$statement = $db->prepare($query);
 	$statement->execute();
 	$sData = $statement->fetchAll(PDO::FETCH_ASSOC);
-
-	e_log(8,"Shift index from other bookmarks in the folder");
 	
 	foreach ($sData as &$sMark) {
 		$nIndex = $sMark['bmIndex'] - 1;
 		$query = "UPDATE `bookmarks` SET `bmIndex`= $nIndex WHERE `bmID` = '".$sMark['bmID']."' AND `userID` = ".$userData['userID'].";";
 		e_log(9,$query);
 		$count = $db->exec($query);
-		e_log(8,"count innen: ".$count);
 	}
-	e_log(8,"count außen: ".$count);
 
 	if(!isset($dData['bmURL'])) {
 		e_log(8,"Bookmark is folder");
@@ -1057,7 +1061,7 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 	$db = new PDO('sqlite:'.$dbase);
 	$uid = $ud["userID"];
 	e_log(8,"Browser startup sync started, get client data");
-	$query = "SELECT `lastseen` FROM `clients` WHERE `cid` = '".$cl."' AND `uid` = $uid AND `ctype` = '".$ct."'";
+	$query = "SELECT `lastseen` FROM `clients` WHERE `cid` = '".$cl."' AND `uid` = $uid AND `ctype` = '".$ct."';";
 	$statement = $db->prepare($query);
 	e_log(9,$query);
 	$statement->execute();
@@ -1085,7 +1089,7 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 		global $cexpjson;
 		updateClient($dbase, $cl, $ct, $ud, $time, true);
 		e_log(8,"Try to find bookmarks, which could be completely deleted");
-		$query = "SELECT bmID FROM bookmarks WHERE bmAdded <= (SELECT MIN(lastseen) FROM clients WHERE uid = $uid AND lastseen > 1) AND bmAction = 1";
+		$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmAdded` <= (SELECT MIN(`lastseen`) FROM `clients` WHERE `uid` = $uid AND `lastseen` > 1) AND `bmAction` = 1;";
 		$statement = $db->prepare($query);
 		e_log(9,$query);
 		$statement->execute();
@@ -1094,7 +1098,7 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 		if (!empty($removeMarks)) {
 			e_log(8,count($removeMarks)." are deletable from the database");
 			foreach($removeMarks as $bookmark) {
-				$query = "DELETE FROM bookmarks WHERE bmID = '".$bookmark["bmID"]."'";
+				$query = "DELETE FROM `bookmarks` WHERE `bmID` = '".$bookmark["bmID"]."';";
 				e_log(9,$query);
 				$db->exec($query);
 			}
@@ -1120,20 +1124,18 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 function updateClient($dbase, $cl, $ct, $ud, $time, $sync = false) {
 	try {
 		$db = new PDO('sqlite:'.$dbase);
-	}
-	catch (PDOException $e) {
+	} catch (PDOException $e) {
 		e_log(1,'DB connection failed: '.$e->getMessage());
 	}
 
 	$uid = $ud["userID"];
-	$query = "SELECT * FROM `clients` WHERE `cid` = '".$cl."' AND uid = ".$uid;
+	$query = "SELECT * FROM `clients` WHERE `cid` = '".$cl."' AND uid = ".$uid.";";
 	$statement = $db->prepare($query);
 	e_log(9,$query);
 	
 	try {
 		 $statement->execute();
-	}
-	catch(PDOException $e) {
+	} catch(PDOException $e) {
 		 echo "DB query failed: " . $e->getMessage();
 		 e_log(1,"DB query failed: ".$e->getMessage());
 		 return false;
@@ -1144,8 +1146,7 @@ function updateClient($dbase, $cl, $ct, $ud, $time, $sync = false) {
 		$query = "UPDATE `clients` SET `lastseen`= '".$time."' WHERE `cid` = '".$cl."';";
 		$db->exec($query);
 		e_log(8,"Updating lastlogin for client $cl.");
-	}
-	else if(empty($clientData)) {
+	} else if(empty($clientData)) {
 		$query = "INSERT INTO `clients` (`cid`,`cname`,`ctype`,`uid`,`lastseen`) VALUES ('".$cl."','".$cl."', '".$ct."', ".$uid.", '0')";
 		e_log(9, $query);
 		$db->exec($query);

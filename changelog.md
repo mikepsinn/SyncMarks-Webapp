@@ -5,6 +5,7 @@ ChangeLog
 * Regenerate index at bookmark removal
 * Add context menu for non-system-folders
 * Removed unused session variable
+* clientupdates
 
 
 1.2.17 (2020-12-12)
