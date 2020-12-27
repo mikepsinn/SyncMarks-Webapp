@@ -437,7 +437,6 @@ if(isset($_POST['caction'])) {
 				break;
 				default:
 					$jerrmsg = 'Unknown error';
-				break;
 			}
 			
 			if(strlen($jerrmsg) > 0) {
@@ -1700,17 +1699,25 @@ function makeHTMLTree($arr) {
 function importMarks($bookmarks,$uid,$database) {
 	e_log(8,"Starting import browser bookmarks");
 	$db = new PDO('sqlite:'.$database);
-	$db->beginTransaction();
-	
 	foreach ($bookmarks as $bookmark) {
 		$title = htmlspecialchars($bookmark['bmTitle'],ENT_QUOTES,'UTF-8');
-		$dateGroupModified = strlen($bookmark['dateGroupModified']) == 0 ? "NULL" : $bookmark['dateGroupModified'];
-		$url = strlen($bookmark['bmURL']) == 0 ? "NULL" : "'".$bookmark['bmURL']."'";
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`bmModified`,`userID`) VALUES ('".$bookmark['bmID']."', '".$bookmark['bmParentID']."', ".$bookmark['bmIndex'].", '$title', '".$bookmark['bmType']."', $url, ".$bookmark['bmAdded'].",$dateGroupModified, ".$uid.");";
-		e_log(9,$query);
-		$db->query($query);
+		$dateGroupModified = strlen($bookmark['dateGroupModified']) == 0 ? NULL : $bookmark['dateGroupModified'];
+		$url = strlen($bookmark['bmURL']) == 0 ? NULL : $bookmark['bmURL'];
+		$data[] = array(
+			$bookmark['bmID'],
+			$bookmark['bmParentID'],
+			$bookmark['bmIndex'],
+			$title,
+			$bookmark['bmType'],
+			$url,
+			$bookmark['bmAdded'],
+			$dateGroupModified,
+			$uid
+		);
 	}
-	
+	$stmt = $db->prepare("INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`bmModified`,`userID`) VALUES (?,?,?,?,?,?,?,?,?)");
+	$db->beginTransaction();
+	foreach ($data as $row) $stmt->execute($row);
 	$response = $db->commit();
 	$db = NULL;
 	if($response)
