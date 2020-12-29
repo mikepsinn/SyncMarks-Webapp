@@ -30,8 +30,7 @@ if(!file_exists($database)) {
 
 if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !isset($_SERVER['PHP_AUTH_PW'])) {
 	doLogin($realm);
-}
-else {
+} else {
 	e_log(8,"Update lastseen date for user");
 	$query = "UPDATE `users` SET `userLastLogin`=".time()." WHERE `userName` = '".$_SERVER['PHP_AUTH_USER']."';";
 	db_query($query);
@@ -168,8 +167,7 @@ if(isset($_POST['madd'])) {
 	if($bmTitle === "") {
 		e_log(1,"Titel is missing, adding bookmark failed.");
 		die("Titel is missing, adding bookmark failed.");
-	}
-	else {
+	} else {
 		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bmID."', '".$bmParentID."', ".$bmIndex.", '".$bmTitle."', 'bookmark', '".$bmURL."', ".$bmAdded.", ".$userID.")";
 		db_query($query);
 	}
@@ -339,7 +337,8 @@ if(isset($_POST['caction'])) {
 
 			e_log(8,"Try to identify bookmark");
 			if(isset($bookmark['url'])) {
-				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'bookmark' AND `bmIndex` = ".$bookmark['index']." AND `bmURL` = '".$bookmark['url']."' AND `userID` = ".$userData['userID'].";";
+				$url = prepare_url($bookmark['url']);
+				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'bookmark' AND `bmIndex` = ".$bookmark['index']." AND `bmURL` = '$url' AND `userID` = ".$userData['userID'].";";
 			} else {
 				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmIndex` = ".$bookmark['index']." AND `bmTitle` = '".$bookmark['title']."' AND `userID` = ".$userData['userID'].";";
 			}
@@ -654,7 +653,7 @@ function getClientType($uas) {
 }
 
 function validate_url($url) {
-	$url = filter_var(filter_var(urldecode($url), FILTER_SANITIZE_STRING), FILTER_SANITIZE_URL);
+	$url = filter_var(filter_var($url, FILTER_SANITIZE_STRING), FILTER_SANITIZE_URL);
 
 	if (filter_var($url, FILTER_VALIDATE_URL)) {
 		return $url;
@@ -1487,6 +1486,32 @@ function getBookmarks($userData) {
 
 function c2hmarks($item, $key) {
 	html_entity_decode($item,ENT_QUOTES,'UTF-8');
+}
+
+function prepare_url($url) {
+	$parsed = parse_url($url);
+	parse_str($parsed['query'], $query);
+	$parsed['query'] = http_build_query($query);
+
+    $pass      = $parsed['pass'] ?? null;
+    $user      = $parsed['user'] ?? null;
+    $userinfo  = $pass !== null ? "$user:$pass" : $user;
+    $port      = $parsed['port'] ?? 0;
+    $scheme    = $parsed['scheme'] ?? "";
+    $query     = $parsed['query'] ?? "";
+    $fragment  = $parsed['fragment'] ?? "";
+    $authority = (
+        ($userinfo !== null ? "$userinfo@" : "") .
+        ($parsed['host'] ?? "") .
+        ($port ? ":$port" : "")
+    );
+    return (
+        (strlen($scheme) > 0 ? "$scheme:" : "") .
+        (strlen($authority) > 0 ? "//$authority" : "") .
+        ($parsed['path'] ?? "") .
+        (strlen($query) > 0 ? "?$query" : "") .
+        (strlen($fragment) > 0 ? "#$fragment" : "")
+    );
 }
 
 function doLogin($realm) {
