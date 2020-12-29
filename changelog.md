@@ -7,7 +7,7 @@ ChangeLog
 * Removed unused session variable
 * Changed Client Updates
 * Changed Import to transaction
-
+* Changed SQL handling
 
 1.2.17 (2020-12-12)
 -------------------------
