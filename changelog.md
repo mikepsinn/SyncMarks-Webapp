@@ -8,6 +8,7 @@ ChangeLog
 * Changed Client Updates
 * Changed Import to transaction
 * Changed SQL handling
+* Changed POST requests
 
 1.2.17 (2020-12-12)
 -------------------------

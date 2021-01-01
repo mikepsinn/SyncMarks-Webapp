@@ -72,10 +72,11 @@ document.addEventListener("DOMContentLoaded", function() {
 		}
 	});
 
-	if(document.querySelector("#mngcform input[type='text']"))
+	if(document.querySelector("#mngcform input[type='text']")) {
 		document.querySelector("#mngcform input[type='text']").addEventListener('focus', function() {
 			this.select();
 		});
+	}
 
 	if(document.getElementById("save")) {
 		document.getElementById("save").addEventListener('click', function(event) {
@@ -228,9 +229,13 @@ document.addEventListener("DOMContentLoaded", function() {
 	});
 
 	if(document.getElementById('footer')) {
-		document.getElementById('footer').addEventListener('click', function() {
+		document.getElementById('footer').addEventListener('click', function(e) {
+			var clipboardData, pastedData;
 			hideMenu();
 			document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
+			clipboardData = e.clipboardData || window.clipboardData;
+			pastedData = clipboardData.getData('Text');
+			//alert(e.clipboardData.getData('text/html'));
 			document.getElementById('bmarkadd').style.display = 'block';
 			url.focus();
 			url.addEventListener('input', enableSave);
@@ -675,8 +680,7 @@ function setOption(option,val) {
 
 function rNot(noti) {
 	let xhr = new XMLHttpRequest();
-	let url = new URL(document.location.href);
-	url.searchParams.set('durl', noti);
+	let data = 'caction=durl&durl=' + noti;
 	xhr.onreadystatechange = function () {
 		if (this.readyState == 4) {
 			if(this.status == 200) {
@@ -688,9 +692,9 @@ function rNot(noti) {
 			}
 		}
 	};
-	xhr.open("GET", url, true);
+	xhr.open("POST", document.location.href, true);
 	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-	xhr.send();
+	xhr.send(data);
 }
 
 function show_noti(noti) {
@@ -712,8 +716,7 @@ function show_noti(noti) {
 
 function getNotifications() {
 	let xhr = new XMLHttpRequest();
-	let url = new URL(document.location.href);
-	url.searchParams.set('gurls', '1');
+	let data = 'caction=gurls';
 
 	xhr.onreadystatechange = function () {
 		if (this.readyState == 4) {
@@ -730,9 +733,9 @@ function getNotifications() {
 		}
 	};
 
-	xhr.open('GET', url, true);
+	xhr.open("POST", document.location.href, true);
 	xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-	xhr.send();
+	xhr.send(data);
 
 	sessionStorage.setItem('gNoti', '1');
 }

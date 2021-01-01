@@ -495,13 +495,39 @@ if(isset($_POST['caction'])) {
 			e_log(8,"Send name ".$clientData['cname']." back to client.");
 			die(json_encode($clientData));
 			break;
-
-	default:
+		case "gurls":
+			$client = (isset($_POST['client'])) ? $_POST['client'] : '0';
+			e_log(8,"Get pushed site from clients.");
+			$query = "SELECT * FROM `notifications` WHERE `nloop` = 1 AND `userID` = ".$userData['userID']." AND `repeat` IN ('".$client."','0');";
+			$uOptions = json_decode($userData['uOptions'],true);
+			$notificationData = db_query($query);
+			e_log(8,"Found ".count($notificationData)." links. Will push them to the client.");
+			if (!empty($notificationData)) {
+				foreach($notificationData as $key => $notification) {
+					$myObj[$key]['title'] = html_entity_decode($notification['title'],ENT_QUOTES,'UTF-8');
+					$myObj[$key]['url'] = $notification['message'];
+					$myObj[$key]['nkey'] = $notification['id'];
+					$myObj[$key]['nOption'] = $uOptions['notifications'];
+				}
+				die(json_encode($myObj));
+			} else {
+				die();
+			}
+			break;
+		case "durl":
+			$notification = filter_var($_POST['durl'], FILTER_VALIDATE_INT);
+			e_log(8,"Remove notification.");	
+			$query = "UPDATE `notifications` SET `nloop`= 0, `ntime`= '".time()."' WHERE `id` = $notification AND `userID` = ".$userData['userID'];
+			$count = db_query($query);
+			echo $count;
+			die();
+			break;
+		default:
 			die(json_encode("Unknown Action"));
 	}
 	die();
 }
-
+/*
 if(isset($_GET['gurls'])) {
 	$client = (isset($_GET['client'])) ? $_GET['client'] : '0';
 	e_log(8,"Get pushed site from clients.");
@@ -523,7 +549,8 @@ if(isset($_GET['gurls'])) {
 		die();
 	}
 }
-
+*/
+/*
 if(isset($_GET['durl'])) {
 	$notification = filter_var($_GET['durl'], FILTER_VALIDATE_INT);
 	e_log(8,"Remove notification.");	
@@ -532,7 +559,7 @@ if(isset($_GET['durl'])) {
 	echo $count;
 	die();
 }
-
+*/
 if(isset($_GET['link'])) {
 	$url = validate_url($_GET["link"]);
 	e_log(9,"Bookmarklet URL: " . $url);
@@ -1063,7 +1090,7 @@ function minFile($infile) {
 	$outfile = $infile;
 	$infile = pathinfo($infile);
 	$minfile = $infile['filename'].'.min.'.$infile['extension'];
-	$outfile = (file_exists($minfile)) ? $minfile : $outfile;
+	//$outfile = (file_exists($minfile)) ? $minfile : $outfile;
 	return $outfile;
 }
 
@@ -1287,16 +1314,6 @@ function htmlFooter($uid) {
 		else
 			$sFolderOptions.= "<option value='".$folder['bmID']."'>".$folder['bmTitle']."</option>";
 	}
-	$burl = (isset($_GET['burl'])) ? $_GET['burl'] : "";
-	
-	if(isset($_GET['burl']) && isset($_GET['title'])) {
-		$mad = "style='display: block'";
-		$mdis = "";
-	}
-	else {
-		$mad = "";
-		$mdis = "disabled";
-	}
 	
 	$editform = "<div id='bmarkedt' class='mbmdialog'><h6>Edit Bookmark</h6><form id='bmedt' method='POST'>
 				<input placeholder='Title' type='text' id='edtitle' name='edtitle' value=''>
@@ -1324,7 +1341,7 @@ function htmlFooter($uid) {
 	$htmlFooter = "<div id='bmarkadd' class='mbmdialog' $mad>
 					<h6>Add Bookmark</h6>
 					<form id='bmadd' action='?madd' method='POST'>
-					<input placeholder='URL' type='text' id='url' name='url' value='$burl'>
+					<input placeholder='URL' type='text' id='url' name='url' value=''>
 					<div class='select'>
 					<select id='folder' name='folder'>
 						$sFolderOptions
