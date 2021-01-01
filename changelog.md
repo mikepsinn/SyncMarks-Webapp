@@ -9,6 +9,7 @@ ChangeLog
 * Changed Import to transaction
 * Changed SQL handling
 * Changed POST requests
+* Reworked Actions
 
 1.2.17 (2020-12-12)
 -------------------------

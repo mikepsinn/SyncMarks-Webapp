@@ -39,257 +39,6 @@ if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !iss
 
 if(!isset($userData)) $userData = getUserdata();
 
-if(isset($_POST['bmedt'])) {
-	e_log(8,"Edit entry '".$_POST['title']."'");
-	if(strlen($_POST['url']) > 4)
-		$url = '\''.validate_url($_POST['url']).'\'';
-	else
-		$url = 'NULL';
-
-	$query = "UPDATE `bookmarks` SET `bmTitle` = '".$_POST['title']."', `bmURL` = $url, `bmAdded` = '".round(microtime(true) * 1000)."' WHERE `bmID` = '".$_POST['id']."' AND `userID` = ".$userData['userID'];
-	$count = db_query($query);
-	if($count > 0)
-		die(true);
-	else
-		die(false);
-}
-
-if(isset($_POST['bmmv'])) {
-	$query = "SELECT MAX(bmIndex)+1 AS 'index' FROM `bookmarks` WHERE `bmParentID` = '".$_POST['folder']."'";
-	$folderData = db_query($query);
-	$query = "UPDATE `bookmarks` SET `bmIndex` = ".$folderData[0]['index'].", `bmParentID` = '".$_POST['folder']."', `bmAdded` = '".round(microtime(true) * 1000)."' WHERE `bmID` = '".$_POST['id']."' AND `userID` = ".$userData['userID'];
-	$count = db_query($query);
-	if($count > 0)
-		die(true);
-	else
-		die(false);
-}
-
-if(isset($_POST['arename'])) {
-	$cliento = filter_var($_POST['cido'], FILTER_SANITIZE_STRING);
-	$name = filter_var($_POST['nname'], FILTER_SANITIZE_STRING);
-	e_log(8,"Renaming client $cliento to $name");
-	$query = "UPDATE `clients` SET `cname` = '".$name."' WHERE `uid` = ".$userData['userID']." AND `cid` = '".$cliento."';";
-	$count = db_query($query);
-	if($count == 1)
-		die(bClientlist($userData['userID']));
-	else
-		die(false);
-}
-
-if(isset($_POST['adel'])) {
-	$query = "DELETE FROM `clients` WHERE `uid` = ".$userData['userID']." AND `cid` = '".$_POST['cido']."';";
-	$count = db_query($query);
-	if($count > 0)
-		die(bClientlist($userData['userID']));
-	else
-		die(false);
-}
-
-if(isset($_POST['muedt'])) {
-	$del = false;
-	$headers = "From: PHPMarks <$sender>";
-	$url = $_SERVER['REQUEST_SCHEME']."://".$_SERVER['SERVER_NAME'].$_SERVER['PHP_SELF'];
-
-	switch($_POST['muedt']) {
-		case "Add User":
-			$pwd = password_hash($_POST['npwd'],PASSWORD_DEFAULT);
-			$level = $_POST['userLevel'] + 1;
-			e_log(8,"Adding new user ".$_POST['nuser']);
-			$query = "INSERT INTO `users` (`userName`,`userType`,`userHash`) VALUES ('".$_POST['nuser']."', '".$level."', '".$pwd."')";
-			if(db_query($query) == 1) {
-				$message = "Hello,\r\n\r\na account with the following credentials is created and stored encrypted on the database:\r\nE-Mail: ".$_POST['nuser']."\r\nPassword: ".$_POST['npwd']."\r\n\r\nYou can login at $url";
-				if(!mail ($_POST['nuser'], "Account created",$message,$headers)) e_log(1,"Error sending data for created user account to user");
-			}
-			break;
-		case "Edit User":
-			$pwd = password_hash($_POST['npwd'],PASSWORD_DEFAULT);
-			$level = $_POST['userLevel'] + 1;
-			e_log(8,"Updating user ".$_POST['nuser']);
-			$query = "UPDATE `users` SET `userName`= '".$_POST['nuser']."', `userType`= '".$level."', `userHash`= '".$pwd."' WHERE `userID` = ".$_POST['userSelect'].";";
-			if(db_query($query) == 1) {
-				$message = "Hello,\r\n\r\nyour account is changed and stored encrypted on the database. Your new credentials are:\r\nE-Mail: ".$_POST['nuser']."\r\nPassword: ".$_POST['npwd']."\r\n\r\nYou can login at $url";
-				if(!mail ($_POST['nuser'], "Account changed",$message,$headers)) e_log(1,"Error sending email for changed user account");
-			}
-			break;
-		case "Delete User":
-			e_log(8,"Removing user ".$_POST['nuser']);
-			$query = "DELETE FROM `users` WHERE `userID` = ".$_POST['userSelect'].";";
-			if(db_query($query) == 1) {
-				e_log(8,"Removing clients for user ".$_POST['nuser']);
-				$query = "DELETE FROM `clients` WHERE `userID` = ".$_POST['userSelect'].";";
-				db_query($query);
-				e_log(8,"Removing bookmarks for user ".$_POST['nuser']);
-				$query = "DELETE FROM `bookmarks` WHERE `userID` = ".$_POST['userSelect'].";";
-				db_query($query);
-				$message = "Hello,\r\n\r\nyour account '".$_POST['nuser']."' and all it's data is removed from $url.";
-				if(!mail ($_POST['nuser'], "Account removed",$message,$headers)) e_log(1,"Error sending data for created user account to user");
-			}
-			break;
-		default:
-			$message = "Unknown action by managing users";
-			e_log(1,$message);
-			die($message);
-	}
-}
-
-if(isset($_POST['mlog'])) {
-	if($userData['userType'] > 1) {
-		die(file_get_contents($logfile));
-	}	else {
-		$message = "Not allowed to read server logfile.";
-		e_log(2,$message);
-		die($message);
-	} 
-}
-
-if(isset($_POST['mclear'])) {
-	if($userData['userType'] > 1) {
-		file_put_contents($logfile,"");
-	}
-	die();
-}
-
-if(isset($_POST['madd'])) {
-	$bmParentID = $_POST['folder'];
-	$bmURL = validate_url(trim($_POST['url']));
-	e_log(8,"Try to add manually new bookmark ".$bmURL);
-	$bmID = unique_code(12);
-	$bmIndex = getIndex($bmParentID);
-	if(strpos($bmURL,'http') != 0) {
-		e_log(1,"Given string is not a real URL, cant add this.");
-		exit;
-	}
-	$bmTitle = getSiteTitle($bmURL);
-	$bmAdded = round(microtime(true) * 1000);
-	$userID = $userData['userID'];
-
-	if($bmTitle === "") {
-		e_log(1,"Titel is missing, adding bookmark failed.");
-		die("Titel is missing, adding bookmark failed.");
-	} else {
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bmID."', '".$bmParentID."', ".$bmIndex.", '".$bmTitle."', 'bookmark', '".$bmURL."', ".$bmAdded.", ".$userID.")";
-		db_query($query);
-	}
-	if(!isset($_POST['rc'])) {
-		e_log(8,"Manually added bookmark.");
-		die(bmTree($userData));
-	} else {
-		e_log(8,"Roundcube added bookmark.");
-		die();
-	}
-}
-
-if(isset($_POST['mdel'])) {
-	$bmID = filter_var($_POST['id'], FILTER_SANITIZE_STRING);
-	$delMark = delMark($bmID);
-
-	if($delMark != 0) {
-		if(!isset($_POST['rc'])) {
-			e_log(8,"Deleted bookmark ".$bmID);
-			die(bmTree($userData));
-		} else {
-			e_log(8,"Bookmark ".$bmID." deleted by Roundcube");
-			die();
-		}
-	} else {
-		e_log(2,"There was an problem removing the bookmark, please check the logfile");
-	}
-}
-
-if(isset($_POST['pupdate'])) {
-	e_log(8,"Userchange: Updating user password started OK");
-	if($_POST['opassword'] != "" && $_POST['npassword'] !="" && $_POST['cpassword'] !="") {
-		e_log(8,"Userchange: Data complete entered OK");
-		if(password_verify($_POST['opassword'],$userData['userHash'])) {
-			e_log(8,"Userchange: Verify original password OK");
-			if($_POST['npassword'] === $_POST['cpassword']) {
-				e_log(8,"Userchange: New and confirmed password OK");
-				if($_POST['npassword'] != $_POST['opassword']) {
-					e_log(2,"Userchange: Old and new password NOT identical");
-					$password = password_hash($_POST['npassword'],PASSWORD_DEFAULT);
-					$query = "UPDATE `users` SET `userHash`='".$password."' WHERE `userID`=".$userData['userID'].";";
-					db_query($query);
-					e_log(8,"Userchange: Password changed OK");
-					$_SERVER['PHP_AUTH_USER'] = "";
-					$_SERVER['PHP_AUTH_PW'] = "";
-				}
-				else {
-					e_log(2,"Userchange: Old and new password identical, user not changed");
-				}
-			}
-			else {
-				e_log(2,"Userchange: New and confirmed password NOT OK");
-			}
-		}
-		else {
-			e_log(2,"Userchange: Verify original password NOT OK");
-		}
-	}
-	else {
-		e_log(2,"Userchange: Data missing, NOT OK");
-	}
-	die();
-}
-
-if(isset($_POST['pbupdate'])) {
-	if(password_verify($_POST['password'],$userData['userHash'])) {
-		e_log(8,"Pushbullet: Updating Pushbullet information.");
-		
-		$token = edcrpt('en', $_POST['ptoken']);
-		$device = edcrpt('en', $_POST['pdevice']);
-		$pbEnable = filter_var($_POST['pbe'],FILTER_VALIDATE_BOOLEAN) ? '1' : '0';
-
-		$oOptionsA = json_decode($userData['uOptions'],true);
-		$oOptionsA['pAPI'] = $token;
-		$oOptionsA['pDevice'] = $device;
-		$oOptionsA['pbEnable'] = $pbEnable;
-
-		$query = "UPDATE `users` SET `uOptions`='".json_encode($oOptionsA)."' WHERE `userID`=".$userData['userID'].";";
-		$count = db_query($query);
-		($count === 1) ? e_log(8,"Option saved") : e_log(9,"Error, saving option");
-		header("location:".$_SERVER['PHP_SELF']);
-		die();
-	}
-	else {
-		e_log(1,"Password missmatch. Pushbullet not updated.");
-		die("Password missmatch. Pushbullet not updated.");
-	}
-}
-
-if(isset($_POST['uupdate'])) {
-	e_log(8,"Userchange: Updating user name started");
-	if($_POST['opassword'] != "") {
-		e_log(8,"Userchange: Data complete entered");
-		if(password_verify($_POST['opassword'],$userData['userHash'])) {
-			e_log(8,"Userchange: Verify original password");
-			$query = "UPDATE `users` SET `userName`='".$_POST['username']."' WHERE `userID`=".$userData['userID'].";";
-			db_query($query);
-			e_log(8,"Userchange: Username changed");
-			$_SERVER['PHP_AUTH_USER'] = "";
-			$_SERVER['PHP_AUTH_PW'] = "";
-		}
-		else {
-			e_log(2,"Userchange: Failed to verify original password");
-		}
-	}
-	else {
-		e_log(2,"Userchange: Data missing");
-	}
-	die();
-}
-
-if(isset($_POST['logout'])) {
-	e_log(8,"Logout user ".$_SERVER['PHP_AUTH_USER']);
-	unset($_SERVER['PHP_AUTH_USER']);
-	unset($_SERVER['PHP_AUTH_PW']);
-
-	header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-	http_response_code(401);
-
-	die("User is now logged out.");
-}
-
 if(isset($_POST['caction'])) {
 	switch($_POST['caction']) {
 		case "addmark":
@@ -519,47 +268,267 @@ if(isset($_POST['caction'])) {
 			e_log(8,"Remove notification.");	
 			$query = "UPDATE `notifications` SET `nloop`= 0, `ntime`= '".time()."' WHERE `id` = $notification AND `userID` = ".$userData['userID'];
 			$count = db_query($query);
-			echo $count;
+			die($count);
+			break;
+		case "bmedt":
+			$title = filter_var($_POST['title'], FILTER_SANITIZE_STRING);
+			$id = filter_var($_POST['id'], FILTER_SANITIZE_STRING);
+			e_log(8,"Edit entry '$title'");
+			$url = strlen($_POST['url']) > 4 ? '\''.validate_url($_POST['url']).'\'' : 'NULL';
+			$query = "UPDATE `bookmarks` SET `bmTitle` = '$title', `bmURL` = $url, `bmAdded` = '".round(microtime(true) * 1000)."' WHERE `bmID` = '$id' AND `userID` = ".$userData['userID'].";";
+			$count = db_query($query);
+			($count > 0) ? die(true) : die(false);
+			break;
+		case "bmmv":
+			$folder = filter_var($_POST['folder'], FILTER_SANITIZE_STRING);
+			$id = filter_var($_POST['id'], FILTER_SANITIZE_STRING);
+			$query = "SELECT MAX(bmIndex)+1 AS 'index' FROM `bookmarks` WHERE `bmParentID` = '$folder';";
+			$folderData = db_query($query);
+			$query = "UPDATE `bookmarks` SET `bmIndex` = ".$folderData[0]['index'].", `bmParentID` = '$folder', `bmAdded` = '".round(microtime(true) * 1000)."' WHERE `bmID` = '$id' AND `userID` = ".$userData['userID'].";";
+			$count = db_query($query);
+			($count > 0) ? die(true) : die(false);
+			break;
+		case "arename":
+			$cliento = filter_var($_POST['cido'], FILTER_SANITIZE_STRING);
+			$name = filter_var($_POST['nname'], FILTER_SANITIZE_STRING);
+			e_log(8,"Renaming client $cliento to $name");
+			$query = "UPDATE `clients` SET `cname` = '".$name."' WHERE `uid` = ".$userData['userID']." AND `cid` = '".$cliento."';";
+			$count = db_query($query);
+			($count > 0) ? die(bClientlist($userData['userID'])) : die(false);
+			break;
+		case "adel":
+			$cliento = filter_var($_POST['cido'], FILTER_SANITIZE_STRING);
+			$query = "DELETE FROM `clients` WHERE `uid` = ".$userData['userID']." AND `cid` = '$cliento';";
+			$count = db_query($query);
+			($count > 0) ? die(bClientlist($userData['userID'])) : die(false);
+			break;
+		case "muedt":
+			$del = false;
+			$headers = "From: PHPMarks <$sender>";
+			$url = $_SERVER['REQUEST_SCHEME']."://".$_SERVER['SERVER_NAME'].$_SERVER['PHP_SELF'];
+			$variant = filter_var($_POST['muedt'], FILTER_SANITIZE_STRING);
+			$password = filter_var($_POST['npwd'], FILTER_SANITIZE_STRING);
+			$userLevel = filter_var($_POST['userLevel'], FILTER_VALIDATE_INT) + 1;
+			$user = filter_var($_POST['nuser'], FILTER_SANITIZE_STRING);
+			$uID = filter_var($_POST['userSelect'], FILTER_VALIDATE_INT);
+
+			switch($variant) {
+				case "Add User":
+					$pwd = password_hash($password,PASSWORD_DEFAULT);
+					e_log(8,"Adding new user $user");
+					$query = "INSERT INTO `users` (`userName`,`userType`,`userHash`) VALUES ('$user', '$userLevel', '".$pwd."')";
+					if(db_query($query) == 1) {
+						$message = "Hello,\r\n\r\na account with the following credentials is created and stored encrypted on the database:\r\nE-Mail: $user\r\nPassword: $password\r\n\r\nYou can login at $url";
+						if(!mail ($user, "Account created",$message,$headers)) e_log(1,"Error sending data for created user account to user");
+					}
+					break;
+				case "Edit User":
+					$pwd = password_hash($password,PASSWORD_DEFAULT);
+					e_log(8,"Updating user $user");
+					$query = "UPDATE `users` SET `userName`= '$user', `userType`= '$userLevel', `userHash`= '".$pwd."' WHERE `userID` = $uID;";
+					if(db_query($query) == 1) {
+						$message = "Hello,\r\n\r\nyour account is changed and stored encrypted on the database. Your new credentials are:\r\nE-Mail: $user\r\nPassword: $password\r\n\r\nYou can login at $url";
+						if(!mail ($user, "Account changed",$message,$headers)) e_log(1,"Error sending email for changed user account");
+					}
+					break;
+				case "Delete User":
+					e_log(8,"Removing user $user");
+					$query = "DELETE FROM `users` WHERE `userID` = $uID;";
+					if(db_query($query) == 1) {
+						e_log(8,"Removing clients for user $user");
+						$query = "DELETE FROM `clients` WHERE `userID` = $uID;";
+						db_query($query);
+						e_log(8,"Removing bookmarks for user $user");
+						$query = "DELETE FROM `bookmarks` WHERE `userID` = $uID;";
+						db_query($query);
+						$message = "Hello,\r\n\r\nyour account '$user' and all it's data is removed from $url.";
+						if(!mail ($_POST['nuser'], "Account removed",$message,$headers)) e_log(1,"Error sending data for created user account to user");
+					}
+					break;
+				default:
+					$message = "Unknown action for managing users";
+					e_log(1,$message);
+					die($message);
+			}
+			break;
+		case "mlog":
+			if($userData['userType'] > 1) {
+				die(file_get_contents($logfile));
+			} else {
+				$message = "Not allowed to read server logfile.";
+				e_log(2,$message);
+				die($message);
+			}
+			break;
+		case "mclear":
+			if($userData['userType'] > 1) {
+				file_put_contents($logfile,"");
+			}
 			die();
+			break;
+		case "madd":
+			$bmParentID = filter_var($_POST['folder'], FILTER_SANITIZE_STRING);
+			$bmURL = validate_url(trim($_POST['url']));
+			e_log(8,"Try to add manually new bookmark ".$bmURL);
+			$bmID = unique_code(12);
+			$bmIndex = getIndex($bmParentID);
+			if(strpos($bmURL,'http') != 0) {
+				e_log(1,"Given string is not a real URL, cant add this.");
+				exit;
+			}
+			$bmTitle = getSiteTitle($bmURL);
+			$bmAdded = round(microtime(true) * 1000);
+			$userID = $userData['userID'];
+
+			if($bmTitle === "") {
+				e_log(1,"Titel is missing, adding bookmark failed.");
+				die("Titel is missing, adding bookmark failed.");
+			} else {
+				$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bmID."', '".$bmParentID."', ".$bmIndex.", '".$bmTitle."', 'bookmark', '".$bmURL."', ".$bmAdded.", ".$userID.")";
+				db_query($query);
+			}
+			if(!isset($_POST['rc'])) {
+				e_log(8,"Manually added bookmark.");
+				die(bmTree($userData));
+			} else {
+				e_log(8,"Roundcube added bookmark.");
+				die();
+			}
+			break;
+		case "mdel":
+			$bmID = filter_var($_POST['id'], FILTER_SANITIZE_STRING);
+			$delMark = delMark($bmID);
+			if($delMark != 0) {
+				if(!isset($_POST['rc'])) {
+					e_log(8,"Deleted bookmark $bmID");
+					die(bmTree($userData));
+				} else {
+					e_log(8,"Bookmark $bmID deleted by Roundcube");
+					die();
+				}
+			} else {
+				e_log(2,"There was an problem removing the bookmark, please check the logfile");
+			}
+			break;
+		case "pupdate":
+			e_log(8,"Userchange: Updating user password started");
+			$opassword = filter_var($_POST['opassword'], FILTER_SANITIZE_STRING);
+			$npassword = filter_var($_POST['npassword'], FILTER_SANITIZE_STRING);
+			$cpassword = filter_var($_POST['cpassword'], FILTER_SANITIZE_STRING);
+
+			if($opassword != "" && $npassword !="" && $cpassword !="") {
+				e_log(8,"Userchange: Data complete entered");
+				if(password_verify($opassword,$userData['userHash'])) {
+					e_log(8,"Userchange: Verify original password");
+					if($npassword === $cpassword) {
+						e_log(8,"Userchange: New and confirmed password");
+						if($npassword != $opassword) {
+							e_log(2,"Userchange: Old and new password NOT identical");
+							$password = password_hash($npassword,PASSWORD_DEFAULT);
+							$query = "UPDATE `users` SET `userHash`='$password' WHERE `userID`=".$userData['userID'].";";
+							db_query($query);
+							e_log(8,"Userchange: Password changed");
+							$_SERVER['PHP_AUTH_USER'] = "";
+							$_SERVER['PHP_AUTH_PW'] = "";
+						}
+						else {
+							e_log(2,"Userchange: Old and new password identical, user not changed");
+						}
+					}
+					else {
+						e_log(2,"Userchange: Old and new password are different");
+					}
+				}
+				else {
+					e_log(2,"Userchange: Old password missmatch");
+				}
+			}
+			else {
+				e_log(2,"Userchange: Data missing, process failed");
+			}
+			die();
+			break;
+		case "pbupdate":
+			e_log(8,"Pushbullet: Updating Pushbullet information.");
+			$password = filter_var($_POST['password'], FILTER_SANITIZE_STRING);
+			$ptoken = filter_var($_POST['ptoken'], FILTER_SANITIZE_STRING);
+			$pdevice = filter_var($_POST['pdevice'], FILTER_SANITIZE_STRING);
+			$pbe = filter_var($_POST['pbe'], FILTER_SANITIZE_STRING);
+
+			if(password_verify($password,$userData['userHash'])) {
+				$token = edcrpt('en', $ptoken);
+				$device = edcrpt('en', $pdevice);
+				$pbEnable = filter_var($pbe,FILTER_VALIDATE_BOOLEAN) ? '1' : '0';
+		
+				$oOptionsA = json_decode($userData['uOptions'],true);
+				$oOptionsA['pAPI'] = $token;
+				$oOptionsA['pDevice'] = $device;
+				$oOptionsA['pbEnable'] = $pbEnable;
+		
+				$query = "UPDATE `users` SET `uOptions`='".json_encode($oOptionsA)."' WHERE `userID`=".$userData['userID'].";";
+				$count = db_query($query);
+				($count === 1) ? e_log(8,"Option saved") : e_log(9,"Error, saving option");
+				header("location:".$_SERVER['PHP_SELF']);
+				die();
+			}
+			else {
+				e_log(1,"Password missmatch. Pushbullet not updated.");
+				die("Password missmatch. Pushbullet not updated.");
+			}
+			break;
+		case "uupdate":
+			e_log(8,"Userchange: Updating user name started");
+			$opassword = filter_var($_POST['opassword'], FILTER_SANITIZE_STRING);
+			$username = filter_var($_POST['username'], FILTER_SANITIZE_STRING);
+
+			if($opassword != "") {
+				e_log(8,"Userchange: Data complete entered");
+				if(password_verify($opassword,$userData['userHash'])) {
+					e_log(8,"Userchange: Verify original password");
+					$query = "UPDATE `users` SET `userName`='$username' WHERE `userID`=".$userData['userID'].";";
+					db_query($query);
+					e_log(8,"Userchange: Username changed");
+					$_SERVER['PHP_AUTH_USER'] = "";
+					$_SERVER['PHP_AUTH_PW'] = "";
+				}
+				else {
+					e_log(2,"Userchange: Failed to verify original password");
+				}
+			}
+			else {
+				e_log(2,"Userchange: Data missing");
+			}
+			die();
+			break;
+		case "fexport":
+			$format = filter_var($_POST['type'], FILTER_SANITIZE_STRING);
+			switch($format) {
+				case "html":
+					e_log(2,"Exporting in html format for download");
+					die(html_export($userData));
+					break;
+				default:
+					die(e_log(2,"Unknown export format, exit process"));
+			}
+			
+			exit;
+			break;
+		case "logout":
+			e_log(8,"Logout user ".$_SERVER['PHP_AUTH_USER']);
+			unset($_SERVER['PHP_AUTH_USER']);
+			unset($_SERVER['PHP_AUTH_PW']);
+
+			header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+			http_response_code(401);
+
+			die("User is now logged out.");
 			break;
 		default:
 			die(json_encode("Unknown Action"));
 	}
 	die();
 }
-/*
-if(isset($_GET['gurls'])) {
-	$client = (isset($_GET['client'])) ? $_GET['client'] : '0';
-	e_log(8,"Get pushed site from clients.");
-	$query = "SELECT * FROM `notifications` WHERE `nloop` = 1 AND `userID` = ".$userData['userID']." AND `repeat` IN ('".$client."','0');";
-	$uOptions = json_decode($userData['uOptions'],true);
-	$notificationData = db_query($query);
-	e_log(8,"Found ".count($notificationData)." links. Will push them to the client.");
-	
-	if (!empty($notificationData)) {
-		foreach($notificationData as $key => $notification) {
-			$myObj[$key]['title'] = html_entity_decode($notification['title'],ENT_QUOTES,'UTF-8');
-			$myObj[$key]['url'] = $notification['message'];
-			$myObj[$key]['nkey'] = $notification['id'];
-			$myObj[$key]['nOption'] = $uOptions['notifications'];
-		}
-		die(json_encode($myObj));
-	}
-	else {
-		die();
-	}
-}
-*/
-/*
-if(isset($_GET['durl'])) {
-	$notification = filter_var($_GET['durl'], FILTER_VALIDATE_INT);
-	e_log(8,"Remove notification.");	
-	$query = "UPDATE `notifications` SET `nloop`= 0, `ntime`= '".time()."' WHERE `id` = $notification AND `userID` = ".$userData['userID'];
-	$count = db_query($query);
-	echo $count;
-	die();
-}
-*/
+
 if(isset($_GET['link'])) {
 	$url = validate_url($_GET["link"]);
 	e_log(9,"Bookmarklet URL: " . $url);
@@ -598,12 +567,6 @@ if(isset($_GET['link'])) {
 		echo $res;
 	}
 	die();
-}
-
-if(isset($_POST['export'])) {
-	$format = $_POST['export'];
-	html_export($userData['userID']);
-	exit;
 }
 
 echo htmlHeader($userData);
@@ -742,7 +705,7 @@ function cfolderMatching($bookmark) {
 	return $bookmark;
 }
 
-function html_export($uid) {
+function html_export($userData) {
 	header('Content-Description: File Transfer');
 	header('Content-Type: text/html');
 	header('Content-Disposition: attachment; filename="bookmarks.html"'); 
@@ -752,24 +715,24 @@ function html_export($uid) {
 	header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
 	header('Pragma: public');
 
-$content = '<!DOCTYPE NETSCAPE-Bookmark-file-1>
-<!-- This is an automatically generated file.
-	 It will be read and overwritten.
-	 DO NOT EDIT! -->
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
-<TITLE>Bookmarks</TITLE>';
+	$content = '<!DOCTYPE NETSCAPE-Bookmark-file-1>
+	<!-- This is an automatically generated file.
+		It will be read and overwritten.
+		DO NOT EDIT! -->
+	<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+	<TITLE>Bookmarks</TITLE>';
 
-$umarks = makeHTMLExport(getBookmarks($userData));
-do {
-	$start = strpos($umarks,"%ID");
-	$end = strpos($umarks,"\n",$start);
-	$len = $end - $start;
-	$umarks = substr_replace($umarks, "", $start, $len);
-} while (strpos($umarks,"%ID") > 0);
+	$umarks = makeHTMLExport(getBookmarks($userData));
+	do {
+		$start = strpos($umarks,"%ID");
+		$end = strpos($umarks,"\n",$start);
+		$len = $end - $start;
+		$umarks = substr_replace($umarks, "", $start, $len);
+	} while (strpos($umarks,"%ID") > 0);
 
-$content.="$umarks\r\n</DL><p>";
+	$content.="$umarks\r\n</DL><p>";
 
-	echo $content;
+	return $content;
 }
 
 function editFolder($bm, $ud) {
@@ -1090,7 +1053,7 @@ function minFile($infile) {
 	$outfile = $infile;
 	$infile = pathinfo($infile);
 	$minfile = $infile['filename'].'.min.'.$infile['extension'];
-	//$outfile = (file_exists($minfile)) ? $minfile : $outfile;
+	$outfile = (file_exists($minfile)) ? $minfile : $outfile;
 	return $outfile;
 }
 
@@ -1143,6 +1106,7 @@ function htmlHeader($ud) {
 						</div>
 						<input placeholder='Username' type='text' required id='nuser' name='nuser' autocomplete='username' value='' />
 						<input placeholder='Password' type='password' required id='npwd' name='npwd' autocomplete='password' value='' />
+						<input type='hidden' name='caction' value='muedt'>
 						<div class='select'>
 						<select id='userLevel' required name='userLevel'><option value='' hidden>-- Select Level --</option><option value='0'>Normal</option><option value='1'>Admin</option></select>
 						<div class='select__arrow'></div>
@@ -1179,7 +1143,7 @@ function htmlHeader($ud) {
 					<form action='".$_SERVER['PHP_SELF']."' method='POST'>
 						<input placeholder='Username' required type='text' name='username' id='username' autocomplete='username' value='".$ud['userName']."'>
 						<input placeholder='Password' required type='password' id='password' name='opassword' autocomplete='current-password' value='' />
-						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='uupdate' value='Save'>Save</button></div>
+						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='uupdate'>Save</button></div>
 					</form>
 				</div>";
 				
@@ -1191,7 +1155,7 @@ function htmlHeader($ud) {
 						<input required placeholder='Current password' type='password' id='opassword' name='opassword' autocomplete='current-password' value='' />
 						<input required placeholder='New password' type='password' id='npassword' name='npassword' autocomplete='new-password' value='' />
 						<input required placeholder='Confirm new password' type='password' id='cpassword' name='cpassword' autocomplete='new-password' value='' />
-						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='pupdate' value='Save'>Save</button></div>
+						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='pupdate'>Save</button></div>
 					</form>
 				</div>";
 
@@ -1211,7 +1175,7 @@ function htmlHeader($ud) {
 						<input placeholder='API Token' type='text' id='ptoken' name='ptoken' value='".edcrpt('de',json_decode($ud['uOptions'],true)['pAPI'])."' />
 						<input placeholder='Device ID' type='text' id='pdevice' name='pdevice' value='".edcrpt('de',json_decode($ud['uOptions'],true)['pDevice'])."' />
 						<input required placeholder='Password' type='password' id='password' name='password' autocomplete='current-password' value='' />
-						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='pbupdate' value='Save'>Save</button></div>
+						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='pbupdate'>Save</button></div>
 					</form>
 				</div>";
 
@@ -1338,7 +1302,7 @@ function htmlFooter($uid) {
 					<div class='dbutton'><button type='submit' id='fsave' name='fsave' value='Create' disabled>Create</button></div>
 					</form></div>";
 
-	$htmlFooter = "<div id='bmarkadd' class='mbmdialog' $mad>
+	$htmlFooter = "<div id='bmarkadd' class='mbmdialog'>
 					<h6>Add Bookmark</h6>
 					<form id='bmadd' action='?madd' method='POST'>
 					<input placeholder='URL' type='text' id='url' name='url' value=''>
@@ -1348,7 +1312,7 @@ function htmlFooter($uid) {
 					</select>
 					<div class='select__arrow'></div>
 					</div>
-					<div class='dbutton'><button type='submit' id='save' name='madd' value='Save' $mdis>Save</button></div>
+					<div class='dbutton'><button type='submit' id='save' name='madd' value='Save'>Save</button></div>
 					</form></div>
 					
 					<div id='footer'></div>

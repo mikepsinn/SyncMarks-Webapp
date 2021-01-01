@@ -86,7 +86,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			let url = encodeURIComponent(document.getElementById('url').value);
 
 			var xhr = new XMLHttpRequest();
-			var data = "madd=" + true + "&folder=" + folder + "&url=" + url;
+			var data = "caction=madd&folder=" + folder + "&url=" + url;
 			xhr.onreadystatechange = function () {
 				if (this.readyState == 4) {
 					if(this.status == 200) {
@@ -117,7 +117,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
 		xhr.open("POST", document.location.href, true);
 		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-		xhr.send("logout=true");
+		xhr.send("caction=logout");
 		return false;
 	});
 
@@ -204,7 +204,7 @@ document.addEventListener("DOMContentLoaded", function() {
 		today = dd+'-'+mm+'-'+yyyy;
 
 		var xhr = new XMLHttpRequest();
-		var data = "export=html";
+		var data = "caction=fexport&type=html";
 
 		xhr.onreadystatechange = function () {
 			if (this.readyState == 4) {
@@ -229,13 +229,9 @@ document.addEventListener("DOMContentLoaded", function() {
 	});
 
 	if(document.getElementById('footer')) {
-		document.getElementById('footer').addEventListener('click', function(e) {
-			var clipboardData, pastedData;
+		document.getElementById('footer').addEventListener('click', function() {
 			hideMenu();
 			document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
-			clipboardData = e.clipboardData || window.clipboardData;
-			pastedData = clipboardData.getData('Text');
-			//alert(e.clipboardData.getData('text/html'));
 			document.getElementById('bmarkadd').style.display = 'block';
 			url.focus();
 			url.addEventListener('input', enableSave);
@@ -252,7 +248,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			logfile.style.visibility = 'visible';
 			document.getElementById('close').style.visibility = 'visible';
 			let xhr = new XMLHttpRequest();
-			let data = "mlog=true";
+			let data = "caction=mlog";
 			xhr.onreadystatechange = function () {
 				if (this.readyState == 4) {
 					if(this.status == 200) {
@@ -275,7 +271,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			logfile.style.visibility = 'hidden';
 			document.getElementById('close').style.visibility = 'hidden';
 			let xhr = new XMLHttpRequest();
-			let data = "mclear=true";
+			let data = "caction=mclear";
 			xhr.onreadystatechange = function () {
 				if (this.readyState == 4) {
 					if(this.status == 200) {
@@ -372,7 +368,7 @@ document.addEventListener("DOMContentLoaded", function() {
 		document.getElementById('edsave').addEventListener('click', function(e) {
 			e.preventDefault();
 			let xhr = new XMLHttpRequest();
-			let data = 'bmedt=true&title=' + document.getElementById('edtitle').value + '&url=' + document.getElementById('edurl').value + '&id=' + document.getElementById('edid').value;
+			let data = 'caction=bmedt&title=' + document.getElementById('edtitle').value + '&url=' + document.getElementById('edurl').value + '&id=' + document.getElementById('edid').value;
 			xhr.onreadystatechange = function () {
 				if (this.readyState == 4) {
 					if(this.status == 200) {
@@ -394,7 +390,7 @@ document.addEventListener("DOMContentLoaded", function() {
 		document.getElementById('mvsave').addEventListener('click', function(e) {
 			e.preventDefault();
 			let xhr = new XMLHttpRequest();
-			let data = 'bmmv=true&title=' + document.getElementById('mvtitle').value + '&folder=' + document.getElementById('mvfolder').value + '&id=' + document.getElementById('mvid').value;
+			let data = 'caction=bmmv&title=' + document.getElementById('mvtitle').value + '&folder=' + document.getElementById('mvfolder').value + '&id=' + document.getElementById('mvid').value;
 			xhr.onreadystatechange = function () {
 				if (this.readyState == 4) {
 					if(this.status == 200) {
@@ -415,7 +411,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
 function delClient(element) {
 	let xhr = new XMLHttpRequest();
-	let data = 'adel=true&cido=' + element.target.parentElement.id;
+	let data = 'caction=adel&cido=' + element.target.parentElement.id;
 	xhr.onreadystatechange = function () {
 		if (xhr.readyState == 4) {
 			if(xhr.status == 200) {
@@ -432,7 +428,7 @@ function delClient(element) {
 
 function mvClient(element) {
 	let xhr = new XMLHttpRequest();
-	let data = 'arename=true&cido=' + element.target.parentElement.id + '&nname=' + element.target.parentElement.children[0].children['cname'].value;
+	let data = 'caction=arename&cido=' + element.target.parentElement.id + '&nname=' + element.target.parentElement.children[0].children['cname'].value;
 	xhr.onreadystatechange = function () {
 		if (xhr.readyState == 4) {
 			if(xhr.status == 200) {
@@ -475,7 +471,7 @@ function moveEnd () {
 function delBookmark(id, title) {
 	if(confirm("Would you like to delete \"" + title + "\"?")) {
 		let xhr = new XMLHttpRequest();
-		let data = 'mdel=true&id=' + id;
+		let data = 'caction=mdel&id=' + id;
 		xhr.onreadystatechange = function () {
 			if (this.readyState == 4) {
 				if(this.status == 200) {
