@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.17
+ * @version 1.3.0
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -14,321 +14,30 @@ if (!isset ($_SESSION['fauth'])) {
 include_once "config.inc.php.dist";
 include_once "config.inc.php";
 set_error_handler("e_log");
-if(!file_exists($database)) initDB($database,$suser,$spwd);
 
-if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !isset($_SERVER['PHP_AUTH_PW']) || !isset($_SESSION['fauth'])) {
-	doLogin($database,$realm);
+if(!file_exists($database)) {
+	if(!file_exists(dirname($database))) {
+		if(!mkdir(dirname($database),0777,true)) {
+			$message = "Directory for database couldn't created, please check privileges";
+			e_log(1,$message);
+			die($message);
+		} else {
+			e_log(8,"Directory for database created, initialize database now");
+			initDB($suser,$spwd);
+		}
+	}
 }
-else {
-	$db = new PDO('sqlite:'.$database);
+
+if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !isset($_SERVER['PHP_AUTH_PW'])) {
+	doLogin($realm);
+} else {
 	e_log(8,"Update lastseen date for user");
-	$query = "UPDATE `users` SET `userLastLogin`=".time()." WHERE `userName` = '".$_SERVER['PHP_AUTH_USER']."'";
-	e_log(9,$query);
-	$db->exec($query);
-	$db = NULL;
+	$query = "UPDATE `users` SET `userLastLogin` = ".time()." WHERE `userName` = '".$_SERVER['PHP_AUTH_USER']."';";
+	db_query($query);
 	session_unset();
 }
 
-if(!isset($userData)) $userData = getUserdata($database);
-
-if(isset($_POST['bmedt'])) {
-	$db = new PDO('sqlite:'.$database);
-	$query = "UPDATE `bookmarks` SET `bmTitle` = '".$_POST['title']."', `bmURL` = '".validate_url($_POST['url'])."', `bmAdded` = '".round(microtime(true) * 1000)."' WHERE `bmID` = '".$_POST['id']."' AND `userID` = ".$userData['userID'];
-	$db->exec($query);
-	$count = $db = NULL;
-	if($count > 0)
-		die(true);
-	else
-		die(false);
-}
-
-if(isset($_POST['bmmv'])) {
-	$db = new PDO('sqlite:'.$database);
-	$query = "SELECT MAX(bmIndex)+1 AS 'index' FROM `bookmarks` WHERE `bmParentID` = '".$_POST['folder']."'";
-	$statement = $db->prepare($query);
-	$statement->execute();
-	$folderData = $statement->fetchAll(PDO::FETCH_ASSOC);
-	$query = "UPDATE `bookmarks` SET `bmIndex` = ".$folderData[0]['index'].", `bmParentID` = '".$_POST['folder']."', `bmAdded` = '".round(microtime(true) * 1000)."' WHERE `bmID` = '".$_POST['id']."' AND `userID` = ".$userData['userID'];
-	$count = $db->exec($query);
-	$db = NULL;
-	if($count > 0)
-		die(true);
-	else
-		die(false);
-}
-
-if(isset($_POST['arename'])) {
-	$cliento = filter_var($_POST['cido'], FILTER_SANITIZE_STRING);
-	$name = filter_var($_POST['nname'], FILTER_SANITIZE_STRING);
-	e_log(8,"Renaming client $cliento to $name");
-	$db = new PDO('sqlite:'.$database);
-	$query = "UPDATE `clients` SET `cname` = '".$name."' WHERE `uid` = ".$userData['userID']." AND `cid` = '".$cliento."'";
-	e_log(9,$query);
-	$count = $db->exec($query);
-	$db = NULL;
-	
-	if($count == 1)
-		die(bClientlist($userData['userID'], $database));
-	else
-		die(false);
-}
-
-if(isset($_POST['adel'])) {
-	$db = new PDO('sqlite:'.$database);
-	$query = "DELETE FROM `clients` WHERE `uid` = ".$userData['userID']." AND `cid` = '".$_POST['cido']."'";
-	$count = $db->exec($query);
-	$db = NULL;
-	if($count > 0)
-		die(bClientlist($userData['userID'], $database));
-	else
-		die(false);
-}
-
-if(isset($_POST['muedt'])) {
-	$del = false;
-	$headers = "From: PHPMarks <$sender>";
-	$url = $_SERVER['REQUEST_SCHEME']."://".$_SERVER['SERVER_NAME'].$_SERVER['PHP_SELF'];
-
-	switch($_POST['muedt']) {
-		case "Add User":
-			$pwd = password_hash($_POST['npwd'],PASSWORD_DEFAULT);
-			$level = $_POST['userLevel'] + 1;
-			$query = "INSERT INTO `users` (`userName`,`userType`,`userHash`) VALUES ('".$_POST['nuser']."', '".$level."', '".$pwd."')";
-			e_log(8,"Adding new user ".$_POST['nuser']);
-			$message = "Hello,\r\n\r\na account with the following credentials is created and stored encrypted on the database:\r\nE-Mail: ".$_POST['nuser']."\r\nPassword: ".$_POST['npwd']."\r\n\r\nYou can login at $url";
-			if(!mail ($_POST['nuser'], "Account created",$message,$headers)) e_log(1,"Error sending data for created user account to user");
-			break;
-		case "Edit User":
-			$pwd = password_hash($_POST['npwd'],PASSWORD_DEFAULT);
-			$level = $_POST['userLevel'] + 1;
-			$query = "UPDATE `users` SET `userName`= '".$_POST['nuser']."', `userType`= '".$level."', `userHash`= '".$pwd."' WHERE `userID` = ".$_POST['userSelect'].";";
-			e_log(8,"Updating user ".$_POST['nuser']);
-			$message = "Hello,\r\n\r\nyour account is changed and stored encrypted on the database. Your new credentials are:\r\nE-Mail: ".$_POST['nuser']."\r\nPassword: ".$_POST['npwd']."\r\n\r\nYou can login at $url";
-			if(!mail ($_POST['nuser'], "Account changed",$message,$headers)) e_log(1,"Error sending data for changed user account to user");
-			break;
-		case "Delete User":
-			$query = "DELETE FROM `users` WHERE `userID` = ".$_POST['userSelect'];
-			$del = true;
-			e_log(8,"Removing user ".$_POST['nuser']);
-			$message = "Hello,\r\n\r\nyour account '".$_POST['nuser']."' and all it's data is removed from $url.";
-			if(!mail ($_POST['nuser'], "Account removed",$message,$headers)) e_log(1,"Error sending data for created user account to user");
-			break;
-		default:
-			e_log(1,"Unknown action by managing users");
-			die("Unknown action by managing users");
-			break;
-	}
-	
-	$db = new PDO('sqlite:'.$database);
-	e_log(9,$query);
-	$db->exec($query);
-	if($del) {
-		$query = "DELETE FROM `clients` WHERE `userID` = ".$_POST['userSelect'];
-		e_log(8,"Removing clients for user ".$_POST['nuser']);
-		e_log(9,$query);
-		$db->exec($query);
-		$query = "DELETE FROM `bookmarks` WHERE `userID` = ".$_POST['userSelect'];
-		e_log(8,"Removing bookmarks for user ".$_POST['nuser']);
-		e_log(9,$query);
-		$db->exec($query);
-	}
-	$db = NULL;
-}
-
-if(isset($_POST['mlog'])) {
-	if($userData['userType'] > 1) {
-		die(file_get_contents($logfile));
-	}	else {
-		$message = "Not allowed to read server logfile.";
-		e_log(2,$message);
-		die($message);
-	} 
-}
-
-if(isset($_POST['mclear'])) {
-	if($userData['userType'] > 1) {
-		file_put_contents($logfile,"");
-	}
-	die();
-}
-
-if(isset($_POST['madd'])) {
-	$bmParentID = $_POST['folder'];
-	$bmURL = validate_url(trim($_POST['url']));
-	e_log(8,"Try to add manually new bookmark: ".$bmURL);
-	$bmID = unique_code(12);
-	$bmIndex = getIndex($bmParentID);
-	if(strpos($bmURL,'http') != 0) {
-		e_log(1,"Given string is not a real URL, cant add this.");
-		exit;
-	}
-	$bmTitle = getSiteTitle($bmURL);
-	$bmAdded = round(microtime(true) * 1000);
-	$userID = $userData['userID'];
-
-	if($bmTitle === "") {
-		e_log(1,"Titel is missing, adding bookmark failed.");
-		die("Titel is missing, adding bookmark failed.");
-	}
-	else {
-		try {
-			$db = new PDO('sqlite:'.$database);
-			$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bmID."', '".$bmParentID."', ".$bmIndex.", '".$bmTitle."', 'bookmark', '".$bmURL."', ".$bmAdded.", ".$userID.")";
-			$db->exec($query);
-			e_log(9,$query);
-		}
-		catch(PDOException $e) {
-			e_log(1,'Exception: '.$e->getMessage());
-		}
-		$db = NULL;
-	}
-	if(!isset($_POST['rc'])) {
-		e_log(8,"Manually added bookmark.");
-		die(bmTree($userData,$database));
-	} else {
-		e_log(8,"Roundcube added bookmark.");
-		die();
-	}
-}
-
-if(isset($_POST['mdel'])) {
-	$bmID = $_POST['id'];
-	$userID = $userData['userID'];
-
-	try {
-		$db = new PDO('sqlite:'.$database);
-		$query = "UPDATE `bookmarks` SET `bmAction`= 1, `bmAdded`= '".round(microtime(true) * 1000)."' WHERE `bmID` = '".$bmID."' AND `userID` = ".$userID;
-		$db->exec($query);
-	}
-	catch(PDOException $e) {
-		e_log(1,'Exception : '.$e->getMessage());
-	}
-	$db = NULL;
-	if(!isset($_POST['rc'])) {
-		e_log(8,"Manual deleted bookmark ".$bmID);
-		e_log(9,$query);
-		die(bmTree($userData,$database));
-	} else {
-		e_log(8,"Bookmark ".$bmID." removed by Roundcube");
-		e_log(9,$query);
-		die();
-	}
-}
-
-if(isset($_POST['pupdate'])) {
-	e_log(8,"Userchange: Updating user password started OK");
-	if($_POST['opassword'] != "" && $_POST['npassword'] !="" && $_POST['cpassword'] !="") {
-		e_log(8,"Userchange: Data complete entered OK");
-		if(password_verify($_POST['opassword'],$userData['userHash'])) {
-			e_log(8,"Userchange: Verify original password OK");
-			if($_POST['npassword'] === $_POST['cpassword']) {
-				e_log(8,"Userchange: New and confirmed password OK");
-				if($_POST['npassword'] != $_POST['opassword']) {
-					e_log(2,"Userchange: Old and new password NOT identical");
-					$password = password_hash($_POST['npassword'],PASSWORD_DEFAULT);
-					try {
-						$db = new PDO('sqlite:'.$database);
-						$db->exec("UPDATE `users` SET `userHash`='".$password."' WHERE `userID`=".$userData['userID']);
-						e_log(9,"UPDATE `users` SET `userHash`='".$password."' WHERE `userID`=".$userData['userID']);
-					}
-					catch(PDOException $e) {
-						e_log(1,'Exception : '.$e->getMessage());
-					}
-					$db = NULL;
-					e_log(8,"Userchange: Password changed OK");
-					$_SERVER['PHP_AUTH_USER'] = "";
-					$_SERVER['PHP_AUTH_PW'] = "";
-				}
-				else {
-					e_log(2,"Userchange: Old and new password identical, user not changed");
-				}
-			}
-			else {
-				e_log(2,"Userchange: New and confirmed password NOT OK");
-			}
-		}
-		else {
-			e_log(2,"Userchange: Verify original password NOT OK");
-		}
-	}
-	else {
-		e_log(2,"Userchange: Data missing, NOT OK");
-	}
-	die();
-}
-
-if(isset($_POST['pbupdate'])) {
-	if(password_verify($_POST['password'],$userData['userHash'])) {
-		e_log(8,"Pushbullet: Updating Pushbullet information.");
-		
-		$token = edcrpt('en', $_POST['ptoken']);
-		$device = edcrpt('en', $_POST['pdevice']);
-		$pbEnable = filter_var($_POST['pbe'],FILTER_VALIDATE_BOOLEAN) ? '1' : '0';
-
-		$oOptionsA = json_decode($userData['uOptions'],true);
-		$oOptionsA['pAPI'] = $token;
-		$oOptionsA['pDevice'] = $device;
-		$oOptionsA['pbEnable'] = $pbEnable;
-
-		try {
-			$db = new PDO('sqlite:'.$database);
-			$query = "UPDATE `users` SET `uOptions`='".json_encode($oOptionsA)."' WHERE `userID`=".$userData['userID'];
-			e_log(9,$query);
-			$count = $db->exec($query);
-			($count === 1) ? e_log(8,"Option saved") : e_log(9,"Error, saving option");
-		}
-		catch(PDOException $e) {
-			e_log(1,'Exception : '.$e->getMessage());
-		}
-		$db = NULL;
-		header("location:".$_SERVER['PHP_SELF']);
-		die();
-	}
-	else {
-		e_log(1,"Password missmatch. Pushbullet not updated.");
-		die("Password missmatch. Pushbullet not updated.");
-	}
-}
-
-if(isset($_POST['uupdate'])) {
-	e_log(8,"Userchange: Updating user name started");
-	if($_POST['opassword'] != "") {
-		e_log(8,"Userchange: Data complete entered");
-		if(password_verify($_POST['opassword'],$userData['userHash'])) {
-			e_log(8,"Userchange: Verify original password");
-			try {
-				$db = new PDO('sqlite:'.$database);
-				$db->exec("UPDATE `users` SET `userName`='".$_POST['username']."' WHERE `userID`=".$userData['userID']);
-				e_log(9,"UPDATE `users` SET `userName`='".$_POST['username']."' WHERE `userID`=".$userData['userID']);
-			}
-			catch(PDOException $e) {
-				e_log(1,'Exception : '.$e->getMessage());
-			}
-			$db = NULL;
-			e_log(8,"Userchange: Username changed");
-			$_SERVER['PHP_AUTH_USER'] = "";
-			$_SERVER['PHP_AUTH_PW'] = "";
-		}
-		else {
-			e_log(2,"Userchange: Failed to verify original password");
-		}
-	}
-	else {
-		e_log(2,"Userchange: Data missing");
-	}
-	die();
-}
-
-if(isset($_POST['logout'])) {
-	e_log(8,"Logout user ".$_SERVER['PHP_AUTH_USER']);
-	unset($_SERVER['PHP_AUTH_USER']);
-	unset($_SERVER['PHP_AUTH_PW']);
-
-	header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-	http_response_code(401);
-
-	die("User is now logged out.");
-}
+if(!isset($userData)) $userData = getUserdata();
 
 if(isset($_POST['caction'])) {
 	switch($_POST['caction']) {
@@ -340,9 +49,15 @@ if(isset($_POST['caction'])) {
 			if(array_key_exists('url',$bookmark)) $bookmark['url'] = validate_url($bookmark['url']);
 			if(strtolower(getClientType($_SERVER['HTTP_USER_AGENT'])) != "firefox") $bookmark = cfolderMatching($bookmark);
 			if($bookmark['type'] == 'bookmark' && isset($bookmark['url'])) {
-				die(json_encode(addBookmark($database, $userData, $bookmark)));
+				$response = json_encode(addBookmark($userData, $bookmark));
+				$ctime = round(microtime(true) * 1000);
+				updateClient($client, strtolower(getClientType($_SERVER['HTTP_USER_AGENT'])), $userData, $ctime, true);
+				die($response);
 			} else if($bookmark['type'] == 'folder') {
-				die(addFolder($database, $userData, $bookmark));
+				$response = addFolder($userData, $bookmark);
+				$ctime = round(microtime(true) * 1000);
+				updateClient($client, strtolower(getClientType($_SERVER['HTTP_USER_AGENT'])), $userData, $ctime, true);
+				die($response);
 			} else {
 				e_log(1,"This bookmark is not added, some parameters are missing");
 				die(false);
@@ -350,44 +65,52 @@ if(isset($_POST['caction'])) {
 			break;
 		case "movemark":
 			$bookmark = json_decode($_POST['bookmark'],true);
-			$client = $_POST['client'];
+			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$ctime = round(microtime(true) * 1000);
-			die(json_encode(moveBookmark($database, $userData, $bookmark)));
+			$response = json_encode(moveBookmark($userData, $bookmark));
+			updateClient($client, strtolower(getClientType($_SERVER['HTTP_USER_AGENT'])), $userData, $ctime, true);
+			die($response);
 			break;
 		case "editmark":
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
-			if(array_key_exists('url',$bookmark)) {
-				die(editBookmark($bookmark, $database, $userData));
-			} else {
-				die(editFolder($bookmark, $database, $userData));
-			}
+			(array_key_exists('url',$bookmark)) ? die(editBookmark($bookmark, $userData)) : die(editFolder($bookmark, $userData));
 			break;
 		case "delmark":
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
-			$client = $_POST['client'];
+			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$ctime = round(microtime(true) * 1000);
+			e_log(8,"Try to identify bookmark");
 			if(isset($bookmark['url'])) {
-				die(json_encode(delBookmark($database, $userData, $bookmark)));
+				$url = prepare_url($bookmark['url']);
+				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'bookmark' AND `bmIndex` = ".$bookmark['index']." AND `bmURL` = '$url' AND `userID` = ".$userData['userID'].";";
 			} else {
-				die(json_encode(delFolder($database, $userData, $bookmark)));
+				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmIndex` = ".$bookmark['index']." AND `bmTitle` = '".$bookmark['title']."' AND `userID` = ".$userData['userID'].";";
+			}
+			$bData = db_query($query);
+			if(count($bData) == 1) {
+				die(json_encode(delMark($bData[0]['bmID'])));
+			} else {
+				$message = "No unique bookmark found, bookmark not removed";
+				e_log(2,$message);
+				die(json_encode($message));
 			}
 			break;
 		case "startup":
-			$client = $_POST['client'];
+			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$ctype = getClientType($_SERVER['HTTP_USER_AGENT']);
 			$ctime = round(microtime(true) * 1000);
-			die(json_encode(getChanges($database, $client, $ctype, $userData, $ctime),JSON_UNESCAPED_SLASHES));
+			die(json_encode(getChanges($client, $ctype, $userData, $ctime),JSON_UNESCAPED_SLASHES));
 			break;
 		case "cfolder":
 			$ctime = round(microtime(true) * 1000);
 			$fname = filter_var($_POST['fname'], FILTER_SANITIZE_STRING);
 			$fbid = filter_var($_POST['fbid'], FILTER_SANITIZE_STRING);
-			die(cfolder($database,$ctime,$fname,$fbid,$userData));
+			die(cfolder($ctime,$fname,$fbid,$userData));
 			break;
 		case "import":
 			$jmarks = json_decode($_POST['bookmark'],true);
 			$jerrmsg = "";
-			$client = $_POST['client'];
+			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			switch (json_last_error()) {
 				case JSON_ERROR_NONE:
 					$jerrmsg = '';
@@ -409,7 +132,6 @@ if(isset($_POST['caction'])) {
 				break;
 				default:
 					$jerrmsg = 'Unknown error';
-				break;
 			}
 			
 			if(strlen($jerrmsg) > 0) {
@@ -424,13 +146,13 @@ if(isset($_POST['caction'])) {
 			$ctime = round(microtime(true) * 1000);
 			delUsermarks($userData['userID']);
 			$armarks = parseJSON($jmarks);
-			updateClient($database, $client, $ctype, $userData, $ctime, true);
-			die(json_encode(importMarks($armarks,$userData['userID'],$database)));
+			updateClient($client, $ctype, $userData, $ctime, true);
+			die(json_encode(importMarks($armarks,$userData['userID'])));
 			break;
 		case "export":
 			e_log(8,"Browser requested bookmark import...");
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
-			$bookmarks = json_encode(getBookmarks($userData['userID'],$database));
+			$bookmarks = json_encode(getBookmarks($userData));
 			if($loglevel = 9 && $cexpjson == true) {
 				$filename = "export_".substr($client,0,8)."_".time().".json";
 				file_put_contents($filename,$bookmarks,true);
@@ -445,37 +167,26 @@ if(isset($_POST['caction'])) {
 			$target = (isset($_POST['tg'])) ? filter_var($_POST['tg'], FILTER_SANITIZE_STRING) : '0';
 			$ctime = time();
 			$title = getSiteTitle($url);
-			$db = new PDO('sqlite:'.$database);
-			e_log(8,"Get new pushed URL: ".$url);
+			e_log(8,"Received new pushed URL: ".$url);
 			$uidd = $userData['userID'];
 			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`repeat`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, $target, 1, $ctime, $uidd)";
-			e_log(9,$query);
-			$erg = $db->exec($query);
+			$erg = db_query($query);
 			if($erg !== 0) echo("URL successfully pushed.");
 			break;
 		case "lsnc":
-			$db = new PDO('sqlite:'.$database);
-			e_log(8,"Get lastseen date.");
+			e_log(8,"Get clients lastseen date.");
 			$query = "SELECT MAX(`lastseen`) as lastseen FROM `clients` WHERE `uid` = ".$userData['userID'].";";
-			e_log(9,$query);
-			$statement = $db->prepare($query);
-			$statement->execute();
-			$lastSeen = $statement->fetchColumn();
-			$db = NULL;
-			e_log(8,"lastseen date: ".$lastSeen);
+			$lastSeen = db_query($query)[0]['lastseen'];
 			die($lastSeen);
 			break;
 		case "rmessage":
-			$db = new PDO('sqlite:'.$database);
 			$message = filter_var($_POST['message'], FILTER_VALIDATE_INT);
 			$loop = filter_var($_POST['lp'], FILTER_SANITIZE_STRING) == 'aNoti' ? 1 : 0;
-			e_log(8,"Try to remove notification ".$message);
+			e_log(8,"Try to delete notification $message");
 			$query = "DELETE FROM `notifications` WHERE `userID` = ".$userData['userID']." AND `id` = $message;";
-			e_log(9,$query);
-			$count = $db->exec($query);
-			$db = NULL;
+			$count = db_query($query);
 			($count === 1) ? e_log(8,"Notification successfully removed") : e_log(9,"Error, removing notification");
-			die(notiList($userData['userID'], $loop, $database));
+			die(notiList($userData['userID'], $loop));
 			break;
 		case "soption":
 			$option = filter_var($_POST['option'], FILTER_SANITIZE_STRING);
@@ -483,22 +194,16 @@ if(isset($_POST['caction'])) {
 			e_log(8,"Option received: ".$option.":".$value);
 			$oOptionsA = json_decode($userData['uOptions'],true);
 			$oOptionsA[$option] = $value;
-			$db = new PDO('sqlite:'.$database);
-			$query = "UPDATE `users` SET `uOptions`='".json_encode($oOptionsA)."' WHERE `userID`=".$userData['userID'];
-			e_log(9,$query);
-			$count = $db->exec($query);
+			$query = "UPDATE `users` SET `uOptions`='".json_encode($oOptionsA)."' WHERE `userID`=".$userData['userID'].";";
+			$count = db_query($query);
 			($count === 1) ? e_log(8,"Option saved") : e_log(9,"Error, saving option");
 			echo $count;
 			break;
 		case "getclients":
-			e_log(8,"Try to get list of clients.");
-			$db = new PDO('sqlite:'.$database);
+			e_log(8,"Try to get list of clients");
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
-			$query = "SELECT cid, IFNULL(cname, cid) cname, ctype, lastseen FROM clients WHERE uid = ".$userData['userID']." AND NOT cid = '$client' ORDER BY 2 COLLATE NOCASE ASC;";
-			e_log(9,$query);
-			$statement = $db->prepare($query);
-			$statement->execute();
-			$clientList = $statement->fetchAll(PDO::FETCH_ASSOC);
+			$query = "SELECT `cid`, IFNULL(`cname`, `cid`) `cname`, `ctype`, `lastseen` FROM `clients` WHERE `uid` = ".$userData['userID']." AND NOT `cid` = '$client' ORDER BY 2 COLLATE NOCASE ASC;";
+			$clientList = db_query($query);
 			e_log(8,"Found ".count($clientList)." clients. Send list to requesting client.");
 
 			if (!empty($clientList)) {
@@ -518,65 +223,302 @@ if(isset($_POST['caction'])) {
 			}
 			break;
 		case "tl":
-			e_log(8,"Get testrequest from saving client options.");
+			e_log(8,"Get testrequest from addon options page");
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$type = getClientType($_SERVER['HTTP_USER_AGENT']);
 			$time = round(microtime(true) * 1000);
-			die(updateClient($database, $client, $type, $userData, $time));
+			die(updateClient($client, $type, $userData, $time));
 			break;
 		case "gname":
-			e_log(8,"Get clientname.");
+			e_log(8,"Request clientname");
 			$client = filter_var($_POST['cl'], FILTER_SANITIZE_STRING);
-			$db = new PDO('sqlite:'.$database);
 			$query = "SELECT cname, ctype FROM clients WHERE cid = '$client' and uid = ".$userData['userID'].";";
-			e_log(9,$query);
-			$statement = $db->prepare($query);
-			$statement->execute();
-			$clientData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
-			e_log(8,"Send name ".$clientData['cname']." back to client.");
+			$clientData = db_query($query)[0];
+			e_log(8,"Send name '".$clientData['cname']."' back to client");
 			die(json_encode($clientData));
 			break;
+		case "gurls":
+			$client = (isset($_POST['client'])) ? filter_var($_POST['client'], FILTER_SANITIZE_STRING) : '0';
+			e_log(8,"Request pushed sites for client $client");
+			$query = "SELECT * FROM `notifications` WHERE `nloop` = 1 AND `userID` = ".$userData['userID']." AND `repeat` IN ('".$client."','0');";
+			$uOptions = json_decode($userData['uOptions'],true);
+			$notificationData = db_query($query);
+			e_log(8,"Found ".count($notificationData)." links. Will push them to the client.");
+			if (!empty($notificationData)) {
+				foreach($notificationData as $key => $notification) {
+					$myObj[$key]['title'] = html_entity_decode($notification['title'],ENT_QUOTES,'UTF-8');
+					$myObj[$key]['url'] = $notification['message'];
+					$myObj[$key]['nkey'] = $notification['id'];
+					$myObj[$key]['nOption'] = $uOptions['notifications'];
+				}
+				die(json_encode($myObj));
+			} else {
+				die();
+			}
+			break;
+		case "durl":
+			e_log(8,"Hide notification");
+			$notification = filter_var($_POST['durl'], FILTER_VALIDATE_INT);
+			$query = "UPDATE `notifications` SET `nloop`= 0, `ntime`= '".time()."' WHERE `id` = $notification AND `userID` = ".$userData['userID'];
+			die(db_query($query));
+			break;
+		case "bmedt":
+			$title = filter_var($_POST['title'], FILTER_SANITIZE_STRING);
+			$id = filter_var($_POST['id'], FILTER_SANITIZE_STRING);
+			e_log(8,"Edit entry '$title'");
+			$url = strlen($_POST['url']) > 4 ? '\''.validate_url($_POST['url']).'\'' : 'NULL';
+			$query = "UPDATE `bookmarks` SET `bmTitle` = '$title', `bmURL` = $url, `bmAdded` = '".round(microtime(true) * 1000)."' WHERE `bmID` = '$id' AND `userID` = ".$userData['userID'].";";
+			$count = db_query($query);
+			($count > 0) ? die(true) : die(false);
+			break;
+		case "bmmv":
+			$id = filter_var($_POST['id'], FILTER_SANITIZE_STRING);
+			e_log(8,"Move bookmark $id");
+			$folder = filter_var($_POST['folder'], FILTER_SANITIZE_STRING);
+			$query = "SELECT MAX(bmIndex)+1 AS 'index' FROM `bookmarks` WHERE `bmParentID` = '$folder';";
+			$folderData = db_query($query);
+			$query = "UPDATE `bookmarks` SET `bmIndex` = ".$folderData[0]['index'].", `bmParentID` = '$folder', `bmAdded` = '".round(microtime(true) * 1000)."' WHERE `bmID` = '$id' AND `userID` = ".$userData['userID'].";";
+			$count = db_query($query);
+			($count > 0) ? die(true) : die(false);
+			break;
+		case "arename":
+			$client = filter_var($_POST['cido'], FILTER_SANITIZE_STRING);
+			$name = filter_var($_POST['nname'], FILTER_SANITIZE_STRING);
+			e_log(8,"Rename client $client to $name");
+			$query = "UPDATE `clients` SET `cname` = '".$name."' WHERE `uid` = ".$userData['userID']." AND `cid` = '".$client."';";
+			$count = db_query($query);
+			($count > 0) ? die(bClientlist($userData['userID'])) : die(false);
+			break;
+		case "adel":
+			$client = filter_var($_POST['cido'], FILTER_SANITIZE_STRING);
+			e_log(8,"Delete client $client");
+			$query = "DELETE FROM `clients` WHERE `uid` = ".$userData['userID']." AND `cid` = '$client';";
+			$count = db_query($query);
+			($count > 0) ? die(bClientlist($userData['userID'])) : die(false);
+			break;
+		case "muedt":
+			$del = false;
+			$headers = "From: PHPMarks <$sender>";
+			$url = $_SERVER['REQUEST_SCHEME']."://".$_SERVER['SERVER_NAME'].$_SERVER['PHP_SELF'];
+			$variant = filter_var($_POST['muedt'], FILTER_SANITIZE_STRING);
+			$password = filter_var($_POST['npwd'], FILTER_SANITIZE_STRING);
+			$userLevel = filter_var($_POST['userLevel'], FILTER_VALIDATE_INT) + 1;
+			$user = filter_var($_POST['nuser'], FILTER_SANITIZE_STRING);
+			$uID = filter_var($_POST['userSelect'], FILTER_VALIDATE_INT);
 
-	default:
+			switch($variant) {
+				case "Add User":
+					$pwd = password_hash($password,PASSWORD_DEFAULT);
+					e_log(8,"Adding new user $user");
+					$query = "INSERT INTO `users` (`userName`,`userType`,`userHash`) VALUES ('$user', '$userLevel', '".$pwd."')";
+					if(db_query($query) == 1) {
+						$message = "Hello,\r\n\r\na account with the following credentials is created and stored encrypted on the database:\r\nE-Mail: $user\r\nPassword: $password\r\n\r\nYou can login at $url";
+						if(!mail ($user, "Account created",$message,$headers)) e_log(1,"Error sending data for created user account to user");
+					}
+					break;
+				case "Edit User":
+					$pwd = password_hash($password,PASSWORD_DEFAULT);
+					e_log(8,"Updating user $user");
+					$query = "UPDATE `users` SET `userName`= '$user', `userType`= '$userLevel', `userHash`= '".$pwd."' WHERE `userID` = $uID;";
+					if(db_query($query) == 1) {
+						$message = "Hello,\r\n\r\nyour account is changed and stored encrypted on the database. Your new credentials are:\r\nE-Mail: $user\r\nPassword: $password\r\n\r\nYou can login at $url";
+						if(!mail ($user, "Account changed",$message,$headers)) e_log(1,"Error sending email for changed user account");
+					}
+					break;
+				case "Delete User":
+					e_log(8,"Delete user $user");
+					$query = "DELETE FROM `users` WHERE `userID` = $uID;";
+					if(db_query($query) == 1) {
+						e_log(8,"Delete clients for user $user");
+						$query = "DELETE FROM `clients` WHERE `userID` = $uID;";
+						db_query($query);
+						e_log(8,"Delete bookmarks for user $user");
+						$query = "DELETE FROM `bookmarks` WHERE `userID` = $uID;";
+						db_query($query);
+						$message = "Hello,\r\n\r\nyour account '$user' and all it's data is removed from $url.";
+						if(!mail ($_POST['nuser'], "Account removed",$message,$headers)) e_log(1,"Error sending data for created user account to user");
+					}
+					break;
+				default:
+					$message = "Unknown action for managing users";
+					e_log(1,$message);
+					die($message);
+			}
+			break;
+		case "mlog":
+			e_log(8,"Try to show logfile");
+			if($userData['userType'] > 1) {
+				die(file_get_contents($logfile));
+			} else {
+				$message = "Not allowed to read server logfile.";
+				e_log(2,$message);
+				die($message);
+			}
+			break;
+		case "mclear":
+			e_log(8,"Clear logfile");
+			if($userData['userType'] > 1) file_put_contents($logfile,"");
+			die();
+			break;
+		case "madd":
+			$bmParentID = filter_var($_POST['folder'], FILTER_SANITIZE_STRING);
+			$bmURL = validate_url(trim($_POST['url']));
+			e_log(8,"Try to add manually new bookmark ".$bmURL);
+			$bmID = unique_code(12);
+			$bmIndex = getIndex($bmParentID);
+			if(strpos($bmURL,'http') != 0) {
+				e_log(1,"Given string is not a real URL, cant add this.");
+				exit;
+			}
+			$bmTitle = getSiteTitle($bmURL);
+			$bmAdded = round(microtime(true) * 1000);
+			$userID = $userData['userID'];
+
+			if($bmTitle === "") {
+				$message = "Titel is missing, add bookmark failed";
+				e_log(1,$message);
+				die($message);
+			} else {
+				$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bmID."', '".$bmParentID."', ".$bmIndex.", '".$bmTitle."', 'bookmark', '".$bmURL."', ".$bmAdded.", ".$userID.")";
+				db_query($query);
+			}
+			if(!isset($_POST['rc'])) {
+				e_log(8,"Manually added bookmark.");
+				die(bmTree($userData));
+			} else {
+				e_log(8,"Roundcube added bookmark.");
+				die();
+			}
+			break;
+		case "mdel":
+			$bmID = filter_var($_POST['id'], FILTER_SANITIZE_STRING);
+			$delMark = delMark($bmID);
+			if($delMark != 0) {
+				if(!isset($_POST['rc'])) {
+					e_log(8,"Deleted bookmark $bmID");
+					die(bmTree($userData));
+				} else {
+					die(e_log(8,"Bookmark $bmID deleted by Roundcube"));
+				}
+			} else {
+				die(e_log(2,"There was an problem removing the bookmark, please check the logfile"));
+			}
+			break;
+		case "pupdate":
+			e_log(8,"Userchange: Updating user password started");
+			$opassword = filter_var($_POST['opassword'], FILTER_SANITIZE_STRING);
+			$npassword = filter_var($_POST['npassword'], FILTER_SANITIZE_STRING);
+			$cpassword = filter_var($_POST['cpassword'], FILTER_SANITIZE_STRING);
+
+			if($opassword != "" && $npassword !="" && $cpassword !="") {
+				e_log(8,"Userchange: Data complete entered");
+				if(password_verify($opassword,$userData['userHash'])) {
+					e_log(8,"Userchange: Verify original password");
+					if($npassword === $cpassword) {
+						e_log(8,"Userchange: New and confirmed password");
+						if($npassword != $opassword) {
+							e_log(2,"Userchange: Old and new password NOT identical");
+							$password = password_hash($npassword,PASSWORD_DEFAULT);
+							$query = "UPDATE `users` SET `userHash`='$password' WHERE `userID`=".$userData['userID'].";";
+							db_query($query);
+							e_log(8,"Userchange: Password changed");
+							$_SERVER['PHP_AUTH_USER'] = "";
+							$_SERVER['PHP_AUTH_PW'] = "";
+						}
+						else {
+							e_log(2,"Userchange: Old and new password identical, user not changed");
+						}
+					}
+					else {
+						e_log(2,"Userchange: Old and new password are different");
+					}
+				}
+				else {
+					e_log(2,"Userchange: Old password missmatch");
+				}
+			}
+			else {
+				e_log(2,"Userchange: Data missing, process failed");
+			}
+			die();
+			break;
+		case "pbupdate":
+			e_log(8,"Pushbullet: Updating Pushbullet information.");
+			$password = filter_var($_POST['password'], FILTER_SANITIZE_STRING);
+			$ptoken = filter_var($_POST['ptoken'], FILTER_SANITIZE_STRING);
+			$pdevice = filter_var($_POST['pdevice'], FILTER_SANITIZE_STRING);
+			$pbe = filter_var($_POST['pbe'], FILTER_SANITIZE_STRING);
+
+			if(password_verify($password,$userData['userHash'])) {
+				$token = edcrpt('en', $ptoken);
+				$device = edcrpt('en', $pdevice);
+				$pbEnable = filter_var($pbe,FILTER_VALIDATE_BOOLEAN) ? '1' : '0';
+		
+				$oOptionsA = json_decode($userData['uOptions'],true);
+				$oOptionsA['pAPI'] = $token;
+				$oOptionsA['pDevice'] = $device;
+				$oOptionsA['pbEnable'] = $pbEnable;
+		
+				$query = "UPDATE `users` SET `uOptions`='".json_encode($oOptionsA)."' WHERE `userID`=".$userData['userID'].";";
+				$count = db_query($query);
+				($count === 1) ? e_log(8,"Option saved") : e_log(9,"Error, saving option");
+				header("location:".$_SERVER['PHP_SELF']);
+				die();
+			}
+			else {
+				e_log(1,"Password missmatch. Pushbullet not updated.");
+				die("Password missmatch. Pushbullet not updated.");
+			}
+			break;
+		case "uupdate":
+			e_log(8,"Userchange: Updating user name started");
+			$opassword = filter_var($_POST['opassword'], FILTER_SANITIZE_STRING);
+			$username = filter_var($_POST['username'], FILTER_SANITIZE_STRING);
+
+			if($opassword != "") {
+				e_log(8,"Userchange: Data complete entered");
+				if(password_verify($opassword,$userData['userHash'])) {
+					e_log(8,"Userchange: Verify original password");
+					$query = "UPDATE `users` SET `userName`='$username' WHERE `userID`=".$userData['userID'].";";
+					db_query($query);
+					e_log(8,"Userchange: Username changed");
+					$_SERVER['PHP_AUTH_USER'] = "";
+					$_SERVER['PHP_AUTH_PW'] = "";
+				}
+				else {
+					e_log(2,"Userchange: Failed to verify original password");
+				}
+			}
+			else {
+				e_log(2,"Userchange: Data missing");
+			}
+			die();
+			break;
+		case "fexport":
+			$format = filter_var($_POST['type'], FILTER_SANITIZE_STRING);
+			switch($format) {
+				case "html":
+					e_log(2,"Exporting in html format for download");
+					die(html_export($userData));
+					break;
+				default:
+					die(e_log(2,"Unknown export format, exit process"));
+			}
+			exit;
+			break;
+		case "logout":
+			e_log(8,"Logout user ".$_SERVER['PHP_AUTH_USER']);
+			unset($_SERVER['PHP_AUTH_USER']);
+			unset($_SERVER['PHP_AUTH_PW']);
+
+			header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+			http_response_code(401);
+
+			die("User is now logged out.");
+			break;
+		default:
 			die(json_encode("Unknown Action"));
 	}
-	die();
-}
-
-if(isset($_GET['gurls'])) {
-	$db = new PDO('sqlite:'.$database);
-	$client = (isset($_GET['client'])) ? $_GET['client'] : '0';
-	e_log(8,"Get pushed site from clients.");
-	$query = "SELECT * FROM `notifications` WHERE `nloop` = 1 AND `userID` = ".$userData['userID']." AND `repeat` IN ('".$client."','0');";
-	$uOptions = json_decode($userData['uOptions'],true);
-	$statement = $db->prepare($query);
-	e_log(9,$query);
-	$statement->execute();
-	$notificationData = $statement->fetchAll(PDO::FETCH_ASSOC);
-	e_log(8,"Found ".count($notificationData)." links. Will push them to the client.");
-	
-	if (!empty($notificationData)) {
-		foreach($notificationData as $key => $notification) {
-			$myObj[$key]['title'] = html_entity_decode($notification['title'],ENT_QUOTES,'UTF-8');
-			$myObj[$key]['url'] = $notification['message'];
-			$myObj[$key]['nkey'] = $notification['id'];
-			$myObj[$key]['nOption'] = $uOptions['notifications'];
-		}
-		die(json_encode($myObj));
-	}
-	else {
-		die();
-	}
-}
-
-if(isset($_GET['durl'])) {
-	$db = new PDO('sqlite:'.$database);
-	$notification = filter_var($_GET['durl'], FILTER_VALIDATE_INT);
-	e_log(8,"Remove notification.");	
-	$query = "UPDATE `notifications` SET `nloop`= 0, `ntime`= '".time()."' WHERE `id` = $notification AND `userID` = ".$userData['userID'];
-	e_log(9,$query);
-	$count = $db->exec($query);
-	echo $count;
 	die();
 }
 
@@ -605,7 +547,7 @@ if(isset($_GET['link'])) {
 		e_log(9,"Cant send push, missing data. Please check options");
 	}
 	
-	$res = addBookmark($database, $userData, $bookmark);
+	$res = addBookmark($userData, $bookmark);
 	if($res == 1) {
 		if(isset($_GET['client']) && $_GET['client'] == 'Android') {
 			echo("URL is added successfully.");
@@ -620,49 +562,58 @@ if(isset($_GET['link'])) {
 	die();
 }
 
-if(isset($_POST['export'])) {
-	$format = $_POST['export'];
-	html_export($userData['userID'],$database);
-	exit;
-}
-
 echo htmlHeader($userData);
-$bmTree = bmTree($userData,$database);
+$bmTree = bmTree($userData);
 echo "<div id='bookmarks'>$bmTree</div>";
 echo "<div id='hmarks' style='display: none'>$bmTree</div>";
 echo htmlFooter($userData['userID']);
 
-function cfolder($database,$ctime,$fname,$fbid,$ud) {
+function delMark($bmID) {
+	global $userData;
+	$count = 0;
+	e_log(8,"Delete bookmark '$bmID'");
+	$query = "UPDATE `bookmarks` SET `bmAction`= 1, `bmAdded`= '".round(microtime(true) * 1000)."' WHERE `bmID` = '$bmID' AND `userID` = ".$userData['userID'].";";
+	$count = db_query($query);
+
+	$query = "SELECT `bmParentID`, `bmIndex`, `bmURL` FROM `bookmarks` WHERE `bmID` = '$bmID' AND `userID` = ".$userData['userID'].";";
+	$dData = db_query($query)[0];
+
+	$query = "SELECT * FROM `bookmarks` WHERE `bmParentID` = '".$dData['bmParentID']."' AND `userID` = ".$userData['userID']." AND `bmIndex` > ".$dData['bmIndex']." ORDER BY bmIndex;";
+	$sData = db_query($query);
+	
+	foreach ($sData as &$sMark) {
+		$nIndex = $sMark['bmIndex'] - 1;
+		$query = "UPDATE `bookmarks` SET `bmIndex`= $nIndex WHERE `bmID` = '".$sMark['bmID']."' AND `userID` = ".$userData['userID'].";";
+		$count = db_query($query);
+	}
+
+	if(!isset($dData['bmURL'])) {
+		$query = "DELETE FROM `bookmarks` WHERE `bmParentID` = '$bmID' AND `userID` = ".$userData['userID'].";";
+		db_query($query);
+	}
+
+	return $count;
+}
+
+function cfolder($ctime,$fname,$fbid,$ud) {
 	e_log(8,"Request to create folder $fname");
-	$db = new PDO('sqlite:'.$database);
-	e_log(8,"Try to get id of parentfolder");
 	$query = "SELECT `bmParentID`  FROM `bookmarks` WHERE `bmID` = '$fbid' AND `userID` = ".$ud['userID'];
-	e_log(9,$query);
-	$statement = $db->prepare($query);
-	$statement->execute();
-	$pdata = $statement->fetchAll(PDO::FETCH_ASSOC);
+	$pdata = db_query($query);
 	$res = '';
 	$parentid = $pdata[0]['bmParentID'];
 
 	if(count($pdata) == 1) {
 		e_log(8,"Try to get index folder");
 		$query = "SELECT MAX(`bmIndex`)+1 as nIndex FROM `bookmarks` WHERE `bmParentID` = '$parentid' AND `userID` = ".$ud['userID'];
-		e_log(9,$query);
-		$statement = $db->prepare($query);
-		$statement->execute();
-		$idata = $statement->fetchAll(PDO::FETCH_ASSOC);
+		$idata = db_query($query);
 
 		if(count($idata) == 1) {
-			e_log(8,"Add new folder to db");
+			e_log(8,"Add new folder to database");
 			$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', '$parentid', ".$idata[0]['nIndex'].", '$fname', 'folder', $ctime, ".$ud["userID"].")";
-			e_log(9,$query);
-			try {
-				$db->exec($query);
-				$res = "1";
-			}
-			catch(PDOException $e) {
-				e_log(1,'INSERT failed: '.$e->getMessage());
+			if(db_query($query) != 1)
 				$res = "Adding folder failed.";
+			else {
+				$res = 1;
 			}
 		} else {
 			$res = "No index found, folder not added";
@@ -671,7 +622,6 @@ function cfolder($database,$ctime,$fname,$fbid,$ud) {
 		$res = "Parent folder not found, folder not added";
 	}
 	
-	$db = NULL;
 	return $res;
 }
 
@@ -686,7 +636,7 @@ function getClientType($uas) {
 }
 
 function validate_url($url) {
-	$url = filter_var(filter_var(urldecode($url), FILTER_SANITIZE_STRING), FILTER_SANITIZE_URL);
+	$url = filter_var(filter_var($url, FILTER_SANITIZE_STRING), FILTER_SANITIZE_URL);
 
 	if (filter_var($url, FILTER_VALIDATE_URL)) {
 		return $url;
@@ -748,7 +698,7 @@ function cfolderMatching($bookmark) {
 	return $bookmark;
 }
 
-function html_export($uid,$database) {
+function html_export($userData) {
 	header('Content-Description: File Transfer');
 	header('Content-Type: text/html');
 	header('Content-Disposition: attachment; filename="bookmarks.html"'); 
@@ -758,62 +708,35 @@ function html_export($uid,$database) {
 	header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
 	header('Pragma: public');
 
-$content = '<!DOCTYPE NETSCAPE-Bookmark-file-1>
-<!-- This is an automatically generated file.
-	 It will be read and overwritten.
-	 DO NOT EDIT! -->
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
-<TITLE>Bookmarks</TITLE>';
+	$content = '<!DOCTYPE NETSCAPE-Bookmark-file-1>
+	<!-- This is an automatically generated file.
+		It will be read and overwritten.
+		DO NOT EDIT! -->
+	<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+	<TITLE>Bookmarks</TITLE>';
 
-$umarks = makeHTMLExport(getBookmarks($uid,$database));
-do {
-	$start = strpos($umarks,"%ID");
-	$end = strpos($umarks,"\n",$start);
-	$len = $end - $start;
-	$umarks = substr_replace($umarks, "", $start, $len);
-} while (strpos($umarks,"%ID") > 0);
+	$umarks = makeHTMLExport(getBookmarks($userData));
+	do {
+		$start = strpos($umarks,"%ID");
+		$end = strpos($umarks,"\n",$start);
+		$len = $end - $start;
+		$umarks = substr_replace($umarks, "", $start, $len);
+	} while (strpos($umarks,"%ID") > 0);
 
-$content.="$umarks\r\n</DL><p>";
+	$content.="$umarks\r\n</DL><p>";
 
-	echo $content;
+	return $content;
 }
 
-function delFolder($database, $ud, $bm) {
-	$db = new PDO('sqlite:'.$database);
-	e_log(8,"Remove folder");
-	$query = "UPDATE `bookmarks` SET `bmAction`= 1, `bmAdded`= '".round(microtime(true) * 1000)."' WHERE `bmID` = '".$bm['id']."' AND `userID` = ".$ud['userID'];
-	e_log(9,$query);
-	$db->exec($query);
-	e_log(8,"Remove bookmarks for that folder");
-	$query = "UPDATE `bookmarks` SET `bmAction`= 1, `bmAdded`= '".round(microtime(true) * 1000)."' WHERE `bmParentID` = '".$bm['id']."' AND `userID` = ".$ud['userID'];
-	e_log(9,$query);
-	$db->exec($query);
-	return true;
-}
-
-function delBookmark($database, $ud, $bm) {
-	$db = new PDO('sqlite:'.$database);
-	e_log(8,"Remove bookmark");
-	$query = "UPDATE `bookmarks` SET `bmAction`= 1, `bmAdded`= '".round(microtime(true) * 1000)."' WHERE `bmURL` = '".$bm['url']."' AND `userID` = ".$ud['userID'];
-	e_log(9,$query);
-	$db->exec($query);
-	return true;
-}
-
-function editFolder($bm, $database, $ud) {
-	$db = new PDO('sqlite:'.$database);
+function editFolder($bm, $ud) {
 	e_log(8,"Edit folder request, try to find the folder...");
 	$query = "SELECT * FROM `bookmarks` WHERE `bmIndex` >= ".$bm['index']." AND `bmType` = 'folder' AND `bmParentID` = '".$bm['parentId']."' AND `userID` = ".$ud['userID'].";";
-	e_log(9,$query);
-	$statement = $db->prepare($query);
-	$statement->execute();
-	$fData = $statement->fetchAll(PDO::FETCH_ASSOC);
+	$fData = db_query($query);
 
 	if(count($fData) == 1) {
 		e_log(8,"Unique folder found, edit the folder");
 		$query = "UPDATE `bookmarks` SET `bmAction` = NULL, `bmTitle` = '".$bm['title']."' WHERE `bmID` = '".$fData[0]['bmID']."' AND userID = ".$ud["userID"].";";
-		e_log(9,$query);
-		$count = $db->exec($query);
+		$count = db_query($query);
 	} else {
 		e_log(8,"Folder not found, chancel operation and send error to client.");
 		$count = 0;
@@ -821,33 +744,24 @@ function editFolder($bm, $database, $ud) {
 	return $count;
 }
 
-function editBookmark($bm, $database, $ud) {
-	$db = new PDO('sqlite:'.$database);
+function editBookmark($bm, $ud) {
 	e_log(8,"Edit bookmark request, try to find the bookmark first by url...");
 	$query = "SELECT `bmID`  FROM `bookmarks` WHERE `bmURL` = '".$bm['url']."' AND `userID` = ".$ud['userID'];
-	e_log(9,$query);
-	$statement = $db->prepare($query);
-	$statement->execute();
-	$bmData = $statement->fetchAll(PDO::FETCH_ASSOC);
+	$bmData = db_query($query);
 
 	if(count($bmData) == 1) {
 		e_log(8,"Unique entry found, edit the title of the bookmark.");
 		$query = "UPDATE `bookmarks` SET `bmTitle` = '".$bm['title']."' WHERE `bmID` = '".$bmData[0]['bmID']."' AND userID = ".$ud["userID"].";";
-		e_log(9,$query);
-		$count = $db->exec($query);
+		$count = db_query($query);
 	} else {
 		e_log(8,"No unique bookmark found, try to find now by title...");
 		$query = "SELECT `bmID`  FROM `bookmarks` WHERE `bmTitle` = '".$bm['title']."' AND `userID` = ".$ud['userID'];
-		e_log(9,$query);
-		$statement = $db->prepare($query);
-		$statement->execute();
-		$bmData = $statement->fetchAll(PDO::FETCH_ASSOC);
+		$bmData = db_query($query);
 
 		if(count($bmData) == 1) {
 			e_log(8,"Unique entry found, edit the url of the bookmark.");
 			$query = "UPDATE `bookmarks` SET `bmURL` = '".$bm['url']."' WHERE `bmID` = '".$bmData[0]['bmID']."' AND userID = ".$ud["userID"].";";
-			e_log(9,$query);
-			$count = $db->exec($query);
+			$count = db_query($query);
 		} else {
 			e_log(8,"No Unique entry found, chancel operation and send error to client.");
 			$count = 0;
@@ -857,14 +771,10 @@ function editBookmark($bm, $database, $ud) {
 	return $count;
 }
 
-function moveBookmark($database, $ud, $bm) {
-	$db = new PDO('sqlite:'.$database);
+function moveBookmark($ud, $bm) {
 	e_log(8,"Bookmark seems to be moved, checking current folder data");
 	$query = "SELECT `bmID`, `bmParentID` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmTitle` = '".$bm['nfolder']."' AND `userID` = ".$ud['userID'].";";
-	$statement = $db->prepare($query);
-	e_log(9,$query);
-	$statement->execute();
-	$folderData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
+	$folderData = db_query($query)[0];
 	
 	if(is_null($folderData['bmID'])) {
 		e_log(2,"Folder not found, can`t move bookmark.");
@@ -874,21 +784,16 @@ function moveBookmark($database, $ud, $bm) {
 	if(array_key_exists("url", $bm)) {
 		e_log(8,"Checking bookmark data before moving it");
 		$query = "SELECT * FROM `bookmarks` WHERE `userID`= ".$ud["userID"]." AND `bmURL` = '".$bm["url"]."';";
-		$statement = $db->prepare($query);
-		e_log(9,$query);
-		$statement->execute();
-		$oldData = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
+		$oldData = db_query($query)[0];
 		
 		if (!empty($folderData) && !empty($oldData)) {
 			if(($folderData['bmParentID'] != $oldData['bmParentID']) || ($oldData['bmIndex'] != $bm['index'])) {
 				e_log(8,"Folder or Position changed, moving bookmark");
 				$query = "DELETE FROM `bookmarks` WHERE `bmID` = '".$oldData["bmID"]."'";
-				e_log(9,$query);
-				$db->exec($query);
+				db_query($query);
 				e_log(8,"Re-Add bookmark on new position");
-				$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$oldData["bmID"]."', '".$bm['folder']."', ".$bm['index'].", '".$oldData['bmTitle']."', '".$oldData['bmType']."', '".$oldData['bmURL']."', ".$oldData['bmAdded'].", ".$ud["userID"].")";
-				e_log(9,$query);
-				$db->exec($query);
+				$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`,`bmAction`) VALUES ('".$oldData["bmID"]."', '".$bm['folder']."', ".$bm['index'].", '".$oldData['bmTitle']."', '".$oldData['bmType']."', '".$oldData['bmURL']."', ".$oldData['bmAdded'].", ".$ud["userID"].",2)";
+				db_query($query);
 				return true;
 			}
 			else {
@@ -905,26 +810,16 @@ function moveBookmark($database, $ud, $bm) {
 	}
 }
 
-function addFolder($database, $ud, $bm) {
-	try {
-		$db = new PDO('sqlite:'.$database);
-	}
-	catch (PDOException $e) {
-		e_log(1,'DB connection failed: '.$e->getMessage());
-	}
+function addFolder($ud, $bm) {
 	$count = 0;
 	e_log(8,"Try to find if this folder exists already");
 	$query = "SELECT COUNT(*) AS bmCount, bmAction, bmID  FROM `bookmarks` WHERE `bmTitle` = '".$bm['title']."' AND `bmParentID` = '".$bm['folder']."' AND `userID` = ".$ud['userID'].";";
-	e_log(9,$query);
-	$statement = $db->prepare($query);
-	$statement->execute();
-	$res = $statement->fetchAll(PDO::FETCH_ASSOC)[0];
+	$res = db_query($query)[0];
 
 	if($res["bmAction"]) {
 		e_log(8,"Remove temporary entry ".$res["bmID"]);
 		$query = "DELETE FROM `bookmarks` WHERE `bmID` = '".$res["bmID"]."' AND `userID` = ".$ud['userID'].";";
-		e_log(9,$query);
-		$count = $db->exec($query);
+		$count = db_query($query);
 	}
 
 	if($res["bmCount"] > 0 && $count != 1) {
@@ -934,41 +829,28 @@ function addFolder($database, $ud, $bm) {
 	
 	e_log(8,"Get folder data for adding folder");
 	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex`, `bmParentId` FROM `bookmarks` WHERE `bmParentId` = '".$bm['folder']."' AND `userID` = ".$ud['userID'].";";
-	$statement = $db->prepare($query);
-	e_log(9,$query);
-	
-	$statement->execute();
-	$folderData = $statement->fetchAll();
+	$folderData = db_query($query);
 	
 	if (!empty($folderData)) {
 		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '".$bm['folder']."', ".$folderData[0]['nindex'].", '".$bm['title']."', '".$bm['type']."', ".$bm['added'].", ".$ud["userID"].")";
-		e_log(9,$query);
-		$db->exec($query);
-		$db = NULL;
+		db_query($query);
 		return true;
 	}
 	else {
-		$db = NULL;
 		e_log(1,"Couldn't add folder");
 		return false;
 	}
 }
 
-function addBookmark($database, $ud, $bm) { 
-	$db = new PDO('sqlite:'.$database);
-	$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+function addBookmark($ud, $bm) { 
 	e_log(8,"Check if bookmark already exists for user.");
 	$query = "SELECT `bmID`, COUNT(*) AS `bmcount`, MAX(`bmAction`) AS `bmaction` FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' AND `bmParentID` = '".$bm["folder"]."' AND `userID` = ".$ud["userID"].";";
-	e_log(9,$query);
-	$statement = $db->prepare($query);
-	$statement->execute();
-	$bmExistData = $statement->fetchAll(PDO::FETCH_ASSOC);
+	$bmExistData = db_query($query);
 	if($bmExistData[0]["bmcount"] > 0) {
 		if($bmExistData[0]["bmaction"] == 1) {
 			e_log(8,"Undelete removed bookmark.");
 			$query = "UPDATE `bookmarks` SET `bmAction` = NULL WHERE `bmID` = '".$bmExistData[0]["bmID"]."' AND userID = ".$ud["userID"].";";
-			$count = $db->exec($query);
-			e_log(9,$query);
+			$count = db_query($query);
 			$message = "Bookmark not added at server, it already exists for this user, bookmark undeleted now.";
 			e_log(8,$message);
 			return $count;
@@ -981,79 +863,60 @@ function addBookmark($database, $ud, $bm) {
 	}
 	e_log(8,"Get folder for adding bookmark");
 	$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmID` = '".$bm["folder"]."' AND `userID` = ".$ud['userID']." UNION ALL SELECT 'unfiled_____' WHERE NOT EXISTS (SELECT 1 FROM `bookmarks` WHERE `bmID` = '".$bm["folder"]."');";
-	$statement = $db->prepare($query);
-	e_log(9,$query);
-	$statement->execute();
-	$folderID = $statement->fetchAll(PDO::FETCH_ASSOC)[0]['bmID'];
+	$folderID = db_query($query)[0]['bmID'];
 
 	e_log(8,"Get new index for bookmark");
 	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex` FROM `bookmarks` WHERE `userID` = ".$ud['userID']." AND `bmParentID` = '$folderID';";
-	$statement = $db->prepare($query);
-	e_log(9,$query);
-	$statement->execute();
-	$nindex = $statement->fetchAll(PDO::FETCH_ASSOC)[0]['nindex'];
+	$nindex = db_query($query)[0]['nindex'];
 	
 	$title = htmlspecialchars($bm['title'],ENT_QUOTES,'UTF-8');
 	e_log(8,"Add bookmark '".$title."'");
 	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '$folderID', $nindex, '".$title."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].");";
-	e_log(9,$query);
-
-	try {
-		$count = $db->exec($query);
-	} catch(PDOException $e) {
-		e_log(1,'INSERT failed: '.$e->getMessage());
-		return "Adding bookmark failed.";
+	if(db_query($query) != 1 ) {
+		$message = "Adding bookmark failed";
+		e_log(1,$message);
+		return $message;
+	} else {
+		return 1;
 	}
-	return $count;
 }
 
-function getChanges($dbase, $cl, $ct, $ud, $time) {
-	$db = new PDO('sqlite:'.$dbase);
+function getChanges($cl, $ct, $ud, $time) {
 	$uid = $ud["userID"];
 	e_log(8,"Browser startup sync started, get client data");
-	$query = "SELECT `lastseen` FROM `clients` WHERE `cid` = '".$cl."' AND `uid` = $uid AND `ctype` = '".$ct."'";
-	$statement = $db->prepare($query);
-	e_log(9,$query);
-	$statement->execute();
-	$clientData = $statement->fetch();
+	$query = "SELECT `lastseen` FROM `clients` WHERE `cid` = '".$cl."' AND `uid` = $uid AND `ctype` = '".$ct."';";
+	$clientData = db_query($query)[0];
 
 	if($clientData) {
 		$lastseen = $clientData["lastseen"];
 		e_log(8,"Get changed bookmarks for client $cl");
 		$query = "SELECT b.bmID AS fdID, b.bmTitle AS fdName, b.bmIndex AS fdIndex, a.bmID, a.bmIndex, a.bmTitle, a.bmType, a.bmURL, a.bmAdded, a.bmModified, a.bmAction FROM bookmarks a INNER JOIN bookmarks b ON b.bmID = a.bmParentID WHERE (a.bmAdded >= $lastseen AND a.userID = $uid) OR (a.bmAction = 1 AND a.bmAdded >= $lastseen AND a.userID = $uid);";
-		$statement = $db->prepare($query);
-		e_log(9,$query);
-		$statement->execute();
-		$bookmarkData = $statement->fetchAll(PDO::FETCH_ASSOC);
+		$bookmarkData = db_query($query);
 		foreach($bookmarkData as $key => $entry) {
 			$bookmarkData[$key]['bmTitle'] = html_entity_decode($entry['bmTitle'],ENT_QUOTES,'UTF-8'); 
 		}
 	}
 	else {
 		e_log(2,"Client not found in database, registering now");
-		updateClient($dbase, $cl, $ct, $ud, $time, true);
+		updateClient($cl, $ct, $ud, $time, true);
 		return "New client registered for user.";
 	}
 
 	if (!empty($bookmarkData)) {
 		global $cexpjson;
-		updateClient($dbase, $cl, $ct, $ud, $time, true);
+		updateClient($cl, $ct, $ud, $time, true);
 		e_log(8,"Try to find bookmarks, which could be completely deleted");
-		$query = "SELECT bmID FROM bookmarks WHERE bmAdded <= (SELECT MIN(lastseen) FROM clients WHERE uid = $uid AND lastseen > 1) AND bmAction = 1";
-		$statement = $db->prepare($query);
-		e_log(9,$query);
-		$statement->execute();
-		$removeMarks = $statement->fetchAll(PDO::FETCH_ASSOC);
+		$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmAdded` <= (SELECT MIN(`lastseen`) FROM `clients` WHERE `uid` = $uid AND `lastseen` > 1) AND `bmAction` = 1;";
+		$removeMarks = db_query($query);
 
 		if (!empty($removeMarks)) {
 			e_log(8,count($removeMarks)." are deletable from the database");
 			foreach($removeMarks as $bookmark) {
-				$query = "DELETE FROM bookmarks WHERE bmID = '".$bookmark["bmID"]."'";
-				e_log(9,$query);
-				$db->exec($query);
+				$query = "DELETE FROM `bookmarks` WHERE `bmID` = '".$bookmark["bmID"]."';";
+				db_query($query);
 			}
 			e_log(8,"Try to compacting database");
-			$db->exec("VACUUM");
+			db_query("VACUUM");
 		}
 		else {
 			e_log(8,"No bookmarks found to delete from the database");
@@ -1071,47 +934,27 @@ function getChanges($dbase, $cl, $ct, $ud, $time) {
 	}
 }
 
-function updateClient($dbase, $cl, $ct, $ud, $time, $sync = false) {
-	try {
-		$db = new PDO('sqlite:'.$dbase);
-	}
-	catch (PDOException $e) {
-		e_log(1,'DB connection failed: '.$e->getMessage());
-	}
-
+function updateClient($cl, $ct, $ud, $time, $sync = false) {
 	$uid = $ud["userID"];
-	$query = "SELECT * FROM `clients` WHERE `cid` = '".$cl."' AND uid = ".$uid;
-	$statement = $db->prepare($query);
-	e_log(9,$query);
-	
-	try {
-		 $statement->execute();
-	}
-	catch(PDOException $e) {
-		 echo "DB query failed: " . $e->getMessage();
-		 e_log(1,"DB query failed: ".$e->getMessage());
-		 return false;
-	}
+	$query = "SELECT * FROM `clients` WHERE `cid` = '".$cl."' AND uid = ".$uid.";";
+	$clientData = db_query($query);
 
-	$clientData = $statement->fetchAll();
 	if (!empty($clientData) && $sync) {
-		$query = "UPDATE `clients` SET `lastseen`= '".$time."' WHERE `cid` = '".$cl."';";
-		$db->exec($query);
 		e_log(8,"Updating lastlogin for client $cl.");
-	}
-	else if(empty($clientData)) {
-		$query = "INSERT INTO `clients` (`cid`,`cname`,`ctype`,`uid`,`lastseen`) VALUES ('".$cl."','".$cl."', '".$ct."', ".$uid.", '0')";
-		e_log(9, $query);
-		$db->exec($query);
+		$query = "UPDATE `clients` SET `lastseen`= '".$time."' WHERE `cid` = '".$cl."';";
+		db_query($query);
+	} else if(empty($clientData)) {
 		e_log(8,"New client detected. Register client $cl for user ".$ud["userName"]);
+		$query = "INSERT INTO `clients` (`cid`,`cname`,`ctype`,`uid`,`lastseen`) VALUES ('".$cl."','".$cl."', '".$ct."', ".$uid.", '0')";
+		db_query($query);
 	}
 	
 	return "Client updated.";
 }
 
-function bmTree($user,$database) {
+function bmTree($userData) {
 	e_log(8,"Build HTML tree from bookmarks");
-	$bmTree = makeHTMLTree(getBookmarks($user['userID'],$database));
+	$bmTree = makeHTMLTree(getBookmarks($userData));
 	
 	do {
 		$start = strpos($bmTree,"%ID");
@@ -1124,30 +967,10 @@ function bmTree($user,$database) {
 }
 
 function getIndex($folder) {
-	global $database;
-	try {
-		$db = new PDO('sqlite:'.$database);
-	}
-	catch (PDOException $e) {
-		e_log(1,'DB connection failed: '.$e->getMessage());
-	}
-	
-	$query = "SELECT MAX(`bmIndex`) FROM `bookmarks` WHERE `bmParentID` = '".$folder."'";
-	$statement = $db->prepare($query);
-
 	e_log(8,"Get new bookmark ID");
-	e_log(9,$query);
-	
-	try {
-		 $statement->execute();
-	}
-	catch(PDOException $e) {
-		e_log(1,'DB query failed: '.$e->getMessage());
-		return false;
-	}
-	$IndexArr = $statement->fetchAll();
+	$query = "SELECT MAX(`bmIndex`) FROM `bookmarks` WHERE `bmParentID` = '".$folder."'";
+	$IndexArr = db_query($query);
 	$maxIndex = $IndexArr[0][0] + 1;
-	$db = NULL;
 	return $maxIndex;
 }
 
@@ -1164,40 +987,17 @@ function getSiteTitle($url) {
 	}
 }
 
-function getUserdata($database) {
-	e_log(8,"Get userdata from the database");
-	try {
-		$db = new PDO('sqlite:'.$database);
-	}
-	catch (PDOException $e) {
-		e_log(1,'DB connection failed: '.$e->getMessage());
-	}
-	
+function getUserdata() {
 	$query = "SELECT * FROM `users` WHERE `userName`='".$_SERVER['PHP_AUTH_USER']."'";
-	$statement = $db->prepare($query);
-	e_log(9,$query);
-	
-	try {
-		 $statement->execute();
-	}
-	catch(PDOException $e) {
-		echo "DB query failed: " . $e->getMessage();
-		e_log(1,"DB query failed: ".$e->getMessage());
-		$db = NULL;
-		return false;
-	}
-
-	$userData = $statement->fetchAll();
+	$userData = db_query($query);
 	if (!empty($userData)) {
 		if(password_verify($_SERVER['PHP_AUTH_PW'], $userData[0]['userHash']))
-			$db = NULL;
 			return $userData[0];
 	}
 	else {
 		$_SERVER['PHP_AUTH_PW'] = '';
 		$_SERVER['PHP_AUTH_USER'] = '';
 	}
-	$db = NULL;
 }
 
 function unique_code($limit) {
@@ -1238,26 +1038,8 @@ function e_log($level,$message,$errfile="",$errline="",$output=0) {
 }
 
 function delUsermarks($uid) {
-	global $database;
-	try {
-		$db = new PDO('sqlite:'.$database);
-	}
-	catch (PDOException $e) {
-		e_log(1,'DB connection failed: '.$e->getMessage());
-	}
-	
 	$query = "DELETE FROM `bookmarks` WHERE `UserID`=".$uid;
-	$statement = $db->prepare($query);
-	e_log(9,$query);
-	
-	try {
-		 $statement->execute();
-	}
-	catch(PDOException $e) {
-		 e_log(1,'DB query failed: '.$e->getMessage());
-		 return false;
-	}
-	$db = NULL;
+	db_query($query);
 }
 
 function minFile($infile) {
@@ -1269,8 +1051,6 @@ function minFile($infile) {
 }
 
 function htmlHeader($ud) {
-	global $database;
-	$db = new PDO('sqlite:'.$database);
 	$version = explode ("\n", file_get_contents('./changelog.md',NULL,NULL,0,30))[2];
 	$version = substr($version,0,strpos($version, " "));
 	$htmlHeader = "<!DOCTYPE html>
@@ -1300,10 +1080,7 @@ function htmlHeader($ud) {
 	if($ud['userType'] == 2) {
 		$userSelect = "<select id='userSelect' name='userSelect'>";
 		$userSelect.= "<option value='' hidden>-- Select User --</option>";
-		$statement = $db->prepare("SELECT `userID`, `userName` FROM `users`");
-		$statement->execute();
-		$userList = $statement->fetchAll(PDO::FETCH_ASSOC);
-		
+		$userList = db_query("SELECT `userID`, `userName` FROM `users`;");
 		foreach ($userList as $key => $user) {
 			$userSelect.= "<option value='".$user['userID']."'>".$user['userName']."</option>";
 		}
@@ -1322,6 +1099,7 @@ function htmlHeader($ud) {
 						</div>
 						<input placeholder='Username' type='text' required id='nuser' name='nuser' autocomplete='username' value='' />
 						<input placeholder='Password' type='password' required id='npwd' name='npwd' autocomplete='password' value='' />
+						<input type='hidden' name='caction' value='muedt'>
 						<div class='select'>
 						<select id='userLevel' required name='userLevel'><option value='' hidden>-- Select Level --</option><option value='0'>Normal</option><option value='1'>Admin</option></select>
 						<div class='select__arrow'></div>
@@ -1358,7 +1136,7 @@ function htmlHeader($ud) {
 					<form action='".$_SERVER['PHP_SELF']."' method='POST'>
 						<input placeholder='Username' required type='text' name='username' id='username' autocomplete='username' value='".$ud['userName']."'>
 						<input placeholder='Password' required type='password' id='password' name='opassword' autocomplete='current-password' value='' />
-						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='uupdate' value='Save'>Save</button></div>
+						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='uupdate'>Save</button></div>
 					</form>
 				</div>";
 				
@@ -1370,7 +1148,7 @@ function htmlHeader($ud) {
 						<input required placeholder='Current password' type='password' id='opassword' name='opassword' autocomplete='current-password' value='' />
 						<input required placeholder='New password' type='password' id='npassword' name='npassword' autocomplete='new-password' value='' />
 						<input required placeholder='Confirm new password' type='password' id='cpassword' name='cpassword' autocomplete='new-password' value='' />
-						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='pupdate' value='Save'>Save</button></div>
+						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='pupdate'>Save</button></div>
 					</form>
 				</div>";
 
@@ -1390,7 +1168,7 @@ function htmlHeader($ud) {
 						<input placeholder='API Token' type='text' id='ptoken' name='ptoken' value='".edcrpt('de',json_decode($ud['uOptions'],true)['pAPI'])."' />
 						<input placeholder='Device ID' type='text' id='pdevice' name='pdevice' value='".edcrpt('de',json_decode($ud['uOptions'],true)['pDevice'])."' />
 						<input required placeholder='Password' type='password' id='password' name='password' autocomplete='current-password' value='' />
-						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='pbupdate' value='Save'>Save</button></div>
+						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='pbupdate'>Save</button></div>
 					</form>
 				</div>";
 
@@ -1411,7 +1189,7 @@ function htmlHeader($ud) {
 	<div id='aNoti' class='tabcontent'style='display: block'>
 	  <div class='NotiTable'>
 	  	<div class='NotiTableBody'>
-		  ".notiList($ud['userID'], 1, $database)."
+		  ".notiList($ud['userID'], 1)."
 		</div>
 	  </div>
 	</div>
@@ -1419,13 +1197,13 @@ function htmlHeader($ud) {
 	<div id='oNoti' class='tabcontent' style='display: none'>
 	  <div class='NotiTable'>
 	  	<div class='NotiTableBody'>
-		  ".notiList($ud['userID'], 0, $database)."
+		  ".notiList($ud['userID'], 0)."
 		</div>
 	  </div>
 	</div>
 	</div>";
 	
-	$mngclientform = "<div id='mngcform' class='mmenu'>".bClientlist($ud['userID'], $database)."</div>";
+	$mngclientform = "<div id='mngcform' class='mmenu'>".bClientlist($ud['userID'])."</div>";
 	$mngsettingsform = "<div id='mngsform' class='mmenu'><h6>SyncMarks Settings</h6>
 	<table>
 		<tr><td colspan='2' style='height: 5px;'></td></tr>
@@ -1444,16 +1222,12 @@ function htmlHeader($ud) {
 	</div>";
 	
 	$htmlHeader.= $mainmenu.$userform.$passwordform.$pbulletform.$logform.$mnguserform.$mngclientform.$mngsettingsform.$nmessagesform;
-	$db = NULL;
 	return $htmlHeader;
 }
 
-function bClientlist($uid, $database) {
-	$db = new PDO('sqlite:'.$database);
+function bClientlist($uid) {
 	$query = "SELECT * FROM `clients` WHERE `uid` = $uid ORDER BY `lastseen` DESC;";
-	$statement = $db->prepare($query);
-	$statement->execute();
-	$clientData = $statement->fetchAll(PDO::FETCH_ASSOC);
+	$clientData = db_query($query);
 	
 	$clientList = "<ul>";
 	foreach($clientData as $key => $client) {
@@ -1467,12 +1241,9 @@ function bClientlist($uid, $database) {
 	return $clientList;
 }
 
-function notiList($uid, $loop, $database) {
-	$db = new PDO('sqlite:'.$database);
+function notiList($uid, $loop) {
 	$query = "SELECT n.id, n.title, n.message, n.publish_date, IFNULL(c.cname, n.repeat) AS client FROM notifications n LEFT JOIN clients c ON c.cid = n.repeat WHERE n.userID = $uid AND n.nloop = $loop ORDER BY n.publish_date;";
-	$statement = $db->prepare($query);
-	$statement->execute();
-	$aNotitData = $statement->fetchAll(PDO::FETCH_ASSOC);
+	$aNotitData = db_query($query);
 	$notiList = "";
 	foreach($aNotitData as $key => $aNoti) {
 		if($aNoti['client'] == "0")
@@ -1500,18 +1271,8 @@ function htmlFooter($uid) {
 		else
 			$sFolderOptions.= "<option value='".$folder['bmID']."'>".$folder['bmTitle']."</option>";
 	}
-	$burl = (isset($_GET['burl'])) ? $_GET['burl'] : "";
 	
-	if(isset($_GET['burl']) && isset($_GET['title'])) {
-		$mad = "style='display: block'";
-		$mdis = "";
-	}
-	else {
-		$mad = "";
-		$mdis = "disabled";
-	}
-	
-	$editform = "<div id='bmarkedt' class='mbmdialog'><h6>Edit Bookmark</h6><form id='bmedt' method='POST'>
+	$editform = "<div id='bmarkedt' class='mbmdialog'><h6>Edit Bookmark</h6><form id='-' method='POST'>
 				<input placeholder='Title' type='text' id='edtitle' name='edtitle' value=''>
 				<input placeholder='URL' type='text' id='edurl' name='edurl' value=''>
 				<input type='hidden' id='edid' name='edid' value=''>
@@ -1534,17 +1295,17 @@ function htmlFooter($uid) {
 					<div class='dbutton'><button type='submit' id='fsave' name='fsave' value='Create' disabled>Create</button></div>
 					</form></div>";
 
-	$htmlFooter = "<div id='bmarkadd' class='mbmdialog' $mad>
+	$htmlFooter = "<div id='bmarkadd' class='mbmdialog'>
 					<h6>Add Bookmark</h6>
 					<form id='bmadd' action='?madd' method='POST'>
-					<input placeholder='URL' type='text' id='url' name='url' value='$burl'>
+					<input placeholder='URL' type='text' id='url' name='url' value=''>
 					<div class='select'>
 					<select id='folder' name='folder'>
 						$sFolderOptions
 					</select>
 					<div class='select__arrow'></div>
 					</div>
-					<div class='dbutton'><button type='submit' id='save' name='madd' value='Save' $mdis>Save</button></div>
+					<div class='dbutton'><button type='submit' id='save' name='madd' value='Save'>Save</button></div>
 					</form></div>
 					
 					<div id='footer'></div>
@@ -1562,28 +1323,9 @@ function htmlFooter($uid) {
 }
 
 function getUserFolders($uid) {
-	global $database;
-	try {
-		$db = new PDO('sqlite:'.$database);
-	}
-	catch (PDOException $e) {
-		e_log(1,'DB connection failed: '.$e->getMessage());
-	}
-	
-	$statement = $db->prepare("SELECT * FROM `bookmarks` WHERE `bmType` = 'folder' and `userID` = ".$uid);
-
-	e_log(8,"Get folders for user ".$_SERVER['PHP_AUTH_USER']);
-	e_log(9,"SELECT * FROM `bookmarks` WHERE `bmType` = 'folder' and `userID` = ".$uid);
-	
-	try {
-		 $statement->execute();
-	}
-	catch(PDOException $e) {
-		e_log(1,'DB query failed: '.$e->getMessage());
-		return false;
-	}
-	$folders = $statement->fetchAll();
-	$db = NULL;
+	e_log(8,"Get bookmark folders for user");
+	$query = "SELECT * FROM `bookmarks` WHERE `bmType` = 'folder' and `userID` = ".$uid.";";
+	$folders = db_query($query);
 	return $folders;
 }
 
@@ -1641,7 +1383,8 @@ function makeHTMLTree($arr) {
 		}
 		
 		if($bm['bmType'] == "folder") {
-			$nFolder = "\n<li id='f_".$bm['bmID']."'><label for=\"".$bm['bmTitle']."\">".$bm['bmTitle']."</label><input class='ffolder' value='".$bm['bmID']."' id=\"".$bm['bmTitle']."\" type=\"checkbox\"><ol>%ID".$bm['bmID']."\n</ol></li>";
+			$fclass = strpos($bm['bmID'], '_____') === false ? "class='folder'" : "";
+			$nFolder = "\n<li $fclass id='f_".$bm['bmID']."'><label for=\"".$bm['bmTitle']."\">".$bm['bmTitle']."</label><input class='ffolder' value='".$bm['bmID']."' id=\"".$bm['bmTitle']."\" type=\"checkbox\"><ol>%ID".$bm['bmID']."\n</ol></li>";
 			if(strpos($bookmarks, "%ID".$bm['bmParentID']) > 0) {
 				$nFolder = "\n".$nFolder."\n%ID".$bm['bmParentID'];
 				$bookmarks = str_replace("%ID".$bm['bmParentID'], $nFolder, $bookmarks);
@@ -1654,22 +1397,30 @@ function makeHTMLTree($arr) {
 	return $bookmarks;
 }
 
-function importMarks($bookmarks,$uid,$database) {
+function importMarks($bookmarks,$uid) {
+	global $database;
 	e_log(8,"Starting import browser bookmarks");
 	$db = new PDO('sqlite:'.$database);
-	$db->beginTransaction();
-	
 	foreach ($bookmarks as $bookmark) {
 		$title = htmlspecialchars($bookmark['bmTitle'],ENT_QUOTES,'UTF-8');
-		$dateGroupModified = strlen($bookmark['dateGroupModified']) == 0 ? "NULL" : $bookmark['dateGroupModified'];
-		$url = strlen($bookmark['bmURL']) == 0 ? "NULL" : "'".$bookmark['bmURL']."'";
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`bmModified`,`userID`) VALUES ('".$bookmark['bmID']."', '".$bookmark['bmParentID']."', ".$bookmark['bmIndex'].", '$title', '".$bookmark['bmType']."', $url, ".$bookmark['bmAdded'].",$dateGroupModified, ".$uid.");";
-		e_log(9,$query);
-		$db->query($query);
+		$dateGroupModified = strlen($bookmark['dateGroupModified']) == 0 ? NULL : $bookmark['dateGroupModified'];
+		$url = strlen($bookmark['bmURL']) == 0 ? NULL : $bookmark['bmURL'];
+		$data[] = array(
+			$bookmark['bmID'],
+			$bookmark['bmParentID'],
+			$bookmark['bmIndex'],
+			$title,
+			$bookmark['bmType'],
+			$url,
+			$bookmark['bmAdded'],
+			$dateGroupModified,
+			$uid
+		);
 	}
 	
-	$response = $db->commit();
-	$db = NULL;
+	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`bmModified`,`userID`) VALUES (?,?,?,?,?,?,?,?,?)";
+	$response = db_query($query,$data);
+
 	if($response)
 		e_log(8,"Browser bookmark import successfully");
 	else
@@ -1697,24 +1448,13 @@ function parseJSON($arr) {
 	return $bookmarks;
 }
 
-function getBookmarks($uid,$database) {
-	try {
-		$db = new PDO('sqlite:'.$database);
-	}
-	catch (PDOException $e) {
-		e_log(1,'DB connection failed: '.$e->getMessage());
-	}
-	
-	$query = "SELECT * FROM `bookmarks` WHERE `bmAction` IS NULL AND `userID` = ".$uid;
-	$statement = $db->prepare($query);
-	e_log(8,"Get bookmarks for user ".$_SERVER['PHP_AUTH_USER']);
-	e_log(9,$query);
-	$statement->execute();
-	$userMarks = $statement->fetchAll(PDO::FETCH_ASSOC);
+function getBookmarks($userData) {
+	$query = "SELECT * FROM `bookmarks` WHERE `bmAction` IS NULL AND `userID` = ".$userData['userID'].";";
+	e_log(8,"Get bookmarks");
+	$userMarks = db_query($query);
 	foreach($userMarks as &$element) {
 		$element['bmTitle'] = html_entity_decode($element['bmTitle'],ENT_QUOTES,'UTF-8');
 	}
-	$db = NULL;
 	return $userMarks;
 }
 
@@ -1722,30 +1462,38 @@ function c2hmarks($item, $key) {
 	html_entity_decode($item,ENT_QUOTES,'UTF-8');
 }
 
-function doLogin($database,$realm) {
+function prepare_url($url) {
+	$parsed = parse_url($url);
+	parse_str($parsed['query'], $query);
+	$parsed['query'] = http_build_query($query);
+
+    $pass      = $parsed['pass'] ?? null;
+    $user      = $parsed['user'] ?? null;
+    $userinfo  = $pass !== null ? "$user:$pass" : $user;
+    $port      = $parsed['port'] ?? 0;
+    $scheme    = $parsed['scheme'] ?? "";
+    $query     = $parsed['query'] ?? "";
+    $fragment  = $parsed['fragment'] ?? "";
+    $authority = (
+        ($userinfo !== null ? "$userinfo@" : "") .
+        ($parsed['host'] ?? "") .
+        ($port ? ":$port" : "")
+    );
+    return (
+        (strlen($scheme) > 0 ? "$scheme:" : "") .
+        (strlen($authority) > 0 ? "//$authority" : "") .
+        ($parsed['path'] ?? "") .
+        (strlen($query) > 0 ? "?$query" : "") .
+        (strlen($fragment) > 0 ? "#$fragment" : "")
+    );
+}
+
+function doLogin($realm) {
 	$valid = false;
 	
-	if (isset($_SERVER['PHP_AUTH_USER'])) {
-		try {
-			$db = new PDO('sqlite:'.$database);
-		}
-		catch (PDOException $e) {
-			e_log(1,'DB connection failed: '.$e->getMessage());
-		}
-		
-		$statement = $db->prepare("SELECT * FROM `users` WHERE `userName`='".$_SERVER['PHP_AUTH_USER']."'");
-		e_log(9,"SELECT * FROM `users` WHERE `userName`='".$_SERVER['PHP_AUTH_USER']."'");		
-		try {
-			 $statement->execute();
-		}
-		catch(PDOException $e) {
-			 echo "DB query failed: " . $e->getMessage();
-			 e_log(1,"DB query failed: ".$e->getMessage());
-			 $db = NULL;
-			 return false;
-		}
-
-		$userData = $statement->fetchAll();
+	if (isset($_SERVER['PHP_AUTH_USER'])) {		
+		$query = "SELECT * FROM `users` WHERE `userName`= '".$_SERVER['PHP_AUTH_USER']."';";
+		$userData = db_query($query);
 
 		if(password_verify($_SERVER['PHP_AUTH_PW'], $userData[0]['userHash'])) {
 			$valid = true;
@@ -1757,9 +1505,8 @@ function doLogin($database,$realm) {
 
 				if($seid != $userData[0]['sessionID']) {
 					e_log(8,"Save session to database.");
-					$query = "UPDATE `users` SET `userLastLogin`= $aTime, `sessionID` = '$seid', `userOldLogin`= '$oTime' WHERE `userID` = '$uid';";
-					$db->exec($query);
-					e_log(9,$query);
+					$query = "UPDATE `users` SET `userLastLogin` = $aTime, `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userID` = '$uid';";
+					db_query($query);
 				}
 			}
 		}
@@ -1773,7 +1520,7 @@ function doLogin($database,$realm) {
 		header("Pragma: no-cache");
 		header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
 		http_response_code(401);
-		$db = NULL;
+
 		$lpage = "<!DOCTYPE html>
 		<html>
 			<head>
@@ -1790,50 +1537,83 @@ function doLogin($database,$realm) {
 		</html>";
 		die($lpage);
 	}
-
-	$db = NULL;
 }
 
-function initDB($database,$suser,$spwd) {
-	if(!file_exists(dirname($database))) {
-		if(!mkdir(dirname($database),0777,true)) {
-			e_log(1,"Directory for database couldn't created, please check privileges");
-		}
-		else {
-			e_log(8,"Directory for database created, initialize database now");
-		}
-	}
-	
+function db_query($query, $data=null) {
+	global $database;
+	e_log(9,$query);
+	$options = [
+		PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+		PDO::ATTR_CASE => PDO::CASE_NATURAL,
+		PDO::ATTR_ORACLE_NULLS => PDO::NULL_EMPTY_STRING
+	];
 	try {
-		$db = new PDO('sqlite:'.$database);
-		$query = "CREATE TABLE `bookmarks` (`bmID`	TEXT NOT NULL, `bmParentID`	TEXT NOT NULL, `bmIndex` INTEGER NOT NULL, `bmTitle` TEXT, `bmType`	TEXT NOT NULL, `bmURL` TEXT, `bmAdded` TEXT NOT NULL, `bmModified` TEXT, `userID` INTEGER NOT NULL, `bmAction` INTEGER, PRIMARY KEY(`bmID`))";
-		$db->exec($query);
-		e_log(9,$query);
-		$query = "CREATE TABLE `users` (`userID` INTEGER NOT NULL, `userName` TEXT UNIQUE NOT NULL, `userType` INTEGER NOT NULL, `userHash`	TEXT NOT NULL, `userLastLogin` INT(11), `sessionID`	VARCHAR(255) UNIQUE, `userOldLogin`	INT(11), `pAPI`	VARCHAR(255) UNIQUE, `pDevice` VARCHAR(255) UNIQUE, `uOptions` TEXT, PRIMARY KEY(`userID`));";
-		$db->exec($query);
-		e_log(9,$query);
-		$query = "CREATE TABLE `clients` (`cid` TEXT NOT NULL UNIQUE,`cname` TEXT, `ctype` TEXT NOT NULL, `uid`	INTEGER NOT NULL, `lastseen` TEXT NOT NULL, PRIMARY KEY(`cid`));";
-		$db->exec($query);
-		e_log(9,$query);
-		$query = "CREATE TABLE `notifications` (`id` INTEGER NOT NULL, `title` varchar(250) NOT NULL, `message` TEXT NOT NULL, `ntime` varchar(250) NOT NULL DEFAULT NULL, `repeat` INTEGER NOT NULL DEFAULT 1, `nloop` INTEGER NOT NULL DEFAULT 1, `publish_date` varchar(250) NOT NULL, `userID` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`userID`) REFERENCES `users`(`userID`));";
-		$db->exec($query);
-		e_log(9,$query);
+		$db = new PDO('sqlite:'.$database, null, null, $options);
+	} catch (PDOException $e) {
+		e_log(1,'DB connection failed: '.$e->getMessage());
+		return false;
+	}
 
-		$bmAdded = time();
-		$userPWD = password_hash($spwd,PASSWORD_DEFAULT);
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('unfiled_____', 'root________', 0, 'Other Bookmarks', 'folder', NULL, ".$bmAdded.", 1)";
-		$db->exec($query);
-		e_log(9,$query);
-		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', 'unfiled_____', 0, 'GitHub Repository', 'bookmark', 'https://github.com/Offerel', ".$bmAdded.", 1)";
-		$db->exec($query);
-		e_log(9,$query);
-		$query = "INSERT INTO `users` (userName,userType,userHash) VALUES ('$suser',2,'$userPWD');";
-		$db->exec($query);
-		e_log(9,$query);
+	if(is_array($data)) {
+		$statement = $db->prepare($query);
+		$waiting = true;
+		while($waiting) {
+			try {
+				$db->beginTransaction();
+				foreach ($data as $row) $statement->execute($row);
+				$queryData = $db->commit();
+				$waiting = false;
+			} catch(PDOException $e) {
+				if(stripos($e->getMessage(), 'DATABASE IS LOCKED') !== false) {
+					$queryData = $db->commit();
+					usleep(250000);
+				} else {
+					$db->rollBack();
+					$queryData = false;
+					e_log(1,"DB transaction failed. Data is rolled back: ".$e->getMessage());
+				}
+			}
+		}
+	} else {
+		if(strpos($query, 'SELECT') === 0) {
+			$statement = $db->prepare($query);
+			try {
+				$statement->execute();
+			} catch(PDOException $e) {
+				e_log(1,"DB query failed: ".$e->getMessage());
+				return false;
+			}
+			$queryData = $statement->fetchAll(PDO::FETCH_ASSOC);
+		} else {
+			try {
+				$queryData = $db->exec($query);
+			} catch(PDOException $e) {
+				e_log(1,"DB update failed: ".$e->getMessage());
+				return false;
+			}
+		}
 	}
-	catch(PDOException $e) {
-		e_log(1,'Exception : '.$e->getMessage());
-	}
+
 	$db = NULL;
+	return $queryData;
+}
+
+function initDB($suser,$spwd) {
+	$query = "CREATE TABLE `bookmarks` (`bmID`	TEXT NOT NULL, `bmParentID`	TEXT NOT NULL, `bmIndex` INTEGER NOT NULL, `bmTitle` TEXT, `bmType`	TEXT NOT NULL, `bmURL` TEXT, `bmAdded` TEXT NOT NULL, `bmModified` TEXT, `userID` INTEGER NOT NULL, `bmAction` INTEGER, PRIMARY KEY(`bmID`))";
+	db_query($query);
+	$query = "CREATE TABLE `users` (`userID` INTEGER NOT NULL, `userName` TEXT UNIQUE NOT NULL, `userType` INTEGER NOT NULL, `userHash`	TEXT NOT NULL, `userLastLogin` INT(11), `sessionID`	VARCHAR(255) UNIQUE, `userOldLogin`	INT(11), `uOptions` TEXT, PRIMARY KEY(`userID`));";
+	db_query($query);
+	$query = "CREATE TABLE `clients` (`cid` TEXT NOT NULL UNIQUE,`cname` TEXT, `ctype` TEXT NOT NULL, `uid`	INTEGER NOT NULL, `lastseen` TEXT NOT NULL, PRIMARY KEY(`cid`));";
+	db_query($query);
+	$query = "CREATE TABLE `notifications` (`id` INTEGER NOT NULL, `title` varchar(250) NOT NULL, `message` TEXT NOT NULL, `ntime` varchar(250) NOT NULL DEFAULT NULL, `repeat` INTEGER NOT NULL DEFAULT 1, `nloop` INTEGER NOT NULL DEFAULT 1, `publish_date` varchar(250) NOT NULL, `userID` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`userID`) REFERENCES `users`(`userID`));";
+	db_query($query);
+	$bmAdded = time();
+	$userPWD = password_hash($spwd,PASSWORD_DEFAULT);
+	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('unfiled_____', 'root________', 0, 'Other Bookmarks', 'folder', NULL, ".$bmAdded.", 1)";
+	db_query($query);
+	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', 'unfiled_____', 0, 'GitHub Repository', 'bookmark', 'https://github.com/Offerel', ".$bmAdded.", 1)";
+	db_query($query);
+	$query = "INSERT INTO `users` (userName,userType,userHash) VALUES ('$suser',2,'$userPWD');";
+	db_query($query);
 }
 ?>

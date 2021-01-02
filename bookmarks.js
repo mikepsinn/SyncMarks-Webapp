@@ -1,12 +1,13 @@
 /**
  * SyncMarks
  *
- * @version 1.2.17
+ * @version 1.3.0
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
  */
-document.addEventListener("DOMContentLoaded", function(event) {
+
+document.addEventListener("DOMContentLoaded", function() {
 	document.querySelector('#menu input').addEventListener('keyup', function(e) {
 		var sfilter = this.value;
 		var allmarks = document.querySelectorAll('#bookmarks li.file');
@@ -58,6 +59,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
 	}, false);
 
 	document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
+	document.querySelectorAll('.folder').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
 	document.querySelectorAll('.tablinks').forEach(tab => tab.addEventListener('click',openMessages, false));
 	document.querySelectorAll('.NotiTableCell .fa-trash-o').forEach(message => message.addEventListener('click',delMessage, false));
 	document.querySelector('#cnoti').addEventListener('change',eNoti,false);
@@ -70,34 +72,37 @@ document.addEventListener("DOMContentLoaded", function(event) {
 		}
 	});
 
-	if(document.querySelector("#mngcform input[type='text']"))
+	if(document.querySelector("#mngcform input[type='text']")) {
 		document.querySelector("#mngcform input[type='text']").addEventListener('focus', function() {
 			this.select();
 		});
+	}
 
-	document.getElementById("save").addEventListener('click', function(event) {
-		event.preventDefault();
-		hideMenu();
-		let folder = document.getElementById('folder').value;
-		let url = encodeURIComponent(document.getElementById('url').value);
+	if(document.getElementById("save")) {
+		document.getElementById("save").addEventListener('click', function(event) {
+			event.preventDefault();
+			hideMenu();
+			let folder = document.getElementById('folder').value;
+			let url = encodeURIComponent(document.getElementById('url').value);
 
-		var xhr = new XMLHttpRequest();
-		var data = "madd=" + true + "&folder=" + folder + "&url=" + url;
-		xhr.onreadystatechange = function () {
-			if (this.readyState == 4) {
-				if(this.status == 200) {
-					document.getElementById('bookmarks').innerHTML = this.responseText;
-					console.log("Bookmark added successfully.");
-				} else {
-					alert("Error adding bookmark, please check server log.");
+			var xhr = new XMLHttpRequest();
+			var data = "caction=madd&folder=" + folder + "&url=" + url;
+			xhr.onreadystatechange = function () {
+				if (this.readyState == 4) {
+					if(this.status == 200) {
+						document.getElementById('bookmarks').innerHTML = this.responseText;
+						console.log("Bookmark added successfully.");
+					} else {
+						alert("Error adding bookmark, please check server log.");
+					}
 				}
-			}
-		};
+			};
 
-		xhr.open("POST", document.location.href, true);
-		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-		xhr.send(data);
-	});
+			xhr.open("POST", document.location.href, true);
+			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+			xhr.send(data);
+		});
+	}
 
 	document.getElementById("mlogout").addEventListener('click', function(event) {
 		event.preventDefault();
@@ -112,7 +117,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
 
 		xhr.open("POST", document.location.href, true);
 		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-		xhr.send("logout=true");
+		xhr.send("caction=logout");
 		return false;
 	});
 
@@ -199,7 +204,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
 		today = dd+'-'+mm+'-'+yyyy;
 
 		var xhr = new XMLHttpRequest();
-		var data = "export=html";
+		var data = "caction=fexport&type=html";
 
 		xhr.onreadystatechange = function () {
 			if (this.readyState == 4) {
@@ -223,13 +228,15 @@ document.addEventListener("DOMContentLoaded", function(event) {
 		return false;
 	});
 
-	document.getElementById('footer').addEventListener('click', function() {
-		hideMenu();
-		document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
-		document.getElementById('bmarkadd').style.display = 'block';
-		url.focus();
-		url.addEventListener('input', enableSave);
-	});
+	if(document.getElementById('footer')) {
+		document.getElementById('footer').addEventListener('click', function() {
+			hideMenu();
+			document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
+			document.getElementById('bmarkadd').style.display = 'block';
+			url.focus();
+			url.addEventListener('input', enableSave);
+		});
+	}
 
 	document.getElementById('mlog').addEventListener('click', function() {
 		hideMenu();
@@ -241,7 +248,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
 			logfile.style.visibility = 'visible';
 			document.getElementById('close').style.visibility = 'visible';
 			let xhr = new XMLHttpRequest();
-			let data = "mlog=true";
+			let data = "caction=mlog";
 			xhr.onreadystatechange = function () {
 				if (this.readyState == 4) {
 					if(this.status == 200) {
@@ -264,7 +271,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
 			logfile.style.visibility = 'hidden';
 			document.getElementById('close').style.visibility = 'hidden';
 			let xhr = new XMLHttpRequest();
-			let data = "mclear=true";
+			let data = "caction=mclear";
 			xhr.onreadystatechange = function () {
 				if (this.readyState == 4) {
 					if(this.status == 200) {
@@ -308,88 +315,103 @@ document.addEventListener("DOMContentLoaded", function(event) {
 		});
 	});
 
-	document.getElementById('fname').addEventListener('input', function() {
-		document.getElementById('fsave').disabled = false;
-	});
+	if(document.getElementById('fname')) {
+		document.getElementById('fname').addEventListener('input', function() {
+			document.getElementById('fsave').disabled = false;
+		});
+	}
 
-	document.getElementById('edtitle').addEventListener('input', function() {
-		document.getElementById('edsave').disabled = false;
-	});
+	if(document.getElementById('edtitle')) {
+		document.getElementById('edtitle').addEventListener('input', function() {
+			document.getElementById('edsave').disabled = false;
+		});
+	}
 
-	document.getElementById('edurl').addEventListener('input', function() {
-		document.getElementById('edsave').disabled = false;
-	});
+	if(document.getElementById('edurl')) {
+		document.getElementById('edurl').addEventListener('input', function() {
+			document.getElementById('edsave').disabled = false;
+		});
+	}
 
-	document.getElementById('mvfolder').addEventListener('change', function() {
-		document.getElementById('mvsave').disabled = false;
-	});
+	if(document.getElementById('mvfolder')) {
+		document.getElementById('mvfolder').addEventListener('change', function() {
+			document.getElementById('mvsave').disabled = false;
+		});
+	}
 
-	document.getElementById('fsave').addEventListener('click', function(e) {
-		e.preventDefault();
-		let xhr = new XMLHttpRequest();
-		let data = 'caction=cfolder&fname=' + document.getElementById('fname').value + '&fbid=' + document.getElementById('fbid').value;
-		xhr.onreadystatechange = function () {
-			if (this.readyState == 4) {
-				if(this.status == 200) {
-					if(this.responseText == 1)
-						location.reload(false);
-					else
-						console.log("There was a problem adding the new folder."); 
+	if(document.getElementById('fsave')) {
+		document.getElementById('fsave').addEventListener('click', function(e) {
+			e.preventDefault();
+			let xhr = new XMLHttpRequest();
+			let data = 'caction=cfolder&fname=' + document.getElementById('fname').value + '&fbid=' + document.getElementById('fbid').value;
+			
+			xhr.onreadystatechange = function () {
+				if (this.readyState == 4) {
+					if(this.status == 200) {
+						if(this.responseText == 1)
+							location.reload(false);
+						else
+							console.log("There was a problem adding the new folder."); 
+					}
 				}
-			}
-		};
-		xhr.open("POST", document.location.href, true);
-		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-		xhr.send(data);
-		hideMenu();
-		return false;
-	});
+			};
 
-	document.getElementById('edsave').addEventListener('click', function(e) {
-		e.preventDefault();
-		let xhr = new XMLHttpRequest();
-		let data = 'bmedt=true&title=' + document.getElementById('edtitle').value + '&url=' + document.getElementById('edurl').value + '&id=' + document.getElementById('edid').value;
-		xhr.onreadystatechange = function () {
-			if (this.readyState == 4) {
-				if(this.status == 200) {
-					if(this.responseText == 1)
-						location.reload(false);
-					else
-						console.log("There was a problem changing that bookmark.");
+			xhr.open("POST", document.location.href, true);
+			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+			xhr.send(data);
+			hideMenu();
+			return false;
+		});
+	}
+
+	if(document.getElementById('edsave')) {
+		document.getElementById('edsave').addEventListener('click', function(e) {
+			e.preventDefault();
+			let xhr = new XMLHttpRequest();
+			let data = 'caction=bmedt&title=' + document.getElementById('edtitle').value + '&url=' + document.getElementById('edurl').value + '&id=' + document.getElementById('edid').value;
+			xhr.onreadystatechange = function () {
+				if (this.readyState == 4) {
+					if(this.status == 200) {
+						if(this.responseText == 1)
+							location.reload(false);
+						else
+							console.log("There was a problem changing that bookmark.");
+					}
 				}
-			}
-		};
-		xhr.open("POST", document.location.href, true);
-		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-		xhr.send(data);
-		return false;
-	});
-
-	document.getElementById('mvsave').addEventListener('click', function(e) {
-		e.preventDefault();
-		let xhr = new XMLHttpRequest();
-		let data = 'bmmv=true&title=' + document.getElementById('mvtitle').value + '&folder=' + document.getElementById('mvfolder').value + '&id=' + document.getElementById('mvid').value;
-		xhr.onreadystatechange = function () {
-			if (this.readyState == 4) {
-				if(this.status == 200) {
-					if(this.responseText == 1)
-						location.reload(false);
-					else
-						console.log("There was a problem moving that bookmark.");
+			};
+			xhr.open("POST", document.location.href, true);
+			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+			xhr.send(data);
+			return false;
+		});
+	}
+	
+	if(document.getElementById('mvsave')) {
+		document.getElementById('mvsave').addEventListener('click', function(e) {
+			e.preventDefault();
+			let xhr = new XMLHttpRequest();
+			let data = 'caction=bmmv&title=' + document.getElementById('mvtitle').value + '&folder=' + document.getElementById('mvfolder').value + '&id=' + document.getElementById('mvid').value;
+			xhr.onreadystatechange = function () {
+				if (this.readyState == 4) {
+					if(this.status == 200) {
+						if(this.responseText == 1)
+							location.reload(false);
+						else
+							console.log("There was a problem moving that bookmark.");
+					}
 				}
-			}
-		};
-		xhr.open("POST", document.location.href, true);
-		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-		xhr.send(data);
-		return false;
-	});
-
-});
+			};
+			xhr.open("POST", document.location.href, true);
+			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+			xhr.send(data);
+			return false;
+		});
+	}
+}, false);
 
 function delClient(element) {
 	let xhr = new XMLHttpRequest();
-	let data = 'adel=true&cido=' + element.target.parentElement.id;
+	let data = 'caction=adel&cido=' + element.target.parentElement.id;
 	xhr.onreadystatechange = function () {
 		if (xhr.readyState == 4) {
 			if(xhr.status == 200) {
@@ -406,7 +428,7 @@ function delClient(element) {
 
 function mvClient(element) {
 	let xhr = new XMLHttpRequest();
-	let data = 'arename=true&cido=' + element.target.parentElement.id + '&nname=' + element.target.parentElement.children[0].children['cname'].value;
+	let data = 'caction=arename&cido=' + element.target.parentElement.id + '&nname=' + element.target.parentElement.children[0].children['cname'].value;
 	xhr.onreadystatechange = function () {
 		if (xhr.readyState == 4) {
 			if(xhr.status == 200) {
@@ -449,12 +471,14 @@ function moveEnd () {
 function delBookmark(id, title) {
 	if(confirm("Would you like to delete \"" + title + "\"?")) {
 		let xhr = new XMLHttpRequest();
-		let data = 'mdel=true&id=' + id;
+		let data = 'caction=mdel&id=' + id;
 		xhr.onreadystatechange = function () {
 			if (this.readyState == 4) {
 				if(this.status == 200) {
+					hideMenu();
 					document.getElementById('bookmarks').innerHTML = this.responseText;
 					document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
+					document.querySelectorAll('.folder').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
 				}
 				else
 					console.log("There was a problem removing that bookmark.");
@@ -496,8 +520,18 @@ function onContextMenu(e){
 	hideMenu();
 	let menu = document.querySelector('.menu');
 	menu.style.display = 'block';
-	document.getElementById('bmid').value = e.target.attributes.id.value;
-	document.getElementById('bmid').title = e.target.attributes.title.value;
+	if(e.target.attributes.id){
+		document.getElementById('bmid').value = e.target.attributes.id.value;
+		document.getElementById('bmid').title = e.target.attributes.title.value;
+		document.getElementById('btnMove').setAttribute('style','display:block !important');
+		document.getElementById('btnFolder').setAttribute('style','display:block !important');
+	} else {
+		document.getElementById('bmid').value = e.target.nextElementSibling.value
+		document.getElementById('bmid').title = e.target.nextElementSibling.id
+		document.getElementById('btnMove').setAttribute('style','display:none !important');
+		document.getElementById('btnFolder').setAttribute('style','display:none !important');
+	}
+
 	showMenu(e.pageX, e.pageY);
 	document.querySelector('#btnEdit').addEventListener('click', onClick, false);
 	document.querySelector('#btnMove').addEventListener('click', onClick, false);
@@ -516,8 +550,18 @@ function onClick(e){
 	switch(this.id) {
 		case 'btnEdit':
 			document.getElementById('edtitle').value = document.getElementById('bmid').title;
-			document.getElementById('edurl').value = document.getElementById(document.getElementById('bmid').value).href;
 			document.getElementById('edid').value = document.getElementById('bmid').value;
+
+			if(document.getElementById(document.getElementById('bmid').value)) {
+				document.getElementById('edurl').value = document.getElementById(document.getElementById('bmid').value).href;
+				document.getElementById('bmarkedt').firstChild.innerText = 'Edit Bookmark';
+				document.getElementById('edurl').type = 'text';
+			} else {
+				document.getElementById('edurl').value = '';
+				document.getElementById('edurl').type = 'hidden';
+				document.getElementById('bmarkedt').firstChild.innerText = 'Edit Folder';
+			}
+			
 			hideMenu();
 			document.getElementById('bmarkedt').style.left = xpos;
 			document.getElementById('bmarkedt').style.top = ypos;
@@ -540,7 +584,6 @@ function onClick(e){
 			document.getElementById('folderf').style.top = ypos;
 			document.getElementById('folderf').style.display = 'block';
 			document.getElementById('fbid').value = document.getElementById('bmid').value;
-			//mkFolder(document.getElementById('bmid').value);
 			break;
 		default:
 			break;
@@ -633,8 +676,7 @@ function setOption(option,val) {
 
 function rNot(noti) {
 	let xhr = new XMLHttpRequest();
-	let url = new URL(document.location.href);
-	url.searchParams.set('durl', noti);
+	let data = 'caction=durl&durl=' + noti;
 	xhr.onreadystatechange = function () {
 		if (this.readyState == 4) {
 			if(this.status == 200) {
@@ -646,9 +688,9 @@ function rNot(noti) {
 			}
 		}
 	};
-	xhr.open("GET", url, true);
+	xhr.open("POST", document.location.href, true);
 	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-	xhr.send();
+	xhr.send(data);
 }
 
 function show_noti(noti) {
@@ -670,8 +712,7 @@ function show_noti(noti) {
 
 function getNotifications() {
 	let xhr = new XMLHttpRequest();
-	let url = new URL(document.location.href);
-	url.searchParams.set('gurls', '1');
+	let data = 'caction=gurls';
 
 	xhr.onreadystatechange = function () {
 		if (this.readyState == 4) {
@@ -688,9 +729,9 @@ function getNotifications() {
 		}
 	};
 
-	xhr.open("GET", url, true);
-	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-	xhr.send();
+	xhr.open("POST", document.location.href, true);
+	xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+	xhr.send(data);
 
 	sessionStorage.setItem('gNoti', '1');
 }
