@@ -1,6 +1,6 @@
 ChangeLog
 =========
-1.2.18 (2020-12-21)
+1.3.0 (2020-01-02)
 -------------------------
 * Regenerate index at bookmark removal
 * Add context menu for non-system-folders
@@ -10,6 +10,7 @@ ChangeLog
 * Changed SQL handling
 * Changed POST requests
 * Reworked Actions
+* Small fixes
 
 1.2.17 (2020-12-12)
 -------------------------

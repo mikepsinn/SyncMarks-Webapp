@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.2.18
+ * @version 1.3.0
  * @author Offerel
  * @copyright Copyright (c) 2020, Offerel
  * @license GNU General Public License, version 3
@@ -32,7 +32,7 @@ if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !iss
 	doLogin($realm);
 } else {
 	e_log(8,"Update lastseen date for user");
-	$query = "UPDATE `users` SET `userLastLogin`=".time()." WHERE `userName` = '".$_SERVER['PHP_AUTH_USER']."';";
+	$query = "UPDATE `users` SET `userLastLogin` = ".time()." WHERE `userName` = '".$_SERVER['PHP_AUTH_USER']."';";
 	db_query($query);
 	session_unset();
 }
@@ -65,7 +65,7 @@ if(isset($_POST['caction'])) {
 			break;
 		case "movemark":
 			$bookmark = json_decode($_POST['bookmark'],true);
-			$client = $client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
+			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$ctime = round(microtime(true) * 1000);
 			$response = json_encode(moveBookmark($userData, $bookmark));
 			updateClient($client, strtolower(getClientType($_SERVER['HTTP_USER_AGENT'])), $userData, $ctime, true);
@@ -73,17 +73,12 @@ if(isset($_POST['caction'])) {
 			break;
 		case "editmark":
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
-			if(array_key_exists('url',$bookmark)) {
-				die(editBookmark($bookmark, $userData));
-			} else {
-				die(editFolder($bookmark, $userData));
-			}
+			(array_key_exists('url',$bookmark)) ? die(editBookmark($bookmark, $userData)) : die(editFolder($bookmark, $userData));
 			break;
 		case "delmark":
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
-			$client = $_POST['client'];
+			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$ctime = round(microtime(true) * 1000);
-
 			e_log(8,"Try to identify bookmark");
 			if(isset($bookmark['url'])) {
 				$url = prepare_url($bookmark['url']);
@@ -92,7 +87,6 @@ if(isset($_POST['caction'])) {
 				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmIndex` = ".$bookmark['index']." AND `bmTitle` = '".$bookmark['title']."' AND `userID` = ".$userData['userID'].";";
 			}
 			$bData = db_query($query);
-
 			if(count($bData) == 1) {
 				die(json_encode(delMark($bData[0]['bmID'])));
 			} else {
@@ -100,10 +94,9 @@ if(isset($_POST['caction'])) {
 				e_log(2,$message);
 				die(json_encode($message));
 			}
-
 			break;
 		case "startup":
-			$client = $_POST['client'];
+			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$ctype = getClientType($_SERVER['HTTP_USER_AGENT']);
 			$ctime = round(microtime(true) * 1000);
 			die(json_encode(getChanges($client, $ctype, $userData, $ctime),JSON_UNESCAPED_SLASHES));
@@ -117,7 +110,7 @@ if(isset($_POST['caction'])) {
 		case "import":
 			$jmarks = json_decode($_POST['bookmark'],true);
 			$jerrmsg = "";
-			$client = $_POST['client'];
+			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			switch (json_last_error()) {
 				case JSON_ERROR_NONE:
 					$jerrmsg = '';
@@ -174,14 +167,14 @@ if(isset($_POST['caction'])) {
 			$target = (isset($_POST['tg'])) ? filter_var($_POST['tg'], FILTER_SANITIZE_STRING) : '0';
 			$ctime = time();
 			$title = getSiteTitle($url);
-			e_log(8,"Get new pushed URL: ".$url);
+			e_log(8,"Received new pushed URL: ".$url);
 			$uidd = $userData['userID'];
 			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`repeat`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, $target, 1, $ctime, $uidd)";
 			$erg = db_query($query);
 			if($erg !== 0) echo("URL successfully pushed.");
 			break;
 		case "lsnc":
-			e_log(8,"Get lastseen date.");
+			e_log(8,"Get clients lastseen date.");
 			$query = "SELECT MAX(`lastseen`) as lastseen FROM `clients` WHERE `uid` = ".$userData['userID'].";";
 			$lastSeen = db_query($query)[0]['lastseen'];
 			die($lastSeen);
@@ -189,7 +182,7 @@ if(isset($_POST['caction'])) {
 		case "rmessage":
 			$message = filter_var($_POST['message'], FILTER_VALIDATE_INT);
 			$loop = filter_var($_POST['lp'], FILTER_SANITIZE_STRING) == 'aNoti' ? 1 : 0;
-			e_log(8,"Try to remove notification ".$message);
+			e_log(8,"Try to delete notification $message");
 			$query = "DELETE FROM `notifications` WHERE `userID` = ".$userData['userID']." AND `id` = $message;";
 			$count = db_query($query);
 			($count === 1) ? e_log(8,"Notification successfully removed") : e_log(9,"Error, removing notification");
@@ -207,7 +200,7 @@ if(isset($_POST['caction'])) {
 			echo $count;
 			break;
 		case "getclients":
-			e_log(8,"Try to get list of clients.");
+			e_log(8,"Try to get list of clients");
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$query = "SELECT `cid`, IFNULL(`cname`, `cid`) `cname`, `ctype`, `lastseen` FROM `clients` WHERE `uid` = ".$userData['userID']." AND NOT `cid` = '$client' ORDER BY 2 COLLATE NOCASE ASC;";
 			$clientList = db_query($query);
@@ -230,23 +223,23 @@ if(isset($_POST['caction'])) {
 			}
 			break;
 		case "tl":
-			e_log(8,"Get testrequest from saving client options.");
+			e_log(8,"Get testrequest from addon options page");
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$type = getClientType($_SERVER['HTTP_USER_AGENT']);
 			$time = round(microtime(true) * 1000);
 			die(updateClient($client, $type, $userData, $time));
 			break;
 		case "gname":
-			e_log(8,"Get clientname.");
+			e_log(8,"Request clientname");
 			$client = filter_var($_POST['cl'], FILTER_SANITIZE_STRING);
 			$query = "SELECT cname, ctype FROM clients WHERE cid = '$client' and uid = ".$userData['userID'].";";
 			$clientData = db_query($query)[0];
-			e_log(8,"Send name ".$clientData['cname']." back to client.");
+			e_log(8,"Send name '".$clientData['cname']."' back to client");
 			die(json_encode($clientData));
 			break;
 		case "gurls":
-			$client = (isset($_POST['client'])) ? $_POST['client'] : '0';
-			e_log(8,"Get pushed site from clients.");
+			$client = (isset($_POST['client'])) ? filter_var($_POST['client'], FILTER_SANITIZE_STRING) : '0';
+			e_log(8,"Request pushed sites for client $client");
 			$query = "SELECT * FROM `notifications` WHERE `nloop` = 1 AND `userID` = ".$userData['userID']." AND `repeat` IN ('".$client."','0');";
 			$uOptions = json_decode($userData['uOptions'],true);
 			$notificationData = db_query($query);
@@ -264,11 +257,10 @@ if(isset($_POST['caction'])) {
 			}
 			break;
 		case "durl":
+			e_log(8,"Hide notification");
 			$notification = filter_var($_POST['durl'], FILTER_VALIDATE_INT);
-			e_log(8,"Remove notification.");	
 			$query = "UPDATE `notifications` SET `nloop`= 0, `ntime`= '".time()."' WHERE `id` = $notification AND `userID` = ".$userData['userID'];
-			$count = db_query($query);
-			die($count);
+			die(db_query($query));
 			break;
 		case "bmedt":
 			$title = filter_var($_POST['title'], FILTER_SANITIZE_STRING);
@@ -280,8 +272,9 @@ if(isset($_POST['caction'])) {
 			($count > 0) ? die(true) : die(false);
 			break;
 		case "bmmv":
-			$folder = filter_var($_POST['folder'], FILTER_SANITIZE_STRING);
 			$id = filter_var($_POST['id'], FILTER_SANITIZE_STRING);
+			e_log(8,"Move bookmark $id");
+			$folder = filter_var($_POST['folder'], FILTER_SANITIZE_STRING);
 			$query = "SELECT MAX(bmIndex)+1 AS 'index' FROM `bookmarks` WHERE `bmParentID` = '$folder';";
 			$folderData = db_query($query);
 			$query = "UPDATE `bookmarks` SET `bmIndex` = ".$folderData[0]['index'].", `bmParentID` = '$folder', `bmAdded` = '".round(microtime(true) * 1000)."' WHERE `bmID` = '$id' AND `userID` = ".$userData['userID'].";";
@@ -289,16 +282,17 @@ if(isset($_POST['caction'])) {
 			($count > 0) ? die(true) : die(false);
 			break;
 		case "arename":
-			$cliento = filter_var($_POST['cido'], FILTER_SANITIZE_STRING);
+			$client = filter_var($_POST['cido'], FILTER_SANITIZE_STRING);
 			$name = filter_var($_POST['nname'], FILTER_SANITIZE_STRING);
-			e_log(8,"Renaming client $cliento to $name");
-			$query = "UPDATE `clients` SET `cname` = '".$name."' WHERE `uid` = ".$userData['userID']." AND `cid` = '".$cliento."';";
+			e_log(8,"Rename client $client to $name");
+			$query = "UPDATE `clients` SET `cname` = '".$name."' WHERE `uid` = ".$userData['userID']." AND `cid` = '".$client."';";
 			$count = db_query($query);
 			($count > 0) ? die(bClientlist($userData['userID'])) : die(false);
 			break;
 		case "adel":
-			$cliento = filter_var($_POST['cido'], FILTER_SANITIZE_STRING);
-			$query = "DELETE FROM `clients` WHERE `uid` = ".$userData['userID']." AND `cid` = '$cliento';";
+			$client = filter_var($_POST['cido'], FILTER_SANITIZE_STRING);
+			e_log(8,"Delete client $client");
+			$query = "DELETE FROM `clients` WHERE `uid` = ".$userData['userID']." AND `cid` = '$client';";
 			$count = db_query($query);
 			($count > 0) ? die(bClientlist($userData['userID'])) : die(false);
 			break;
@@ -332,13 +326,13 @@ if(isset($_POST['caction'])) {
 					}
 					break;
 				case "Delete User":
-					e_log(8,"Removing user $user");
+					e_log(8,"Delete user $user");
 					$query = "DELETE FROM `users` WHERE `userID` = $uID;";
 					if(db_query($query) == 1) {
-						e_log(8,"Removing clients for user $user");
+						e_log(8,"Delete clients for user $user");
 						$query = "DELETE FROM `clients` WHERE `userID` = $uID;";
 						db_query($query);
-						e_log(8,"Removing bookmarks for user $user");
+						e_log(8,"Delete bookmarks for user $user");
 						$query = "DELETE FROM `bookmarks` WHERE `userID` = $uID;";
 						db_query($query);
 						$message = "Hello,\r\n\r\nyour account '$user' and all it's data is removed from $url.";
@@ -352,6 +346,7 @@ if(isset($_POST['caction'])) {
 			}
 			break;
 		case "mlog":
+			e_log(8,"Try to show logfile");
 			if($userData['userType'] > 1) {
 				die(file_get_contents($logfile));
 			} else {
@@ -361,9 +356,8 @@ if(isset($_POST['caction'])) {
 			}
 			break;
 		case "mclear":
-			if($userData['userType'] > 1) {
-				file_put_contents($logfile,"");
-			}
+			e_log(8,"Clear logfile");
+			if($userData['userType'] > 1) file_put_contents($logfile,"");
 			die();
 			break;
 		case "madd":
@@ -381,8 +375,9 @@ if(isset($_POST['caction'])) {
 			$userID = $userData['userID'];
 
 			if($bmTitle === "") {
-				e_log(1,"Titel is missing, adding bookmark failed.");
-				die("Titel is missing, adding bookmark failed.");
+				$message = "Titel is missing, add bookmark failed";
+				e_log(1,$message);
+				die($message);
 			} else {
 				$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bmID."', '".$bmParentID."', ".$bmIndex.", '".$bmTitle."', 'bookmark', '".$bmURL."', ".$bmAdded.", ".$userID.")";
 				db_query($query);
@@ -403,11 +398,10 @@ if(isset($_POST['caction'])) {
 					e_log(8,"Deleted bookmark $bmID");
 					die(bmTree($userData));
 				} else {
-					e_log(8,"Bookmark $bmID deleted by Roundcube");
-					die();
+					die(e_log(8,"Bookmark $bmID deleted by Roundcube"));
 				}
 			} else {
-				e_log(2,"There was an problem removing the bookmark, please check the logfile");
+				die(e_log(2,"There was an problem removing the bookmark, please check the logfile"));
 			}
 			break;
 		case "pupdate":
@@ -510,7 +504,6 @@ if(isset($_POST['caction'])) {
 				default:
 					die(e_log(2,"Unknown export format, exit process"));
 			}
-			
 			exit;
 			break;
 		case "logout":
@@ -1279,7 +1272,7 @@ function htmlFooter($uid) {
 			$sFolderOptions.= "<option value='".$folder['bmID']."'>".$folder['bmTitle']."</option>";
 	}
 	
-	$editform = "<div id='bmarkedt' class='mbmdialog'><h6>Edit Bookmark</h6><form id='bmedt' method='POST'>
+	$editform = "<div id='bmarkedt' class='mbmdialog'><h6>Edit Bookmark</h6><form id='-' method='POST'>
 				<input placeholder='Title' type='text' id='edtitle' name='edtitle' value=''>
 				<input placeholder='URL' type='text' id='edurl' name='edurl' value=''>
 				<input type='hidden' id='edid' name='edid' value=''>
@@ -1512,7 +1505,7 @@ function doLogin($realm) {
 
 				if($seid != $userData[0]['sessionID']) {
 					e_log(8,"Save session to database.");
-					$query = "UPDATE `users` SET `userLastLogin`= $aTime, `sessionID` = '$seid', `userOldLogin`= '$oTime' WHERE `userID` = '$uid';";
+					$query = "UPDATE `users` SET `userLastLogin` = $aTime, `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userID` = '$uid';";
 					db_query($query);
 				}
 			}
