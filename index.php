@@ -4,7 +4,7 @@
  *
  * @version 1.3.0
  * @author Offerel
- * @copyright Copyright (c) 2020, Offerel
+ * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
  */
 if (!isset ($_SESSION['fauth'])) {
@@ -152,6 +152,8 @@ if(isset($_POST['caction'])) {
 		case "export":
 			e_log(8,"Browser requested bookmark import...");
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
+			$ctype = getClientType($_SERVER['HTTP_USER_AGENT']);
+			$ctime = round(microtime(true) * 1000);
 			$bookmarks = json_encode(getBookmarks($userData));
 			if($loglevel = 9 && $cexpjson == true) {
 				$filename = "export_".substr($client,0,8)."_".time().".json";
@@ -159,6 +161,7 @@ if(isset($_POST['caction'])) {
 			}
 			echo $bookmarks;
 			e_log(8,count(json_decode($bookmarks))." bookmarks send to client.");
+			updateClient($client, $ctype, $userData, $ctime, true);
 			die();
 			break;
 		case "getpurl":
@@ -386,8 +389,7 @@ if(isset($_POST['caction'])) {
 				e_log(8,"Manually added bookmark.");
 				die(bmTree($userData));
 			} else {
-				e_log(8,"Roundcube added bookmark.");
-				die();
+				die(e_log(8,"Roundcube added bookmark."));
 			}
 			break;
 		case "mdel":
