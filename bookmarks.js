@@ -3,7 +3,7 @@
  *
  * @version 1.3.0
  * @author Offerel
- * @copyright Copyright (c) 2020, Offerel
+ * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
  */
 

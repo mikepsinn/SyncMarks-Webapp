@@ -1,5 +1,12 @@
 ChangeLog
 =========
+1.3.1 (2020-01-05)
+-------------------------
+* Export date Fix
+* Client name Fix
+* CSS Fixes
+
+
 1.3.0 (2020-01-02)
 -------------------------
 * Regenerate index at bookmark removal
@@ -11,6 +18,7 @@ ChangeLog
 * Changed POST requests
 * Reworked Actions
 * Small fixes
+
 
 1.2.17 (2020-12-12)
 -------------------------
