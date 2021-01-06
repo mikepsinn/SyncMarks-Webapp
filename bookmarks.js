@@ -1,7 +1,7 @@
 /**
  * SyncMarks
  *
- * @version 1.3.0
+ * @version 1.3.1
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -527,7 +527,7 @@ function onContextMenu(e){
 		document.getElementById('btnFolder').setAttribute('style','display:block !important');
 	} else {
 		document.getElementById('bmid').value = e.target.nextElementSibling.value
-		document.getElementById('bmid').title = e.target.nextElementSibling.id
+		document.getElementById('bmid').title = e.target.textContent
 		document.getElementById('btnMove').setAttribute('style','display:none !important');
 		document.getElementById('btnFolder').setAttribute('style','display:none !important');
 	}

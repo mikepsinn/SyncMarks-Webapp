@@ -2,14 +2,14 @@
 /**
  * SyncMarks
  *
- * @version 1.3.0
+ * @version 1.3.1
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
  */
-if (!isset ($_SESSION['fauth'])) {
+//if (!isset ($_SESSION['fauth'])) {
     session_start();
-}
+//}
 
 include_once "config.inc.php.dist";
 include_once "config.inc.php";
@@ -28,6 +28,10 @@ if(!file_exists($database)) {
 	}
 }
 
+if(!isset($_SESSION['fauth']) || $_SESSION['fauth']) checkLogin($realm);
+	
+
+/*
 if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !isset($_SERVER['PHP_AUTH_PW'])) {
 	doLogin($realm);
 } else {
@@ -35,6 +39,64 @@ if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !iss
 	$query = "UPDATE `users` SET `userLastLogin` = ".time()." WHERE `userName` = '".$_SERVER['PHP_AUTH_USER']."';";
 	db_query($query);
 	session_unset();
+}
+
+*/
+function checkLogin($realm) {
+	if (!isset($_SERVER['PHP_AUTH_USER']) && !isset($_SESSION['fauth'])) {
+		header("Expires: Sat, 01 Jan 2000 00:00:00 GMT");
+		header("Last-Modified: ".gmdate("D, d M Y H:i:s")." GMT");
+		header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+		header("Cache-Control: post-check=0, pre-check=0", false);
+		header("Pragma: no-cache");
+		header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+		http_response_code(401);
+		echo 'Access denied. You must login to use this tool.';
+		exit;
+	} else {
+		if(isset($_SERVER['PHP_AUTH_USER']) && isset($_SERVER['PHP_AUTH_PW'])) {
+			$query = "SELECT * FROM `users` WHERE `userName`= '".$_SERVER['PHP_AUTH_USER']."';";
+			$udata = db_query($query);
+			if(count($udata) == 1) {
+				if(password_verify($_SERVER['PHP_AUTH_PW'], $udata[0]['userHash'])) {
+					$seid = session_id();
+					$aTime = time();
+					$oTime = $udata[0]['userLastLogin'];
+					$uid = $udata[0]['userID'];
+
+					$_SESSION['fauth'] = true;
+					e_log(8,"Login successfully");
+
+					if($seid != $udata[0]['sessionID']) {
+						e_log(8,"Save session to database.");
+						$query = "UPDATE `users` SET `userLastLogin` = $aTime, `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userID` = $uid;";
+						db_query($query);
+					}
+				} else {
+					
+					session_destroy();
+					unset($_SESSION['fauth']);
+					unset($_SERVER['PHP_AUTH_USER']);
+					unset($_SERVER['PHP_AUTH_PW']);
+					header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+					http_response_code(401);
+					e_log(8,"Login failed. Password missmatch");
+					echo 'Login failed. You must authenticate to use this tool.';
+					exit;
+				}
+			} else {
+				unset($_SESSION['fauth']);
+				unset($_SERVER['PHP_AUTH_USER']);
+				unset($_SERVER['PHP_AUTH_PW']);
+				session_destroy();
+				header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+				http_response_code(401);
+				e_log(8,"Login failed. Credential missmatch");
+				echo 'Login failed. You must authenticate to use this tool.';
+				exit;
+			}
+		}
+	}
 }
 
 if(!isset($userData)) $userData = getUserdata();
@@ -424,8 +486,9 @@ if(isset($_POST['caction'])) {
 							$query = "UPDATE `users` SET `userHash`='$password' WHERE `userID`=".$userData['userID'].";";
 							db_query($query);
 							e_log(8,"Userchange: Password changed");
-							$_SERVER['PHP_AUTH_USER'] = "";
-							$_SERVER['PHP_AUTH_PW'] = "";
+							unset($_SERVER['PHP_AUTH_USER']);
+							unset($_SERVER['PHP_AUTH_PW']);
+							unset($_SESSION['fauth']);
 						}
 						else {
 							e_log(2,"Userchange: Old and new password identical, user not changed");
@@ -484,8 +547,9 @@ if(isset($_POST['caction'])) {
 					$query = "UPDATE `users` SET `userName`='$username' WHERE `userID`=".$userData['userID'].";";
 					db_query($query);
 					e_log(8,"Userchange: Username changed");
-					$_SERVER['PHP_AUTH_USER'] = "";
-					$_SERVER['PHP_AUTH_PW'] = "";
+					unset($_SERVER['PHP_AUTH_USER']);
+					unset($_SERVER['PHP_AUTH_PW']);
+					unset($_SESSION['fauth']);
 				}
 				else {
 					e_log(2,"Userchange: Failed to verify original password");
@@ -512,6 +576,7 @@ if(isset($_POST['caction'])) {
 			e_log(8,"Logout user ".$_SERVER['PHP_AUTH_USER']);
 			unset($_SERVER['PHP_AUTH_USER']);
 			unset($_SERVER['PHP_AUTH_PW']);
+			unset($_SESSION['fauth']);
 
 			header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
 			http_response_code(401);
@@ -995,10 +1060,10 @@ function getUserdata() {
 	if (!empty($userData)) {
 		if(password_verify($_SERVER['PHP_AUTH_PW'], $userData[0]['userHash']))
 			return $userData[0];
-	}
-	else {
-		$_SERVER['PHP_AUTH_PW'] = '';
-		$_SERVER['PHP_AUTH_USER'] = '';
+	} else {
+		unset($_SERVER['PHP_AUTH_PW']);
+		unset($_SERVER['PHP_AUTH_USER']);
+		unset($_SESSION['fauth']);
 	}
 }
 
@@ -1337,7 +1402,6 @@ function makeHTMLExport($arr) {
 	foreach($arr as $bm) {
 		if($bm['bmType'] == "bookmark") {
 			$bookmark = "\r\n\t<DT><A HREF=\"".$bm['bmURL']."\" bid=\"".$bm['bmID']."\" ADD_DATE=\"".round($bm['bmAdded']/1000)."\">".$bm['bmTitle']."</A>%ID".$bm['bmParentID'];
-			
 			$bookmarks = str_replace("%ID".$bm['bmParentID'], $bookmark, $bookmarks);
 		}
 		
@@ -1386,7 +1450,8 @@ function makeHTMLTree($arr) {
 		
 		if($bm['bmType'] == "folder") {
 			$fclass = strpos($bm['bmID'], '_____') === false ? "class='folder'" : "";
-			$nFolder = "\n<li $fclass id='f_".$bm['bmID']."'><label for=\"".$bm['bmTitle']."\">".$bm['bmTitle']."</label><input class='ffolder' value='".$bm['bmID']."' id=\"".$bm['bmTitle']."\" type=\"checkbox\"><ol>%ID".$bm['bmID']."\n</ol></li>";
+			//$nFolder = "\n<li $fclass id='f_".$bm['bmID']."'><label for=\"".$bm['bmTitle']."\">".$bm['bmTitle']."</label><input class='ffolder' value='".$bm['bmID']."' id=\"".$bm['bmTitle']."\" type=\"checkbox\"><ol>%ID".$bm['bmID']."\n</ol></li>";
+			$nFolder = "\n<li $fclass id='f_".$bm['bmID']."'><label for=\"i_".$bm['bmID']."\">".$bm['bmTitle']."</label><input class='ffolder' value='".$bm['bmID']."' id=\"i_".$bm['bmID']."\" type=\"checkbox\"><ol>%ID".$bm['bmID']."\n</ol></li>";
 			if(strpos($bookmarks, "%ID".$bm['bmParentID']) > 0) {
 				$nFolder = "\n".$nFolder."\n%ID".$bm['bmParentID'];
 				$bookmarks = str_replace("%ID".$bm['bmParentID'], $nFolder, $bookmarks);
@@ -1466,8 +1531,10 @@ function c2hmarks($item, $key) {
 
 function prepare_url($url) {
 	$parsed = parse_url($url);
-	parse_str($parsed['query'], $query);
-	$parsed['query'] = http_build_query($query);
+	if(array_key_exists('query',$parsed)) {
+		parse_str($parsed['query'], $query);
+		$parsed['query'] = http_build_query($query);
+	}
 
     $pass      = $parsed['pass'] ?? null;
     $user      = $parsed['user'] ?? null;
@@ -1493,10 +1560,9 @@ function prepare_url($url) {
 function doLogin($realm) {
 	$valid = false;
 	
-	if (isset($_SERVER['PHP_AUTH_USER'])) {		
+	if (isset($_SERVER['PHP_AUTH_USER'])) {
 		$query = "SELECT * FROM `users` WHERE `userName`= '".$_SERVER['PHP_AUTH_USER']."';";
 		$userData = db_query($query);
-
 		if(password_verify($_SERVER['PHP_AUTH_PW'], $userData[0]['userHash'])) {
 			$valid = true;
 			if (session_status() == PHP_SESSION_ACTIVE) {
@@ -1518,7 +1584,7 @@ function doLogin($realm) {
 		e_log(8,"No user logged in, sending 401 to client.");
 		header("Expires: Sat, 01 Jan 2000 00:00:00 GMT");
 		header("Last-Modified: ".gmdate("D, d M Y H:i:s")." GMT");
-		header("Cache-Control: post-check=0, pre-check=0",false);
+		header("Cache-Control: must-revalidate, post-check=0, pre-check=0",false);
 		header("Pragma: no-cache");
 		header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
 		http_response_code(401);
