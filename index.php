@@ -7,9 +7,7 @@
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
  */
-//if (!isset ($_SESSION['fauth'])) {
-    session_start();
-//}
+session_start();
 
 include_once "config.inc.php.dist";
 include_once "config.inc.php";
@@ -27,8 +25,8 @@ if(!file_exists($database)) {
 		}
 	}
 }
-
-if(!isset($_SESSION['fauth']) || $_SESSION['fauth']) checkLogin($realm);
+//if(!isset($_SESSION['fauth']) || $_SESSION['fauth']) checkLogin($realm);
+if(!isset($_SESSION['fauth'])) checkLogin($realm);
 	
 
 /*
@@ -44,6 +42,7 @@ if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !iss
 */
 function checkLogin($realm) {
 	if (!isset($_SERVER['PHP_AUTH_USER']) && !isset($_SESSION['fauth'])) {
+	//if (!isset($_SESSION['fauth'])) {
 		header("Expires: Sat, 01 Jan 2000 00:00:00 GMT");
 		header("Last-Modified: ".gmdate("D, d M Y H:i:s")." GMT");
 		header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
@@ -63,17 +62,14 @@ function checkLogin($realm) {
 					$aTime = time();
 					$oTime = $udata[0]['userLastLogin'];
 					$uid = $udata[0]['userID'];
-
 					$_SESSION['fauth'] = true;
 					e_log(8,"Login successfully");
-
 					if($seid != $udata[0]['sessionID']) {
 						e_log(8,"Save session to database.");
 						$query = "UPDATE `users` SET `userLastLogin` = $aTime, `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userID` = $uid;";
 						db_query($query);
 					}
 				} else {
-					
 					session_destroy();
 					unset($_SESSION['fauth']);
 					unset($_SERVER['PHP_AUTH_USER']);
@@ -234,7 +230,7 @@ if(isset($_POST['caction'])) {
 			$title = getSiteTitle($url);
 			e_log(8,"Received new pushed URL: ".$url);
 			$uidd = $userData['userID'];
-			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`repeat`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, $target, 1, $ctime, $uidd)";
+			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`client`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, $target, 1, $ctime, $uidd)";
 			$erg = db_query($query);
 			if($erg !== 0) echo("URL successfully pushed.");
 			break;
@@ -305,7 +301,7 @@ if(isset($_POST['caction'])) {
 		case "gurls":
 			$client = (isset($_POST['client'])) ? filter_var($_POST['client'], FILTER_SANITIZE_STRING) : '0';
 			e_log(8,"Request pushed sites for client $client");
-			$query = "SELECT * FROM `notifications` WHERE `nloop` = 1 AND `userID` = ".$userData['userID']." AND `repeat` IN ('".$client."','0');";
+			$query = "SELECT * FROM `notifications` WHERE `nloop` = 1 AND `userID` = ".$userData['userID']." AND `client` IN ('".$client."','0');";
 			$uOptions = json_decode($userData['uOptions'],true);
 			$notificationData = db_query($query);
 			e_log(8,"Found ".count($notificationData)." links. Will push them to the client.");
@@ -394,12 +390,6 @@ if(isset($_POST['caction'])) {
 					e_log(8,"Delete user $user");
 					$query = "DELETE FROM `users` WHERE `userID` = $uID;";
 					if(db_query($query) == 1) {
-						e_log(8,"Delete clients for user $user");
-						$query = "DELETE FROM `clients` WHERE `userID` = $uID;";
-						db_query($query);
-						e_log(8,"Delete bookmarks for user $user");
-						$query = "DELETE FROM `bookmarks` WHERE `userID` = $uID;";
-						db_query($query);
 						$message = "Hello,\r\n\r\nyour account '$user' and all it's data is removed from $url.";
 						if(!mail ($_POST['nuser'], "Account removed",$message,$headers)) e_log(1,"Error sending data for created user account to user");
 					}
@@ -577,6 +567,9 @@ if(isset($_POST['caction'])) {
 			unset($_SERVER['PHP_AUTH_USER']);
 			unset($_SERVER['PHP_AUTH_PW']);
 			unset($_SESSION['fauth']);
+
+			session_unset();
+			session_destroy();
 
 			header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
 			http_response_code(401);
@@ -1309,7 +1302,7 @@ function bClientlist($uid) {
 }
 
 function notiList($uid, $loop) {
-	$query = "SELECT n.id, n.title, n.message, n.publish_date, IFNULL(c.cname, n.repeat) AS client FROM notifications n LEFT JOIN clients c ON c.cid = n.repeat WHERE n.userID = $uid AND n.nloop = $loop ORDER BY n.publish_date;";
+	$query = "SELECT n.id, n.title, n.message, n.publish_date, IFNULL(c.cname, n.client) AS client FROM notifications n LEFT JOIN clients c ON c.cid = n.client WHERE n.userID = $uid AND n.nloop = $loop ORDER BY n.publish_date;";
 	$aNotitData = db_query($query);
 	$notiList = "";
 	foreach($aNotitData as $key => $aNoti) {
@@ -1667,14 +1660,25 @@ function db_query($query, $data=null) {
 }
 
 function initDB($suser,$spwd) {
-	$query = "CREATE TABLE `bookmarks` (`bmID`	TEXT NOT NULL, `bmParentID`	TEXT NOT NULL, `bmIndex` INTEGER NOT NULL, `bmTitle` TEXT, `bmType`	TEXT NOT NULL, `bmURL` TEXT, `bmAdded` TEXT NOT NULL, `bmModified` TEXT, `userID` INTEGER NOT NULL, `bmAction` INTEGER, PRIMARY KEY(`bmID`))";
+	$query = "CREATE TABLE `bookmarks` (`bmID`	TEXT NOT NULL, `bmParentID`	TEXT NOT NULL, `bmIndex` INTEGER NOT NULL, `bmTitle` TEXT, `bmType`	TEXT NOT NULL, `bmURL` TEXT, `bmAdded` TEXT NOT NULL, `bmModified` TEXT, `userID` INTEGER NOT NULL, `bmAction` INTEGER, FOREIGN KEY(`userID`) REFERENCES `users`(`userID`) ON DELETE CASCADE, PRIMARY KEY(`bmID`))";
 	db_query($query);
-	$query = "CREATE TABLE `users` (`userID` INTEGER NOT NULL, `userName` TEXT UNIQUE NOT NULL, `userType` INTEGER NOT NULL, `userHash`	TEXT NOT NULL, `userLastLogin` INT(11), `sessionID`	VARCHAR(255) UNIQUE, `userOldLogin`	INT(11), `uOptions` TEXT, PRIMARY KEY(`userID`));";
+	$query = "CREATE TABLE 'users' (`userID` INTEGER NOT NULL UNIQUE, `userName` TEXT NOT NULL UNIQUE, `userType` INTEGER NOT NULL, `userHash` TEXT NOT NULL, `userLastLogin` INT(11), `sessionID` VARCHAR(255) UNIQUE, `userOldLogin` INT(11), `uOptions` TEXT, PRIMARY KEY(`userID`));";
 	db_query($query);
-	$query = "CREATE TABLE `clients` (`cid` TEXT NOT NULL UNIQUE,`cname` TEXT, `ctype` TEXT NOT NULL, `uid`	INTEGER NOT NULL, `lastseen` TEXT NOT NULL, PRIMARY KEY(`cid`));";
+	$query = "CREATE TABLE `clients` (`cid` TEXT NOT NULL UNIQUE,`cname` TEXT, `ctype` TEXT NOT NULL, `uid`	INTEGER NOT NULL, `lastseen` TEXT NOT NULL, FOREIGN KEY(`uid`) REFERENCES `users`(`userID`) ON DELETE CASCADE, PRIMARY KEY(`cid`));";
 	db_query($query);
-	$query = "CREATE TABLE `notifications` (`id` INTEGER NOT NULL, `title` varchar(250) NOT NULL, `message` TEXT NOT NULL, `ntime` varchar(250) NOT NULL DEFAULT NULL, `repeat` INTEGER NOT NULL DEFAULT 1, `nloop` INTEGER NOT NULL DEFAULT 1, `publish_date` varchar(250) NOT NULL, `userID` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`userID`) REFERENCES `users`(`userID`));";
+	$query = "CREATE TABLE `notifications` (`id` INTEGER NOT NULL, `title` varchar(250) NOT NULL, `message` TEXT NOT NULL, `ntime` varchar(250) NOT NULL DEFAULT NULL, `client` TEXT NOT NULL DEFAULT 0, `nloop` INTEGER NOT NULL DEFAULT 1, `publish_date` varchar(250) NOT NULL, `userID` INTEGER NOT NULL, FOREIGN KEY(`userID`) REFERENCES `users`(`userID`) ON DELETE CASCADE, PRIMARY KEY(`id`));";
 	db_query($query);
+
+	$query = "CREATE TRIGGER on_delete_set_default AFTER DELETE ON clients BEGIN UPDATE notifications SET client = 0 WHERE client = old.cid; END";
+	db_query($query);
+
+	$query = "CREATE INDEX `i1` ON `bookmarks` (`bmURL`, `bmTitle`)";
+	db_query($query);
+	$query = "CREATE INDEX `i2` ON `users` (`userID`)";
+	db_query($query);
+	$query = "CREATE INDEX `i3` ON `clients` (`cid`)";
+	db_query($query);
+
 	$bmAdded = time();
 	$userPWD = password_hash($spwd,PASSWORD_DEFAULT);
 	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('unfiled_____', 'root________', 0, 'Other Bookmarks', 'folder', NULL, ".$bmAdded.", 1)";
