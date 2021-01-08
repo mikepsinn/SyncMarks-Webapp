@@ -25,24 +25,11 @@ if(!file_exists($database)) {
 		}
 	}
 }
-//if(!isset($_SESSION['fauth']) || $_SESSION['fauth']) checkLogin($realm);
-if(!isset($_SESSION['fauth'])) checkLogin($realm);
-	
 
-/*
-if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !isset($_SERVER['PHP_AUTH_PW'])) {
-	doLogin($realm);
-} else {
-	e_log(8,"Update lastseen date for user");
-	$query = "UPDATE `users` SET `userLastLogin` = ".time()." WHERE `userName` = '".$_SERVER['PHP_AUTH_USER']."';";
-	db_query($query);
-	session_unset();
-}
+if(!isset($_SESSION['sauth']) || isset($_SESSION['fauth'])) checkLogin($realm);
 
-*/
 function checkLogin($realm) {
-	if (!isset($_SERVER['PHP_AUTH_USER']) && !isset($_SESSION['fauth'])) {
-	//if (!isset($_SESSION['fauth'])) {
+	if (!isset($_SERVER['PHP_AUTH_USER']) && !isset($_SESSION['sauth']) || isset($_SESSION['fauth'])) {
 		header("Expires: Sat, 01 Jan 2000 00:00:00 GMT");
 		header("Last-Modified: ".gmdate("D, d M Y H:i:s")." GMT");
 		header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
@@ -50,7 +37,8 @@ function checkLogin($realm) {
 		header("Pragma: no-cache");
 		header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
 		http_response_code(401);
-		echo 'Access denied. You must login to use this tool.';
+		echo "Access denied. You must <a href='".$_SERVER['PHP_SELF']."'>login</a> to use this tool.";
+		unset($_SESSION['fauth']);
 		exit;
 	} else {
 		if(isset($_SERVER['PHP_AUTH_USER']) && isset($_SERVER['PHP_AUTH_PW'])) {
@@ -62,7 +50,8 @@ function checkLogin($realm) {
 					$aTime = time();
 					$oTime = $udata[0]['userLastLogin'];
 					$uid = $udata[0]['userID'];
-					$_SESSION['fauth'] = true;
+					$_SESSION['sauth'] = true;
+					unset($_SESSION['fauth']);
 					e_log(8,"Login successfully");
 					if($seid != $udata[0]['sessionID']) {
 						e_log(8,"Save session to database.");
@@ -71,24 +60,22 @@ function checkLogin($realm) {
 					}
 				} else {
 					session_destroy();
-					unset($_SESSION['fauth']);
-					unset($_SERVER['PHP_AUTH_USER']);
-					unset($_SERVER['PHP_AUTH_PW']);
+					unset($_SESSION['sauth']);
+					$_SESSION['fauth'] = true;
 					header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
 					http_response_code(401);
 					e_log(8,"Login failed. Password missmatch");
-					echo 'Login failed. You must authenticate to use this tool.';
+					echo "Login failed. You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.";
 					exit;
 				}
 			} else {
-				unset($_SESSION['fauth']);
-				unset($_SERVER['PHP_AUTH_USER']);
-				unset($_SERVER['PHP_AUTH_PW']);
+				unset($_SESSION['sauth']);
+				$_SESSION['fauth'] = true;
 				session_destroy();
 				header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
 				http_response_code(401);
 				e_log(8,"Login failed. Credential missmatch");
-				echo 'Login failed. You must authenticate to use this tool.';
+				echo "Login failed. You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.";
 				exit;
 			}
 		}
@@ -476,8 +463,6 @@ if(isset($_POST['caction'])) {
 							$query = "UPDATE `users` SET `userHash`='$password' WHERE `userID`=".$userData['userID'].";";
 							db_query($query);
 							e_log(8,"Userchange: Password changed");
-							unset($_SERVER['PHP_AUTH_USER']);
-							unset($_SERVER['PHP_AUTH_PW']);
 							unset($_SESSION['fauth']);
 						}
 						else {
@@ -537,8 +522,6 @@ if(isset($_POST['caction'])) {
 					$query = "UPDATE `users` SET `userName`='$username' WHERE `userID`=".$userData['userID'].";";
 					db_query($query);
 					e_log(8,"Userchange: Username changed");
-					unset($_SERVER['PHP_AUTH_USER']);
-					unset($_SERVER['PHP_AUTH_PW']);
 					unset($_SESSION['fauth']);
 				}
 				else {
@@ -564,17 +547,11 @@ if(isset($_POST['caction'])) {
 			break;
 		case "logout":
 			e_log(8,"Logout user ".$_SERVER['PHP_AUTH_USER']);
-			unset($_SERVER['PHP_AUTH_USER']);
-			unset($_SERVER['PHP_AUTH_PW']);
-			unset($_SESSION['fauth']);
-
-			session_unset();
-			session_destroy();
-
-			header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-			http_response_code(401);
-
-			die("User is now logged out.");
+			unset($_SESSION['sauth']);
+			$_SESSION['fauth'] = true;
+			echo "User logged out. <a href='".$_SERVER['PHP_SELF']."'>Login</a> again";
+			e_log(8,"User logged out");
+			exit;
 			break;
 		default:
 			die(json_encode("Unknown Action"));
@@ -1054,8 +1031,6 @@ function getUserdata() {
 		if(password_verify($_SERVER['PHP_AUTH_PW'], $userData[0]['userHash']))
 			return $userData[0];
 	} else {
-		unset($_SERVER['PHP_AUTH_PW']);
-		unset($_SERVER['PHP_AUTH_USER']);
 		unset($_SESSION['fauth']);
 	}
 }
@@ -1185,7 +1160,7 @@ function htmlHeader($ud) {
 						<li class='fa fa-cogs' id='psettings'>Settings</li>
 						$admenu
 						<hr>
-						<li class='fa fa-sign-out' id='mlogout'>Logout</li>
+						<li class='fa fa-sign-out'><form method='POST'><button name='caction' value='logout'>Logout</button></form></li>
 					</ul>
 				</div>";
 				
@@ -1443,7 +1418,6 @@ function makeHTMLTree($arr) {
 		
 		if($bm['bmType'] == "folder") {
 			$fclass = strpos($bm['bmID'], '_____') === false ? "class='folder'" : "";
-			//$nFolder = "\n<li $fclass id='f_".$bm['bmID']."'><label for=\"".$bm['bmTitle']."\">".$bm['bmTitle']."</label><input class='ffolder' value='".$bm['bmID']."' id=\"".$bm['bmTitle']."\" type=\"checkbox\"><ol>%ID".$bm['bmID']."\n</ol></li>";
 			$nFolder = "\n<li $fclass id='f_".$bm['bmID']."'><label for=\"i_".$bm['bmID']."\">".$bm['bmTitle']."</label><input class='ffolder' value='".$bm['bmID']."' id=\"i_".$bm['bmID']."\" type=\"checkbox\"><ol>%ID".$bm['bmID']."\n</ol></li>";
 			if(strpos($bookmarks, "%ID".$bm['bmParentID']) > 0) {
 				$nFolder = "\n".$nFolder."\n%ID".$bm['bmParentID'];

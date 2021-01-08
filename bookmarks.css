@@ -1011,6 +1011,22 @@ input:checked + .slider:before {
 	display: inline-block;
 	text-align: center;
 }
+.fa.fa-sign-out form {
+	display: inherit;
+}
+.fa-sign-out button {
+	width: 260px;
+	background: transparent;
+	border: 0;
+	font-family: FontAwesome,Roboto,Arial,Helvetica,sans-serif;
+	line-height: 32px;
+	font-size: 16px;
+	text-align: left;
+	padding: 0;
+	margin-top: -23px;
+	position: absolute;
+	color: #29302e;
+}
 @media screen and (min-device-width: 1024px) {
 	#meheader {
 		border-radius: 4px 4px 0 0;

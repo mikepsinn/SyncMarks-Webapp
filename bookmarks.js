@@ -104,23 +104,6 @@ document.addEventListener("DOMContentLoaded", function() {
 		});
 	}
 
-	document.getElementById("mlogout").addEventListener('click', function(event) {
-		event.preventDefault();
-		var xhr = new XMLHttpRequest();
-		xhr.onreadystatechange = function () {
-			if (this.readyState == 4) {
-				if(this.status == 401) {
-					console.log("Successfully logged out...");
-				}
-			}
-		};
-
-		xhr.open("POST", document.location.href, true);
-		xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-		xhr.send("caction=logout");
-		return false;
-	});
-
 	document.getElementById('userSelect').addEventListener('change', function() {
 		if(this.value > 0) {
 			document.getElementById('nuser').value = document.querySelector('#userSelect option:checked').text;

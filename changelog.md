@@ -8,6 +8,7 @@ ChangeLog
 * Fix CSS
 * Fix not opening duplicate foldernames
 * Fix login/logout
+* Reworked logout
 
 
 1.3.0 (2020-01-02)
