@@ -8,79 +8,13 @@
  * @license GNU General Public License, version 3
  */
 session_start();
-
 include_once "config.inc.php.dist";
 include_once "config.inc.php";
 set_error_handler("e_log");
 
-if(!file_exists($database)) {
-	if(!file_exists(dirname($database))) {
-		if(!mkdir(dirname($database),0777,true)) {
-			$message = "Directory for database couldn't created, please check privileges";
-			e_log(1,$message);
-			die($message);
-		} else {
-			e_log(8,"Directory for database created, initialize database now");
-			initDB($suser,$spwd);
-		}
-	}
-}
+checkDB($database,$suser,$spwd);
 
-if(!isset($_SESSION['sauth']) || isset($_SESSION['fauth'])) checkLogin($realm);
-
-function checkLogin($realm) {
-	if (!isset($_SERVER['PHP_AUTH_USER']) && !isset($_SESSION['sauth']) || isset($_SESSION['fauth'])) {
-		header("Expires: Sat, 01 Jan 2000 00:00:00 GMT");
-		header("Last-Modified: ".gmdate("D, d M Y H:i:s")." GMT");
-		header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
-		header("Cache-Control: post-check=0, pre-check=0", false);
-		header("Pragma: no-cache");
-		header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-		http_response_code(401);
-		echo "Access denied. You must <a href='".$_SERVER['PHP_SELF']."'>login</a> to use this tool.";
-		unset($_SESSION['fauth']);
-		exit;
-	} else {
-		if(isset($_SERVER['PHP_AUTH_USER']) && isset($_SERVER['PHP_AUTH_PW'])) {
-			$query = "SELECT * FROM `users` WHERE `userName`= '".$_SERVER['PHP_AUTH_USER']."';";
-			$udata = db_query($query);
-			if(count($udata) == 1) {
-				if(password_verify($_SERVER['PHP_AUTH_PW'], $udata[0]['userHash'])) {
-					$seid = session_id();
-					$aTime = time();
-					$oTime = $udata[0]['userLastLogin'];
-					$uid = $udata[0]['userID'];
-					$_SESSION['sauth'] = true;
-					unset($_SESSION['fauth']);
-					e_log(8,"Login successfully");
-					if($seid != $udata[0]['sessionID']) {
-						e_log(8,"Save session to database.");
-						$query = "UPDATE `users` SET `userLastLogin` = $aTime, `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userID` = $uid;";
-						db_query($query);
-					}
-				} else {
-					session_destroy();
-					unset($_SESSION['sauth']);
-					$_SESSION['fauth'] = true;
-					header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-					http_response_code(401);
-					e_log(8,"Login failed. Password missmatch");
-					echo "Login failed. You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.";
-					exit;
-				}
-			} else {
-				unset($_SESSION['sauth']);
-				$_SESSION['fauth'] = true;
-				session_destroy();
-				header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-				http_response_code(401);
-				e_log(8,"Login failed. Credential missmatch");
-				echo "Login failed. You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.";
-				exit;
-			}
-		}
-	}
-}
+if(!isset($_SESSION['sauth']) || isset($_SESSION['fauth']) || !isset($_SERVER['PHP_AUTH_USER'])) checkLogin($realm);
 
 if(!isset($userData)) $userData = getUserdata();
 
@@ -1524,53 +1458,58 @@ function prepare_url($url) {
     );
 }
 
-function doLogin($realm) {
-	$valid = false;
-	
-	if (isset($_SERVER['PHP_AUTH_USER'])) {
-		$query = "SELECT * FROM `users` WHERE `userName`= '".$_SERVER['PHP_AUTH_USER']."';";
-		$userData = db_query($query);
-		if(password_verify($_SERVER['PHP_AUTH_PW'], $userData[0]['userHash'])) {
-			$valid = true;
-			if (session_status() == PHP_SESSION_ACTIVE) {
-				$aTime = time();
-				$oTime = $userData[0]['userLastLogin'];
-				$seid = session_id();
-				$uid = $userData[0]['userID'];
-
-				if($seid != $userData[0]['sessionID']) {
-					e_log(8,"Save session to database.");
-					$query = "UPDATE `users` SET `userLastLogin` = $aTime, `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userID` = '$uid';";
-					db_query($query);
-				}
-			}
-		}
-	}
-	
-	if (!$valid) {
-		e_log(8,"No user logged in, sending 401 to client.");
+function checkLogin($realm) {
+	e_log(8,"Check login");
+	if (!isset($_SERVER['PHP_AUTH_USER']) || isset($_SESSION['fauth'])) {
 		header("Expires: Sat, 01 Jan 2000 00:00:00 GMT");
 		header("Last-Modified: ".gmdate("D, d M Y H:i:s")." GMT");
-		header("Cache-Control: must-revalidate, post-check=0, pre-check=0",false);
+		header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+		header("Cache-Control: post-check=0, pre-check=0", false);
 		header("Pragma: no-cache");
 		header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
 		http_response_code(401);
-
-		$lpage = "<!DOCTYPE html>
-		<html>
-			<head>
-				<meta name='viewport' content='width=device-width, initial-scale=1'>
-				<base href='".dirname($_SERVER['SCRIPT_NAME'])."/' />
-				<link rel='shortcut icon' type='image/x-icon' href='.images/bookmarks.ico'>
-				<link rel='manifest' href='./manifest.json'>
-				<meta name='theme-color' content='#0879D9'>
-				<title>SyncMarks</title>
-			</head>
-			<body>
-				You must login to use this tool.
-			</body>
-		</html>";
-		die($lpage);
+		echo "Access denied. You must <a href='".$_SERVER['PHP_SELF']."'>login</a> to use this tool.";
+		unset($_SESSION['fauth']);
+		exit;
+	} else {
+		if(isset($_SERVER['PHP_AUTH_USER']) && isset($_SERVER['PHP_AUTH_PW'])) {
+			$query = "SELECT * FROM `users` WHERE `userName`= '".$_SERVER['PHP_AUTH_USER']."';";
+			$udata = db_query($query);
+			if(count($udata) == 1) {
+				if(password_verify($_SERVER['PHP_AUTH_PW'], $udata[0]['userHash'])) {
+					$seid = session_id();
+					$aTime = time();
+					$oTime = $udata[0]['userLastLogin'];
+					$uid = $udata[0]['userID'];
+					$_SESSION['sauth'] = true;
+					unset($_SESSION['fauth']);
+					e_log(8,"Login successfully");
+					if($seid != $udata[0]['sessionID']) {
+						e_log(8,"Save session to database.");
+						$query = "UPDATE `users` SET `userLastLogin` = $aTime, `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userID` = $uid;";
+						db_query($query);
+					}
+				} else {
+					session_destroy();
+					unset($_SESSION['sauth']);
+					$_SESSION['fauth'] = true;
+					header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+					http_response_code(401);
+					e_log(8,"Login failed. Password missmatch");
+					echo "Login failed. You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.";
+					exit;
+				}
+			} else {
+				unset($_SESSION['sauth']);
+				$_SESSION['fauth'] = true;
+				session_destroy();
+				header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+				http_response_code(401);
+				e_log(8,"Login failed. Credential missmatch");
+				echo "Login failed. You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.";
+				exit;
+			}
+		}
 	}
 }
 
@@ -1610,7 +1549,7 @@ function db_query($query, $data=null) {
 			}
 		}
 	} else {
-		if(strpos($query, 'SELECT') === 0) {
+		if(strpos($query, 'SELECT') === 0 || strpos($query, 'PRAGMA') === 0) {
 			$statement = $db->prepare($query);
 			try {
 				$statement->execute();
@@ -1633,33 +1572,45 @@ function db_query($query, $data=null) {
 	return $queryData;
 }
 
-function initDB($suser,$spwd) {
-	$query = "CREATE TABLE `bookmarks` (`bmID`	TEXT NOT NULL, `bmParentID`	TEXT NOT NULL, `bmIndex` INTEGER NOT NULL, `bmTitle` TEXT, `bmType`	TEXT NOT NULL, `bmURL` TEXT, `bmAdded` TEXT NOT NULL, `bmModified` TEXT, `userID` INTEGER NOT NULL, `bmAction` INTEGER, FOREIGN KEY(`userID`) REFERENCES `users`(`userID`) ON DELETE CASCADE, PRIMARY KEY(`bmID`))";
-	db_query($query);
-	$query = "CREATE TABLE 'users' (`userID` INTEGER NOT NULL UNIQUE, `userName` TEXT NOT NULL UNIQUE, `userType` INTEGER NOT NULL, `userHash` TEXT NOT NULL, `userLastLogin` INT(11), `sessionID` VARCHAR(255) UNIQUE, `userOldLogin` INT(11), `uOptions` TEXT, PRIMARY KEY(`userID`));";
-	db_query($query);
-	$query = "CREATE TABLE `clients` (`cid` TEXT NOT NULL UNIQUE,`cname` TEXT, `ctype` TEXT NOT NULL, `uid`	INTEGER NOT NULL, `lastseen` TEXT NOT NULL, FOREIGN KEY(`uid`) REFERENCES `users`(`userID`) ON DELETE CASCADE, PRIMARY KEY(`cid`));";
-	db_query($query);
-	$query = "CREATE TABLE `notifications` (`id` INTEGER NOT NULL, `title` varchar(250) NOT NULL, `message` TEXT NOT NULL, `ntime` varchar(250) NOT NULL DEFAULT NULL, `client` TEXT NOT NULL DEFAULT 0, `nloop` INTEGER NOT NULL DEFAULT 1, `publish_date` varchar(250) NOT NULL, `userID` INTEGER NOT NULL, FOREIGN KEY(`userID`) REFERENCES `users`(`userID`) ON DELETE CASCADE, PRIMARY KEY(`id`));";
-	db_query($query);
+function checkDB($database,$suser,$spwd) {
+	if(!file_exists($database)) {
+		if(!file_exists(dirname($database))) {
+			if(!mkdir(dirname($database),0777,true)) {
+				$message = "Directory for database couldn't created, please check privileges";
+				e_log(1,$message);
+				die($message);
+			} else {
+				e_log(8,"Directory for database created, initialize database now");
+			}
+		}
+		e_log(8,"Initialise new database");
+		db_query(file_get_contents("./sql/db_init.sql"));
 
-	$query = "CREATE TRIGGER on_delete_set_default AFTER DELETE ON clients BEGIN UPDATE notifications SET client = 0 WHERE client = old.cid; END";
-	db_query($query);
-
-	$query = "CREATE INDEX `i1` ON `bookmarks` (`bmURL`, `bmTitle`)";
-	db_query($query);
-	$query = "CREATE INDEX `i2` ON `users` (`userID`)";
-	db_query($query);
-	$query = "CREATE INDEX `i3` ON `clients` (`cid`)";
-	db_query($query);
-
-	$bmAdded = time();
-	$userPWD = password_hash($spwd,PASSWORD_DEFAULT);
-	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('unfiled_____', 'root________', 0, 'Other Bookmarks', 'folder', NULL, ".$bmAdded.", 1)";
-	db_query($query);
-	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', 'unfiled_____', 0, 'GitHub Repository', 'bookmark', 'https://github.com/Offerel', ".$bmAdded.", 1)";
-	db_query($query);
-	$query = "INSERT INTO `users` (userName,userType,userHash) VALUES ('$suser',2,'$userPWD');";
-	db_query($query);
+		$bmAdded = time();
+		$userPWD = password_hash($spwd,PASSWORD_DEFAULT);
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('unfiled_____', 'root________', 0, 'Other Bookmarks', 'folder', NULL, ".$bmAdded.", 1)";
+		db_query($query);
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', 'unfiled_____', 0, 'GitHub Repository', 'bookmark', 'https://github.com/Offerel', ".$bmAdded.", 1)";
+		db_query($query);
+		$query = "INSERT INTO `users` (userName,userType,userHash) VALUES ('$suser',2,'$userPWD');";
+		db_query($query);
+	} else {
+		e_log(8,"Check DB version");
+		$version = db_query("PRAGMA user_version")[0]['user_version'];
+		switch($version) {
+			case "0":
+				e_log(8,"Starting DB update...");
+				db_query(file_get_contents("./sql/db_update_1.sql"));
+				break;
+			case "1":
+					e_log(8,"DB is latest version. No update needed");
+					break;
+			default:
+				$message = "DB version unknown, please check DB manually. Stopping app...";
+				e_log(8,$message);
+				echo $message;
+				exit;
+			}
+	}
 }
 ?>

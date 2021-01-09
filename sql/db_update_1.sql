@@ -1,3 +1,4 @@
+-- Change bookmark table
 CREATE TABLE `bookmarks_tmp` (
 	`bmID`	TEXT NOT NULL,
 	`bmParentID`	TEXT NOT NULL,
@@ -16,6 +17,7 @@ INSERT INTO bookmarks_tmp SELECT * FROM bookmarks;
 DROP TABLE bookmarks;
 ALTER TABLE bookmarks_tmp RENAME TO bookmarks;
 
+-- Change clients table
 CREATE TABLE `clients_tmp` (
 	`cid`	TEXT NOT NULL UNIQUE,
 	`cname`	TEXT,
@@ -29,6 +31,7 @@ INSERT INTO clients_tmp SELECT * FROM clients;
 DROP TABLE clients;
 ALTER TABLE clients_tmp RENAME TO clients;
 
+-- Change notifications table
 CREATE TABLE `notifications_tmp` (
 	`id`	INTEGER NOT NULL,
 	`title`	varchar(250) NOT NULL,
@@ -46,14 +49,14 @@ INSERT INTO notifications_tmp SELECT * FROM notifications;
 DROP TABLE notifications;
 ALTER TABLE notifications_tmp RENAME TO notifications;
 
-CREATE INDEX `i2` ON `users` (
-	`userID`
-);
+-- Create index
+CREATE INDEX `i1` ON `bookmarks` (`bmURL`, `bmTitle`);
+CREATE INDEX `i2` ON `users` ( `userID`);
+CREATE INDEX `i3` ON `clients` (`cid`);
 
-CREATE INDEX `i3` ON `clients` (
-	`cid`
-);
-
+-- Create triggers
 CREATE TRIGGER on_delete_set_default AFTER DELETE ON clients BEGIN
   UPDATE notifications SET client = 0 WHERE client = old.cid;
 END;
+
+PRAGMA user_version = 1;

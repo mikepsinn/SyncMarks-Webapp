@@ -3,6 +3,7 @@ ChangeLog
 1.3.1 (2020-01-06)
 -------------------------
 * Added index/trigger/foreign key to DB
+* Added DB init/update script
 * Fix Export date
 * Fix Client name
 * Fix CSS
