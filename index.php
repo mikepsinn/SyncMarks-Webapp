@@ -2,40 +2,19 @@
 /**
  * SyncMarks
  *
- * @version 1.3.0
+ * @version 1.3.1
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
  */
-if (!isset ($_SESSION['fauth'])) {
-    session_start();
-}
-
+session_start();
 include_once "config.inc.php.dist";
 include_once "config.inc.php";
 set_error_handler("e_log");
 
-if(!file_exists($database)) {
-	if(!file_exists(dirname($database))) {
-		if(!mkdir(dirname($database),0777,true)) {
-			$message = "Directory for database couldn't created, please check privileges";
-			e_log(1,$message);
-			die($message);
-		} else {
-			e_log(8,"Directory for database created, initialize database now");
-			initDB($suser,$spwd);
-		}
-	}
-}
+checkDB($database,$suser,$spwd);
 
-if(!isset($_SERVER['PHP_AUTH_USER']) || $_SERVER['PHP_AUTH_USER'] === "" || !isset($_SERVER['PHP_AUTH_PW'])) {
-	doLogin($realm);
-} else {
-	e_log(8,"Update lastseen date for user");
-	$query = "UPDATE `users` SET `userLastLogin` = ".time()." WHERE `userName` = '".$_SERVER['PHP_AUTH_USER']."';";
-	db_query($query);
-	session_unset();
-}
+if(!isset($_SESSION['sauth']) || isset($_SESSION['fauth']) || !isset($_SERVER['PHP_AUTH_USER'])) checkLogin($realm);
 
 if(!isset($userData)) $userData = getUserdata();
 
@@ -172,7 +151,7 @@ if(isset($_POST['caction'])) {
 			$title = getSiteTitle($url);
 			e_log(8,"Received new pushed URL: ".$url);
 			$uidd = $userData['userID'];
-			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`repeat`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, $target, 1, $ctime, $uidd)";
+			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`client`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, $target, 1, $ctime, $uidd)";
 			$erg = db_query($query);
 			if($erg !== 0) echo("URL successfully pushed.");
 			break;
@@ -243,7 +222,7 @@ if(isset($_POST['caction'])) {
 		case "gurls":
 			$client = (isset($_POST['client'])) ? filter_var($_POST['client'], FILTER_SANITIZE_STRING) : '0';
 			e_log(8,"Request pushed sites for client $client");
-			$query = "SELECT * FROM `notifications` WHERE `nloop` = 1 AND `userID` = ".$userData['userID']." AND `repeat` IN ('".$client."','0');";
+			$query = "SELECT * FROM `notifications` WHERE `nloop` = 1 AND `userID` = ".$userData['userID']." AND `client` IN ('".$client."','0');";
 			$uOptions = json_decode($userData['uOptions'],true);
 			$notificationData = db_query($query);
 			e_log(8,"Found ".count($notificationData)." links. Will push them to the client.");
@@ -332,12 +311,6 @@ if(isset($_POST['caction'])) {
 					e_log(8,"Delete user $user");
 					$query = "DELETE FROM `users` WHERE `userID` = $uID;";
 					if(db_query($query) == 1) {
-						e_log(8,"Delete clients for user $user");
-						$query = "DELETE FROM `clients` WHERE `userID` = $uID;";
-						db_query($query);
-						e_log(8,"Delete bookmarks for user $user");
-						$query = "DELETE FROM `bookmarks` WHERE `userID` = $uID;";
-						db_query($query);
 						$message = "Hello,\r\n\r\nyour account '$user' and all it's data is removed from $url.";
 						if(!mail ($_POST['nuser'], "Account removed",$message,$headers)) e_log(1,"Error sending data for created user account to user");
 					}
@@ -424,8 +397,7 @@ if(isset($_POST['caction'])) {
 							$query = "UPDATE `users` SET `userHash`='$password' WHERE `userID`=".$userData['userID'].";";
 							db_query($query);
 							e_log(8,"Userchange: Password changed");
-							$_SERVER['PHP_AUTH_USER'] = "";
-							$_SERVER['PHP_AUTH_PW'] = "";
+							unset($_SESSION['fauth']);
 						}
 						else {
 							e_log(2,"Userchange: Old and new password identical, user not changed");
@@ -484,8 +456,7 @@ if(isset($_POST['caction'])) {
 					$query = "UPDATE `users` SET `userName`='$username' WHERE `userID`=".$userData['userID'].";";
 					db_query($query);
 					e_log(8,"Userchange: Username changed");
-					$_SERVER['PHP_AUTH_USER'] = "";
-					$_SERVER['PHP_AUTH_PW'] = "";
+					unset($_SESSION['fauth']);
 				}
 				else {
 					e_log(2,"Userchange: Failed to verify original password");
@@ -510,13 +481,11 @@ if(isset($_POST['caction'])) {
 			break;
 		case "logout":
 			e_log(8,"Logout user ".$_SERVER['PHP_AUTH_USER']);
-			unset($_SERVER['PHP_AUTH_USER']);
-			unset($_SERVER['PHP_AUTH_PW']);
-
-			header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-			http_response_code(401);
-
-			die("User is now logged out.");
+			unset($_SESSION['sauth']);
+			$_SESSION['fauth'] = true;
+			echo "User logged out. <a href='".$_SERVER['PHP_SELF']."'>Login</a> again";
+			e_log(8,"User logged out");
+			exit;
 			break;
 		default:
 			die(json_encode("Unknown Action"));
@@ -995,10 +964,8 @@ function getUserdata() {
 	if (!empty($userData)) {
 		if(password_verify($_SERVER['PHP_AUTH_PW'], $userData[0]['userHash']))
 			return $userData[0];
-	}
-	else {
-		$_SERVER['PHP_AUTH_PW'] = '';
-		$_SERVER['PHP_AUTH_USER'] = '';
+	} else {
+		unset($_SESSION['fauth']);
 	}
 }
 
@@ -1127,7 +1094,7 @@ function htmlHeader($ud) {
 						<li class='fa fa-cogs' id='psettings'>Settings</li>
 						$admenu
 						<hr>
-						<li class='fa fa-sign-out' id='mlogout'>Logout</li>
+						<li class='fa fa-sign-out'><form method='POST'><button name='caction' value='logout'>Logout</button></form></li>
 					</ul>
 				</div>";
 				
@@ -1244,7 +1211,7 @@ function bClientlist($uid) {
 }
 
 function notiList($uid, $loop) {
-	$query = "SELECT n.id, n.title, n.message, n.publish_date, IFNULL(c.cname, n.repeat) AS client FROM notifications n LEFT JOIN clients c ON c.cid = n.repeat WHERE n.userID = $uid AND n.nloop = $loop ORDER BY n.publish_date;";
+	$query = "SELECT n.id, n.title, n.message, n.publish_date, IFNULL(c.cname, n.client) AS client FROM notifications n LEFT JOIN clients c ON c.cid = n.client WHERE n.userID = $uid AND n.nloop = $loop ORDER BY n.publish_date;";
 	$aNotitData = db_query($query);
 	$notiList = "";
 	foreach($aNotitData as $key => $aNoti) {
@@ -1337,7 +1304,6 @@ function makeHTMLExport($arr) {
 	foreach($arr as $bm) {
 		if($bm['bmType'] == "bookmark") {
 			$bookmark = "\r\n\t<DT><A HREF=\"".$bm['bmURL']."\" bid=\"".$bm['bmID']."\" ADD_DATE=\"".round($bm['bmAdded']/1000)."\">".$bm['bmTitle']."</A>%ID".$bm['bmParentID'];
-			
 			$bookmarks = str_replace("%ID".$bm['bmParentID'], $bookmark, $bookmarks);
 		}
 		
@@ -1386,7 +1352,7 @@ function makeHTMLTree($arr) {
 		
 		if($bm['bmType'] == "folder") {
 			$fclass = strpos($bm['bmID'], '_____') === false ? "class='folder'" : "";
-			$nFolder = "\n<li $fclass id='f_".$bm['bmID']."'><label for=\"".$bm['bmTitle']."\">".$bm['bmTitle']."</label><input class='ffolder' value='".$bm['bmID']."' id=\"".$bm['bmTitle']."\" type=\"checkbox\"><ol>%ID".$bm['bmID']."\n</ol></li>";
+			$nFolder = "\n<li $fclass id='f_".$bm['bmID']."'><label for=\"i_".$bm['bmID']."\">".$bm['bmTitle']."</label><input class='ffolder' value='".$bm['bmID']."' id=\"i_".$bm['bmID']."\" type=\"checkbox\"><ol>%ID".$bm['bmID']."\n</ol></li>";
 			if(strpos($bookmarks, "%ID".$bm['bmParentID']) > 0) {
 				$nFolder = "\n".$nFolder."\n%ID".$bm['bmParentID'];
 				$bookmarks = str_replace("%ID".$bm['bmParentID'], $nFolder, $bookmarks);
@@ -1466,8 +1432,10 @@ function c2hmarks($item, $key) {
 
 function prepare_url($url) {
 	$parsed = parse_url($url);
-	parse_str($parsed['query'], $query);
-	$parsed['query'] = http_build_query($query);
+	if(array_key_exists('query',$parsed)) {
+		parse_str($parsed['query'], $query);
+		$parsed['query'] = http_build_query($query);
+	}
 
     $pass      = $parsed['pass'] ?? null;
     $user      = $parsed['user'] ?? null;
@@ -1490,54 +1458,58 @@ function prepare_url($url) {
     );
 }
 
-function doLogin($realm) {
-	$valid = false;
-	
-	if (isset($_SERVER['PHP_AUTH_USER'])) {		
-		$query = "SELECT * FROM `users` WHERE `userName`= '".$_SERVER['PHP_AUTH_USER']."';";
-		$userData = db_query($query);
-
-		if(password_verify($_SERVER['PHP_AUTH_PW'], $userData[0]['userHash'])) {
-			$valid = true;
-			if (session_status() == PHP_SESSION_ACTIVE) {
-				$aTime = time();
-				$oTime = $userData[0]['userLastLogin'];
-				$seid = session_id();
-				$uid = $userData[0]['userID'];
-
-				if($seid != $userData[0]['sessionID']) {
-					e_log(8,"Save session to database.");
-					$query = "UPDATE `users` SET `userLastLogin` = $aTime, `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userID` = '$uid';";
-					db_query($query);
-				}
-			}
-		}
-	}
-	
-	if (!$valid) {
-		e_log(8,"No user logged in, sending 401 to client.");
+function checkLogin($realm) {
+	e_log(8,"Check login");
+	if (!isset($_SERVER['PHP_AUTH_USER']) || isset($_SESSION['fauth'])) {
 		header("Expires: Sat, 01 Jan 2000 00:00:00 GMT");
 		header("Last-Modified: ".gmdate("D, d M Y H:i:s")." GMT");
-		header("Cache-Control: post-check=0, pre-check=0",false);
+		header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+		header("Cache-Control: post-check=0, pre-check=0", false);
 		header("Pragma: no-cache");
 		header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
 		http_response_code(401);
-
-		$lpage = "<!DOCTYPE html>
-		<html>
-			<head>
-				<meta name='viewport' content='width=device-width, initial-scale=1'>
-				<base href='".dirname($_SERVER['SCRIPT_NAME'])."/' />
-				<link rel='shortcut icon' type='image/x-icon' href='.images/bookmarks.ico'>
-				<link rel='manifest' href='./manifest.json'>
-				<meta name='theme-color' content='#0879D9'>
-				<title>SyncMarks</title>
-			</head>
-			<body>
-				You must login to use this tool.
-			</body>
-		</html>";
-		die($lpage);
+		echo "Access denied. You must <a href='".$_SERVER['PHP_SELF']."'>login</a> to use this tool.";
+		unset($_SESSION['fauth']);
+		exit;
+	} else {
+		if(isset($_SERVER['PHP_AUTH_USER']) && isset($_SERVER['PHP_AUTH_PW'])) {
+			$query = "SELECT * FROM `users` WHERE `userName`= '".$_SERVER['PHP_AUTH_USER']."';";
+			$udata = db_query($query);
+			if(count($udata) == 1) {
+				if(password_verify($_SERVER['PHP_AUTH_PW'], $udata[0]['userHash'])) {
+					$seid = session_id();
+					$aTime = time();
+					$oTime = $udata[0]['userLastLogin'];
+					$uid = $udata[0]['userID'];
+					$_SESSION['sauth'] = true;
+					unset($_SESSION['fauth']);
+					e_log(8,"Login successfully");
+					if($seid != $udata[0]['sessionID']) {
+						e_log(8,"Save session to database.");
+						$query = "UPDATE `users` SET `userLastLogin` = $aTime, `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userID` = $uid;";
+						db_query($query);
+					}
+				} else {
+					session_destroy();
+					unset($_SESSION['sauth']);
+					$_SESSION['fauth'] = true;
+					header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+					http_response_code(401);
+					e_log(8,"Login failed. Password missmatch");
+					echo "Login failed. You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.";
+					exit;
+				}
+			} else {
+				unset($_SESSION['sauth']);
+				$_SESSION['fauth'] = true;
+				session_destroy();
+				header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+				http_response_code(401);
+				e_log(8,"Login failed. Credential missmatch");
+				echo "Login failed. You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.";
+				exit;
+			}
+		}
 	}
 }
 
@@ -1577,7 +1549,7 @@ function db_query($query, $data=null) {
 			}
 		}
 	} else {
-		if(strpos($query, 'SELECT') === 0) {
+		if(strpos($query, 'SELECT') === 0 || strpos($query, 'PRAGMA') === 0) {
 			$statement = $db->prepare($query);
 			try {
 				$statement->execute();
@@ -1600,22 +1572,45 @@ function db_query($query, $data=null) {
 	return $queryData;
 }
 
-function initDB($suser,$spwd) {
-	$query = "CREATE TABLE `bookmarks` (`bmID`	TEXT NOT NULL, `bmParentID`	TEXT NOT NULL, `bmIndex` INTEGER NOT NULL, `bmTitle` TEXT, `bmType`	TEXT NOT NULL, `bmURL` TEXT, `bmAdded` TEXT NOT NULL, `bmModified` TEXT, `userID` INTEGER NOT NULL, `bmAction` INTEGER, PRIMARY KEY(`bmID`))";
-	db_query($query);
-	$query = "CREATE TABLE `users` (`userID` INTEGER NOT NULL, `userName` TEXT UNIQUE NOT NULL, `userType` INTEGER NOT NULL, `userHash`	TEXT NOT NULL, `userLastLogin` INT(11), `sessionID`	VARCHAR(255) UNIQUE, `userOldLogin`	INT(11), `uOptions` TEXT, PRIMARY KEY(`userID`));";
-	db_query($query);
-	$query = "CREATE TABLE `clients` (`cid` TEXT NOT NULL UNIQUE,`cname` TEXT, `ctype` TEXT NOT NULL, `uid`	INTEGER NOT NULL, `lastseen` TEXT NOT NULL, PRIMARY KEY(`cid`));";
-	db_query($query);
-	$query = "CREATE TABLE `notifications` (`id` INTEGER NOT NULL, `title` varchar(250) NOT NULL, `message` TEXT NOT NULL, `ntime` varchar(250) NOT NULL DEFAULT NULL, `repeat` INTEGER NOT NULL DEFAULT 1, `nloop` INTEGER NOT NULL DEFAULT 1, `publish_date` varchar(250) NOT NULL, `userID` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`userID`) REFERENCES `users`(`userID`));";
-	db_query($query);
-	$bmAdded = time();
-	$userPWD = password_hash($spwd,PASSWORD_DEFAULT);
-	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('unfiled_____', 'root________', 0, 'Other Bookmarks', 'folder', NULL, ".$bmAdded.", 1)";
-	db_query($query);
-	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', 'unfiled_____', 0, 'GitHub Repository', 'bookmark', 'https://github.com/Offerel', ".$bmAdded.", 1)";
-	db_query($query);
-	$query = "INSERT INTO `users` (userName,userType,userHash) VALUES ('$suser',2,'$userPWD');";
-	db_query($query);
+function checkDB($database,$suser,$spwd) {
+	if(!file_exists($database)) {
+		if(!file_exists(dirname($database))) {
+			if(!mkdir(dirname($database),0777,true)) {
+				$message = "Directory for database couldn't created, please check privileges";
+				e_log(1,$message);
+				die($message);
+			} else {
+				e_log(8,"Directory for database created, initialize database now");
+			}
+		}
+		e_log(8,"Initialise new database");
+		db_query(file_get_contents("./sql/db_init.sql"));
+
+		$bmAdded = time();
+		$userPWD = password_hash($spwd,PASSWORD_DEFAULT);
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('unfiled_____', 'root________', 0, 'Other Bookmarks', 'folder', NULL, ".$bmAdded.", 1)";
+		db_query($query);
+		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', 'unfiled_____', 0, 'GitHub Repository', 'bookmark', 'https://github.com/Offerel', ".$bmAdded.", 1)";
+		db_query($query);
+		$query = "INSERT INTO `users` (userName,userType,userHash) VALUES ('$suser',2,'$userPWD');";
+		db_query($query);
+	} else {
+		e_log(8,"Check DB version");
+		$version = db_query("PRAGMA user_version")[0]['user_version'];
+		switch($version) {
+			case "0":
+				e_log(8,"Starting DB update...");
+				db_query(file_get_contents("./sql/db_update_1.sql"));
+				break;
+			case "1":
+					e_log(8,"DB is latest version. No update needed");
+					break;
+			default:
+				$message = "DB version unknown, please check DB manually. Stopping app...";
+				e_log(8,$message);
+				echo $message;
+				exit;
+			}
+	}
 }
 ?>

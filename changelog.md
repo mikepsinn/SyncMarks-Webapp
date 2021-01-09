@@ -1,10 +1,15 @@
 ChangeLog
 =========
-1.3.1 (2020-01-05)
+1.3.1 (2020-01-06)
 -------------------------
-* Export date Fix
-* Client name Fix
-* CSS Fixes
+* Added index/trigger/foreign key to DB
+* Added DB init/update script
+* Fix Export date
+* Fix Client name
+* Fix CSS
+* Fix not opening duplicate foldernames
+* Fix login/logout
+* Reworked logout
 
 
 1.3.0 (2020-01-02)

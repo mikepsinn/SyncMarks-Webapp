@@ -249,7 +249,6 @@
 	border-width: 8px 5px 0 5px;
 	border-color: black transparent transparent transparent;
 }
-
 .client-list {
 	padding: 0;
 }
@@ -739,9 +738,9 @@ span.rdesc {
 }
 #bookmarks li input:checked + ol {
 	background: transparent;
-  margin: -1.5em 0 0 -44px;
+  	margin: -1.5em 0 0 -44px;
 	padding: 1.563em 0 0 70px;
-  height: auto;
+	height: auto;
 }
 #bookmarks li input:checked + ol > li {
     display: block;
@@ -849,10 +848,10 @@ span.rdesc {
   left: 99%;
 }
 .show-menu, .menu-item:hover > .menu {
-  opacity: 1;
-  -webkit-transform: translate(0, 0) scale(1);
-  transform: translate(0, 0) scale(1);
-  pointer-events: auto;
+	opacity: 1;
+	-webkit-transform: translate(0, 0) scale(1);
+	transform: translate(0, 0) scale(1);
+	pointer-events: auto;
 }
 .menu-item:hover > .menu {
   -webkit-transition-delay: 100ms;
@@ -966,7 +965,7 @@ span.rdesc {
 	opacity: 0;
 	width: 0;
 	height: 0;
-  }
+}
 .slider {
 	position: absolute;
 	cursor: pointer;
@@ -977,8 +976,7 @@ span.rdesc {
 	background-color: #ccc;
 	-webkit-transition: .2s;
 	transition: .2s;
-  }
-  
+}
 .slider::before {
 	position: absolute;
 	content: "";
@@ -1012,6 +1010,22 @@ input:checked + .slider:before {
 	margin: 0 auto;
 	display: inline-block;
 	text-align: center;
+}
+.fa.fa-sign-out form {
+	display: inherit;
+}
+.fa-sign-out button {
+	width: 260px;
+	background: transparent;
+	border: 0;
+	font-family: FontAwesome,Roboto,Arial,Helvetica,sans-serif;
+	line-height: 32px;
+	font-size: 16px;
+	text-align: left;
+	padding: 0;
+	margin-top: -23px;
+	position: absolute;
+	color: #29302e;
 }
 @media screen and (min-device-width: 1024px) {
 	#meheader {
