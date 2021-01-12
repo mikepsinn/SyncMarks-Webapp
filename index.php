@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.3.1
+ * @version 1.3.2
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -14,7 +14,7 @@ set_error_handler("e_log");
 
 checkDB($database,$suser,$spwd);
 
-if(!isset($_SESSION['sauth']) || isset($_SESSION['fauth']) || !isset($_SERVER['PHP_AUTH_USER'])) checkLogin($realm);
+if(!isset($_SESSION['sauth']) || isset($_SESSION['fauth'])) checkLogin($realm);
 
 if(!isset($userData)) $userData = getUserdata();
 
@@ -480,11 +480,17 @@ if(isset($_POST['caction'])) {
 			exit;
 			break;
 		case "logout":
-			e_log(8,"Logout user ".$_SERVER['PHP_AUTH_USER']);
+			e_log(8,"Logout user ".$_SESSION['sauth']);
 			unset($_SESSION['sauth']);
 			$_SESSION['fauth'] = true;
-			echo "User logged out. <a href='".$_SERVER['PHP_SELF']."'>Login</a> again";
 			e_log(8,"User logged out");
+			echo htmlHeader();
+			echo "<div id='loginbody'>
+				<div id='loginform'>
+					<div id='loginformh'>Logout successful</div>
+					<div id='loginformt'>User logged out. <a href='".$_SERVER['PHP_SELF']."'>Login</a> again</div>
+				</div>
+			</div>";
 			exit;
 			break;
 		default:
@@ -959,11 +965,10 @@ function getSiteTitle($url) {
 }
 
 function getUserdata() {
-	$query = "SELECT * FROM `users` WHERE `userName`='".$_SERVER['PHP_AUTH_USER']."'";
+	$query = "SELECT * FROM `users` WHERE `userName`='".$_SESSION['sauth']."'";
 	$userData = db_query($query);
 	if (!empty($userData)) {
-		if(password_verify($_SERVER['PHP_AUTH_PW'], $userData[0]['userHash']))
-			return $userData[0];
+		return $userData[0];
 	} else {
 		unset($_SESSION['fauth']);
 	}
@@ -998,7 +1003,7 @@ function e_log($level,$message,$errfile="",$errline="",$output=0) {
 	}
 	if($errfile != "") $message = $message." in ".$errfile." on line ".$errline;
 	$user = '';
-	if(isset($_SERVER['PHP_AUTH_USER'])) $user = $_SERVER['PHP_AUTH_USER'];
+	if(isset($_SESSION['sauth'])) $user = $_SESSION['sauth'];
 	$line = "[".date("d-M-Y H:i:s")."] - [$mode] - $user - ".$_SERVER['REMOTE_ADDR']." - $message\n";
 
 	if($level <= $loglevel) {
@@ -1019,7 +1024,7 @@ function minFile($infile) {
 	return $outfile;
 }
 
-function htmlHeader($ud) {
+function htmlHeader($ud=null) {
 	$version = explode ("\n", file_get_contents('./changelog.md',NULL,NULL,0,30))[2];
 	$version = substr($version,0,strpos($version, " "));
 	$htmlHeader = "<!DOCTYPE html>
@@ -1046,49 +1051,61 @@ function htmlHeader($ud) {
 	<a id='mprofile' title='v$version'>SyncMarks</a>
 		</div>";
 	
-	if($ud['userType'] == 2) {
-		$userSelect = "<select id='userSelect' name='userSelect'>";
-		$userSelect.= "<option value='' hidden>-- Select User --</option>";
-		$userList = db_query("SELECT `userID`, `userName` FROM `users`;");
-		foreach ($userList as $key => $user) {
-			$userSelect.= "<option value='".$user['userID']."'>".$user['userName']."</option>";
+	if($ud!=null) {
+		$userName = $ud['userName'];
+		$userOldLogin = date("d.m.y H:i",$ud['userOldLogin']);
+		$userID = $ud['userID'];
+		if($ud['userType'] == 2) {
+			$userSelect = "<select id='userSelect' name='userSelect'>";
+			$userSelect.= "<option value='' hidden>-- Select User --</option>";
+			$userList = db_query("SELECT `userID`, `userName` FROM `users`;");
+			foreach ($userList as $key => $user) {
+				$userSelect.= "<option value='".$user['userID']."'>".$user['userName']."</option>";
+			}
+			$userSelect.= "</select>";
+		} else {
+			$userSelect = "";
 		}
-		$userSelect.= "</select>";
-	} else {
-		$userSelect = "";
-	}
 
-	if($ud['userType'] == 2) {
-		$admenu = "<hr><li class='fa fa-file-text-o' id='mlog'>Logfile</li><li class='fa fa-users' id='mngusers'>Users</li>";
-		$logform = "<div id=\"logfile\"><div id=\"close\"><button id='mclear'>clear</button> <button id='mclose'>&times;</button></div><div id='lfiletext'></div></div>";
-		$mnguserform = "<div id='mnguform' class='mbmdialog'><h6>Manage Users</h6><form enctype='multipart/form-data' action='".$_SERVER['PHP_SELF']."' method='POST'>
-						<div class='select'>
-						$userSelect
-						<div class='select__arrow'></div>
-						</div>
-						<input placeholder='Username' type='text' required id='nuser' name='nuser' autocomplete='username' value='' />
-						<input placeholder='Password' type='password' required id='npwd' name='npwd' autocomplete='password' value='' />
-						<input type='hidden' name='caction' value='muedt'>
-						<div class='select'>
-						<select id='userLevel' required name='userLevel'><option value='' hidden>-- Select Level --</option><option value='0'>Normal</option><option value='1'>Admin</option></select>
-						<div class='select__arrow'></div>
-						</div>
-						<div class='dbutton'>
-						<button type='submit' id='muadd' name='muedt' value='Add User' disabled>Save</button><button type='submit' id='mudel' name='muedt' value='Delete User' disabled formnovalidate>Delete</button>
-						</div>
-						</form></div>";
-	}
-	else {
+		if($ud['userType'] == 2) {
+			$admenu = "<hr><li class='fa fa-file-text-o' id='mlog'>Logfile</li><li class='fa fa-users' id='mngusers'>Users</li>";
+			$logform = "<div id=\"logfile\"><div id=\"close\"><button id='mclear'>clear</button> <button id='mclose'>&times;</button></div><div id='lfiletext'></div></div>";
+			$mnguserform = "<div id='mnguform' class='mbmdialog'><h6>Manage Users</h6><form enctype='multipart/form-data' action='".$_SERVER['PHP_SELF']."' method='POST'>
+							<div class='select'>
+							$userSelect
+							<div class='select__arrow'></div>
+							</div>
+							<input placeholder='Username' type='text' required id='nuser' name='nuser' autocomplete='username' value='' />
+							<input placeholder='Password' type='password' required id='npwd' name='npwd' autocomplete='password' value='' />
+							<input type='hidden' name='caction' value='muedt'>
+							<div class='select'>
+							<select id='userLevel' required name='userLevel'><option value='' hidden>-- Select Level --</option><option value='0'>Normal</option><option value='1'>Admin</option></select>
+							<div class='select__arrow'></div>
+							</div>
+							<div class='dbutton'>
+							<button type='submit' id='muadd' name='muedt' value='Add User' disabled>Save</button><button type='submit' id='mudel' name='muedt' value='Delete User' disabled formnovalidate>Delete</button>
+							</div>
+							</form></div>";
+		}
+		else {
+			$admenu = "";
+			$logform = "";
+			$mnguserform = "";
+		}
+	} else {
 		$admenu = "";
 		$logform = "";
 		$mnguserform = "";
+		$userName = "";
+		$userOldLogin = "";
+		$userID = "0";
 	}
 
 	$clink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
 	$bookmarklet = "javascript:void function(){window.open('$clink?title='+document.title+'&link='+encodeURIComponent(document.location.href),'bWindow','width=480,height=245',replace=!0)}();";	
 	$mainmenu = "<div id='mainmenu' class='mmenu'>
 					<ul>
-						<li id='meheader'><span class='appv'><a href='https://github.com/Offerel/SyncMarks-Webapp'>SyncMarks $version</a></span><span class='logo'>&nbsp;</span><span class='text'>".$ud['userName']."<br>Last login: ".date("d.m.y H:i",$ud['userOldLogin'])."</span></li>
+						<li id='meheader'><span class='appv'><a href='https://github.com/Offerel/SyncMarks-Webapp'>SyncMarks $version</a></span><span class='logo'>&nbsp;</span><span class='text'>$userName<br>Last login: $userOldLogin</span></li>
 						<li class='fa fa-bell' id='nmessages'>Notifications</li>
 						<li class='fa fa-external-link' id='bexport'>Export</li>
 						<li class='fa fa-cogs' id='psettings'>Settings</li>
@@ -1103,7 +1120,7 @@ function htmlHeader($ud) {
 				<div class='dialogdescr'>Here you can change your username. Type in your new username and your current password and click on save to change it.
 				</div>
 					<form action='".$_SERVER['PHP_SELF']."' method='POST'>
-						<input placeholder='Username' required type='text' name='username' id='username' autocomplete='username' value='".$ud['userName']."'>
+						<input placeholder='Username' required type='text' name='username' id='username' autocomplete='username' value='$userName'>
 						<input placeholder='Password' required type='password' id='password' name='opassword' autocomplete='current-password' value='' />
 						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='uupdate'>Save</button></div>
 					</form>
@@ -1120,13 +1137,27 @@ function htmlHeader($ud) {
 						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='pupdate'>Save</button></div>
 					</form>
 				</div>";
+	if($ud!=null) {
+		$uOptions = json_decode($ud['uOptions'],true);
+		$pAPI = edcrpt('de',json_decode($ud['uOptions'],true)['pAPI']);
+		$pDevice = edcrpt('de',json_decode($ud['uOptions'],true)['pDevice']);
 
-	$uOptions = json_decode($ud['uOptions'],true);
+		if($uOptions['notifications'] == 1) {
+			$oswitch = "<label class='switch' title='Enable/Disable Notifications'><input id='cnoti' type='checkbox' checked><span class='slider round'></span></label>";
+		} else {
+			$oswitch = "<label class='switch' title='Enable/Disable Notifications'><input id='cnoti' type='checkbox'><span class='slider round'></span></label>";
+		}
 
-	if($uOptions['pbEnable'] == 1) {
-		$pbswitch = "<label class='switch' title='Enable/Disable Pushbullet'><input id='pbe' name='pbe' value='1' type='checkbox' checked><span class='slider round'></span></label>";
+		if($uOptions['pbEnable'] == 1) {
+			$pbswitch = "<label class='switch' title='Enable/Disable Pushbullet'><input id='pbe' name='pbe' value='1' type='checkbox' checked><span class='slider round'></span></label>";
+		} else {
+			$pbswitch = "<label class='switch' title='Enable/Disable Pushbullet'><input id='pbe' name='pbe' value='1' type='checkbox'><span class='slider round'></span></label>";
+		}
 	} else {
-		$pbswitch = "<label class='switch' title='Enable/Disable Pushbullet'><input id='pbe' name='pbe' value='1' type='checkbox'><span class='slider round'></span></label>";
+		$pbswitch = "";
+		$pAPI = "";
+		$pDevice = "";
+		$oswitch = "";
 	}
 
 	$pbulletform = "<div id='pbulletform' class='mbmdialog'>
@@ -1134,18 +1165,14 @@ function htmlHeader($ud) {
 				<div class='dialogdescr'>Maintain your API Token and Device ID. 
 				</div>
 					<form action='".$_SERVER['PHP_SELF']."' method='POST'>$pbswitch
-						<input placeholder='API Token' type='text' id='ptoken' name='ptoken' value='".edcrpt('de',json_decode($ud['uOptions'],true)['pAPI'])."' />
-						<input placeholder='Device ID' type='text' id='pdevice' name='pdevice' value='".edcrpt('de',json_decode($ud['uOptions'],true)['pDevice'])."' />
+						<input placeholder='API Token' type='text' id='ptoken' name='ptoken' value='$pAPI' />
+						<input placeholder='Device ID' type='text' id='pdevice' name='pdevice' value='$pDevice' />
 						<input required placeholder='Password' type='password' id='password' name='password' autocomplete='current-password' value='' />
 						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='pbupdate'>Save</button></div>
 					</form>
 				</div>";
 
-	if($uOptions['notifications'] == 1) {
-		$oswitch = "<label class='switch' title='Enable/Disable Notifications'><input id='cnoti' type='checkbox' checked><span class='slider round'></span></label>";
-	} else {
-		$oswitch = "<label class='switch' title='Enable/Disable Notifications'><input id='cnoti' type='checkbox'><span class='slider round'></span></label>";
-	}
+	
 
 	$nmessagesform = "<div id='nmessagesform' class='mmenu'>
 	<div class='tab'>
@@ -1158,7 +1185,7 @@ function htmlHeader($ud) {
 	<div id='aNoti' class='tabcontent'style='display: block'>
 	  <div class='NotiTable'>
 	  	<div class='NotiTableBody'>
-		  ".notiList($ud['userID'], 1)."
+		  ".notiList($userID, 1)."
 		</div>
 	  </div>
 	</div>
@@ -1166,17 +1193,17 @@ function htmlHeader($ud) {
 	<div id='oNoti' class='tabcontent' style='display: none'>
 	  <div class='NotiTable'>
 	  	<div class='NotiTableBody'>
-		  ".notiList($ud['userID'], 0)."
+		  ".notiList($userID, 0)."
 		</div>
 	  </div>
 	</div>
 	</div>";
 	
-	$mngclientform = "<div id='mngcform' class='mmenu'>".bClientlist($ud['userID'])."</div>";
+	$mngclientform = "<div id='mngcform' class='mmenu'>".bClientlist($userID)."</div>";
 	$mngsettingsform = "<div id='mngsform' class='mmenu'><h6>SyncMarks Settings</h6>
 	<table>
 		<tr><td colspan='2' style='height: 5px;'></td></tr>
-		<tr><td><span class='rdesc'>Username:</span>".$ud['userName']."</td><td class='bright'><button id='muser'>Edit</button></td></tr>
+		<tr><td><span class='rdesc'>Username:</span>$userName</td><td class='bright'><button id='muser'>Edit</button></td></tr>
 		<tr><td colspan='2' style='height: 5px;'></td></tr>
 		<tr><td><span class='rdesc'>Password:</span>**********</td><td class='bright'><button id='mpassword'>Edit</button></td></tr>
 		<tr><td colspan='2' style='height: 5px;'></td></tr>
@@ -1327,7 +1354,7 @@ function makeHTMLExport($arr) {
 
 			$flvls = ($bm['bmID'] == 'menu________') ? "\r\n<H1 " : "\r\n\t<DT><H3";
 			$flvle = ($bm['bmID'] == 'menu________') ? '</H1>' : '</H3>';
-			$nFolder = "$flvls ADD_DATE=\"".round($bm['bmAdded']/1000)."\" LAST_MODIFIED=\"".round($bm['bmModified']/1000)."\"$sfolder>".$bm['bmTitle']."$flvle\r\n\t<DL><p>%ID".$bm['bmID']."\r\n\t$fclose";			
+			$nFolder = "$flvls ADD_DATE=\"".round($bm['bmAdded']/1000)."\" LAST_MODIFIED=\"".round($bm['bmModified']/1000)."\"$sfolder>".$bm['bmTitle']."$flvle\r\n\t<DL><p>%ID".$bm['bmID']."\r\n\t$fclose";
 			if(strpos($bookmarks, "%ID".$bm['bmParentID']) > 0) {
 				$nFolder = "\r\n\t".$nFolder."\n%ID".$bm['bmParentID'];
 				$bookmarks = str_replace("%ID".$bm['bmParentID'], $nFolder, $bookmarks);
@@ -1460,57 +1487,108 @@ function prepare_url($url) {
 
 function checkLogin($realm) {
 	e_log(8,"Check login");
-	if (!isset($_SERVER['PHP_AUTH_USER']) || isset($_SESSION['fauth'])) {
-		header("Expires: Sat, 01 Jan 2000 00:00:00 GMT");
-		header("Last-Modified: ".gmdate("D, d M Y H:i:s")." GMT");
-		header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
-		header("Cache-Control: post-check=0, pre-check=0", false);
-		header("Pragma: no-cache");
-		header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-		http_response_code(401);
-		echo "Access denied. You must <a href='".$_SERVER['PHP_SELF']."'>login</a> to use this tool.";
-		unset($_SESSION['fauth']);
-		exit;
-	} else {
+	if(count($_GET) != 0 || count($_POST) != 0 ) {
+		unset($_SESSION['cr']);
+
+		if(isset($_POST['login']) && isset($_POST['username']) && isset($_POST['password'])) {
+			$user = $_POST['username'];
+			$pw = $_POST['password'];
+			$_SESSION['cr'] = true;
+		}
+
 		if(isset($_SERVER['PHP_AUTH_USER']) && isset($_SERVER['PHP_AUTH_PW'])) {
-			$query = "SELECT * FROM `users` WHERE `userName`= '".$_SERVER['PHP_AUTH_USER']."';";
-			$udata = db_query($query);
-			if(count($udata) == 1) {
-				if(password_verify($_SERVER['PHP_AUTH_PW'], $udata[0]['userHash'])) {
-					$seid = session_id();
-					$aTime = time();
-					$oTime = $udata[0]['userLastLogin'];
-					$uid = $udata[0]['userID'];
-					$_SESSION['sauth'] = true;
-					unset($_SESSION['fauth']);
-					e_log(8,"Login successfully");
-					if($seid != $udata[0]['sessionID']) {
-						e_log(8,"Save session to database.");
-						$query = "UPDATE `users` SET `userLastLogin` = $aTime, `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userID` = $uid;";
-						db_query($query);
+			$user = $_SERVER['PHP_AUTH_USER'];
+			$pw = $_SERVER['PHP_AUTH_PW'];
+			$_SESSION['cr'] = true;
+		}
+
+		if (isset($_SESSION['fauth']) || !isset($_SESSION['cr'])) {
+			header("Expires: Sat, 01 Jan 2000 00:00:00 GMT");
+			header("Last-Modified: ".gmdate("D, d M Y H:i:s")." GMT");
+			header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+			header("Cache-Control: post-check=0, pre-check=0", false);
+			header("Pragma: no-cache");
+			header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+			http_response_code(401);
+			unset($_SESSION['fauth']);
+			echo htmlHeader();
+			echo "<div id='loginbody'>
+				<div id='loginform'>
+					<div id='loginformh'>Access denied</div>
+					<div id='loginformt'>Access denied. You must <a href='".$_SERVER['PHP_SELF']."'>login</a> to use this tool.</div>
+				</div>
+			</div>";
+			exit;
+		} else {
+			if(isset($_SESSION['cr'])) {
+				$query = "SELECT * FROM `users` WHERE `userName`= '$user';";
+				$udata = db_query($query);
+				if(count($udata) == 1) {
+					if(password_verify($pw, $udata[0]['userHash'])) {
+						$seid = session_id();
+						$aTime = time();
+						$oTime = $udata[0]['userLastLogin'];
+						$uid = $udata[0]['userID'];
+						$_SESSION['sauth'] = $udata[0]['userName'];
+						unset($_SESSION['fauth']);
+						e_log(8,"Login successfully");
+						if($seid != $udata[0]['sessionID']) {
+							e_log(8,"Save session to database.");
+							$query = "UPDATE `users` SET `userLastLogin` = $aTime, `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userID` = $uid;";
+							db_query($query);
+						}
+					} else {
+						session_destroy();
+						unset($_SESSION['sauth']);
+						$_SESSION['fauth'] = true;
+						header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+						http_response_code(401);
+						e_log(8,"Login failed. Password missmatch");
+						echo htmlHeader();
+						echo "<div id='loginbody'>
+							<div id='loginform'>
+								<div id='loginformh'>Login failed</div>
+								<div id='loginformt'>You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.</div>
+							</div>
+						</div>";
+						exit;
 					}
 				} else {
-					session_destroy();
 					unset($_SESSION['sauth']);
 					$_SESSION['fauth'] = true;
+					session_destroy();
 					header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
 					http_response_code(401);
-					e_log(8,"Login failed. Password missmatch");
-					echo "Login failed. You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.";
+					e_log(8,"Login failed. Credential missmatch");
+					echo htmlHeader();
+					echo "<div id='loginbody'>
+						<div id='loginform'>
+							<div id='loginformh'>Login failed</div>
+							<div id='loginformt'>You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.</div>
+						</div>
+					</div>";
 					exit;
 				}
-			} else {
-				unset($_SESSION['sauth']);
-				$_SESSION['fauth'] = true;
-				session_destroy();
-				header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-				http_response_code(401);
-				e_log(8,"Login failed. Credential missmatch");
-				echo "Login failed. You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.";
-				exit;
 			}
 		}
+	} else {
+		echo htmlHeader();
+		echo "<div id='loginbody'>
+			<form method='POST' id='lform'>
+			<div id='loginform'>
+				<div id='loginformh'>Welcome to SyncMarks</div>
+				<div id='loginformt'>Please use your credentials to login to SyncMarks</div>
+				<div id='loginformb'>
+					<input type='text' id='uf' name='username' placeholder='Username'>
+					<input type='password' name='password' placeholder='Password'>
+					<button name='login' value='login'>Login</button>
+				</div>
+			</div>
+			</form>
+		</div>";
+		exit;
 	}
+
 }
 
 function db_query($query, $data=null) {

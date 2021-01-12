@@ -1,5 +1,10 @@
 ChangeLog
 =========
+1.3.2 (2020-01-11)
+-------------------------
+* Added login/logout form
+
+
 1.3.1 (2020-01-06)
 -------------------------
 * Added index/trigger/foreign key to DB
