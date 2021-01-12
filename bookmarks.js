@@ -1,7 +1,7 @@
 /**
  * SyncMarks
  *
- * @version 1.3.1
+ * @version 1.3.2
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -48,11 +48,13 @@ document.addEventListener("DOMContentLoaded", function() {
 		hideMenu();
 	});
 
-	document.getElementById("logfile").addEventListener("mousedown", function(e){
-		if (e.offsetX < 3) {
-			document.addEventListener("mousemove", resize, false);
-		}
-	}, false);
+	if(document.getElementById("logfile")) {
+		document.getElementById("logfile").addEventListener("mousedown", function(e){
+			if (e.offsetX < 3) {
+				document.addEventListener("mousemove", resize, false);
+			}
+		}, false);
+	}
 	
 	document.addEventListener("mouseup", function(){
 		document.removeEventListener("mousemove", resize, false);
@@ -62,9 +64,10 @@ document.addEventListener("DOMContentLoaded", function() {
 	document.querySelectorAll('.folder').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
 	document.querySelectorAll('.tablinks').forEach(tab => tab.addEventListener('click',openMessages, false));
 	document.querySelectorAll('.NotiTableCell .fa-trash-o').forEach(message => message.addEventListener('click',delMessage, false));
-	document.querySelector('#cnoti').addEventListener('change',eNoti,false);
+	if(document.querySelector('#cnoti')) document.querySelector('#cnoti').addEventListener('change',eNoti,false);
 
-	if(sessionStorage.getItem('gNoti') != 1) getNotifications();
+	if(document.getElementById("bookmarks")) if(sessionStorage.getItem('gNoti') != 1) getNotifications();
+	if(document.getElementById("uf")) document.getElementById("uf").focus();
 
 	document.addEventListener('keydown', e => {
 		if (e.keyCode === 27) {
@@ -103,37 +106,41 @@ document.addEventListener("DOMContentLoaded", function() {
 			xhr.send(data);
 		});
 	}
+	if(document.getElementById('userSelect')) {
+		document.getElementById('userSelect').addEventListener('change', function() {
+			if(this.value > 0) {
+				document.getElementById('nuser').value = document.querySelector('#userSelect option:checked').text;
+				checkuform();
+				document.getElementById('muadd').value = 'Edit User';
+				document.getElementById('mudel').disabled = false;
+			}
+		});
+	}
 
-	document.getElementById('userSelect').addEventListener('change', function() {
-		if(this.value > 0) {
-			document.getElementById('nuser').value = document.querySelector('#userSelect option:checked').text;
-			checkuform();
-			document.getElementById('muadd').value = 'Edit User';
-			document.getElementById('mudel').disabled = false;
-		}
-	});
+	if(document.getElementById('npwd')) document.getElementById('npwd').addEventListener('input', function() {checkuform()});
+	if(document.getElementById('nuser')) document.getElementById('nuser').addEventListener('input', function() {checkuform()});
+	if(document.getElementById('userLevel')) document.getElementById('userLevel').addEventListener('input', function() {checkuform()});
 
-	document.getElementById('npwd').addEventListener('input', function() {checkuform()});
-	document.getElementById('nuser').addEventListener('input', function() {checkuform()});
-	document.getElementById('userLevel').addEventListener('input', function() {checkuform()});
+	if(document.getElementById('bookmarks')) {
+		document.getElementById('hmenu').addEventListener('click', function() {
+			var mainmenu = document.getElementById('mainmenu');
+			if(document.querySelector('#bookmarks')) document.querySelector('#bookmarks').addEventListener('click', hideMenu, false);
+			if(mainmenu.style.display === 'block') {
+				mainmenu.style.display = 'none';
+			} else {
+				hideMenu();
+				mainmenu.style.display = 'block';
+			}
+		});
+	}
 
-	document.getElementById('hmenu').addEventListener('click', function() {
-		var mainmenu = document.getElementById('mainmenu');
-		document.querySelector('#bookmarks').addEventListener('click', hideMenu, false);
-
-		if(mainmenu.style.display === 'block') {
-			mainmenu.style.display = 'none';
-		} else {
+	if(document.getElementById('mngusers')) {
+		document.getElementById('mngusers').addEventListener('click', function() {
 			hideMenu();
-			mainmenu.style.display = 'block';
-		}
-	});
-
-	document.getElementById('mngusers').addEventListener('click', function() {
-		hideMenu();
-		document.getElementById('mnguform').style.display = 'block';
-		document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
-	});
+			document.getElementById('mnguform').style.display = 'block';
+			document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
+		});
+	}
 
 	document.getElementById('muser').addEventListener('click', function(e) {
 		e.preventDefault();
@@ -220,62 +227,65 @@ document.addEventListener("DOMContentLoaded", function() {
 			url.addEventListener('input', enableSave);
 		});
 	}
-
-	document.getElementById('mlog').addEventListener('click', function() {
-		hideMenu();
-		let logfile = document.getElementById('logfile');
-		if(logfile.style.visibility === 'visible') {
-			logfile.style.visibility = 'hidden';
-			document.getElementById('close').style.visibility = 'hidden';
-		} else {
-			logfile.style.visibility = 'visible';
-			document.getElementById('close').style.visibility = 'visible';
-			let xhr = new XMLHttpRequest();
-			let data = "caction=mlog";
-			xhr.onreadystatechange = function () {
-				if (this.readyState == 4) {
-					if(this.status == 200) {
-						document.getElementById('lfiletext').innerHTML = this.responseText;
-						moveEnd();
-					} else {
-						alert("Error loading logfile, please check server log.");
+	if(document.getElementById('mlog')) {
+		document.getElementById('mlog').addEventListener('click', function() {
+			hideMenu();
+			let logfile = document.getElementById('logfile');
+			if(logfile.style.visibility === 'visible') {
+				logfile.style.visibility = 'hidden';
+				document.getElementById('close').style.visibility = 'hidden';
+			} else {
+				logfile.style.visibility = 'visible';
+				document.getElementById('close').style.visibility = 'visible';
+				let xhr = new XMLHttpRequest();
+				let data = "caction=mlog";
+				xhr.onreadystatechange = function () {
+					if (this.readyState == 4) {
+						if(this.status == 200) {
+							document.getElementById('lfiletext').innerHTML = this.responseText;
+							moveEnd();
+						} else {
+							alert("Error loading logfile, please check server log.");
+						}
 					}
-				}
-			};
-			xhr.open("POST", document.location.href, true);
-			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-			xhr.send(data);
-		}
-	});
-
-	document.getElementById('mclear').addEventListener('click', function() {
-		let logfile = document.getElementById('logfile');
-		if(logfile.style.visibility === 'visible') {
-			logfile.style.visibility = 'hidden';
-			document.getElementById('close').style.visibility = 'hidden';
-			let xhr = new XMLHttpRequest();
-			let data = "caction=mclear";
-			xhr.onreadystatechange = function () {
-				if (this.readyState == 4) {
-					if(this.status == 200) {
-						console.log("Logfile should now be empty.");
-					} else {
-						console.log("Error couldnt clear logfile.");
+				};
+				xhr.open("POST", document.location.href, true);
+				xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+				xhr.send(data);
+			}
+		});
+	}
+	if(document.getElementById('mclear')) {
+		document.getElementById('mclear').addEventListener('click', function() {
+			let logfile = document.getElementById('logfile');
+			if(logfile.style.visibility === 'visible') {
+				logfile.style.visibility = 'hidden';
+				document.getElementById('close').style.visibility = 'hidden';
+				let xhr = new XMLHttpRequest();
+				let data = "caction=mclear";
+				xhr.onreadystatechange = function () {
+					if (this.readyState == 4) {
+						if(this.status == 200) {
+							console.log("Logfile should now be empty.");
+						} else {
+							console.log("Error couldnt clear logfile.");
+						}
 					}
-				}
-			};
-			xhr.open("POST", document.location.href, true);
-			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-			xhr.send(data);
-		}
-	});
-
-	document.getElementById('mclose').addEventListener('click', function() {
-		if(document.getElementById('logfile').style.visibility === 'visible') {
-			document.getElementById('logfile').style.visibility = 'hidden';
-			document.getElementById('close').style.visibility = 'hidden';
-		}
-	});
+				};
+				xhr.open("POST", document.location.href, true);
+				xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+				xhr.send(data);
+			}
+		});
+	}
+	if(document.getElementById('mclose')) {
+		document.getElementById('mclose').addEventListener('click', function() {
+			if(document.getElementById('logfile').style.visibility === 'visible') {
+				document.getElementById('logfile').style.visibility = 'hidden';
+				document.getElementById('close').style.visibility = 'hidden';
+			}
+		}); 
+	}
 
 	document.querySelectorAll('#mngcform .clientname').forEach(function(e) {
 		e.addEventListener('touchstart',function() {

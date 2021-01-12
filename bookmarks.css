@@ -1027,6 +1027,75 @@ input:checked + .slider:before {
 	position: absolute;
 	color: #29302e;
 }
+#loginbody {
+	background: aliceblue;
+	bottom: 0;
+	position: absolute;
+	top: 51px;
+	left: 0;
+	right: 0;
+}
+#loginform {
+	width: 350px;
+	top: 50%;
+	position: absolute;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	/* padding: 15px; */
+	box-shadow: 0 .1875rem .375rem rgba(0,0,0,.25);
+	background: white;
+	border-radius: 3px;
+}
+#loginformh {
+	background: #0879d9;
+	color: #fff;
+	font-family: FontAwesome,Roboto,Arial,Helvetica,sans-serif;
+	padding: 10px;
+	font-weight: bolder;
+	white-space: nowrap;
+	border-top-left-radius: 3px;
+	border-top-right-radius: 3px;
+	font-size: 1.2rem;
+}
+#loginformt {
+	font-family: FontAwesome,Roboto,Arial,Helvetica,sans-serif;
+	color: #29302e;
+	padding: 5px 10px 5px 10px;
+	font-size: 0.9em;
+}
+#loginformb {
+	padding: 5px 10px 10px;
+	text-align: right;
+}
+#loginform input {
+	width: 100%;
+	box-sizing: border-box;
+	border-radius: 4px;
+	border: 1px solid #ccc;
+	padding: 0 .25rem;
+	margin: 5px 0;
+	outline: 0;
+	height: 1.7rem;
+	color: #3f464c;
+}
+#loginform button {
+	background-color: rgb(33,150,243);
+	border: none;
+	text-transform: uppercase;
+	color: white;
+	font-weight: 501;
+	padding: 3px 6px;
+	border-radius: 4px;
+	box-shadow: 0 3px 1px -2px rgba(0, 0, 0, 0.2), 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12);
+	font-family: "Roboto", "Segoe UI", BlinkMacSystemFont, system-ui;
+	line-height: 20px;
+	outline: none;
+	cursor: pointer;
+	margin: 10px 0;
+}
+#loginform button:hover {
+	background-color: #0879d9;
+}
 @media screen and (min-device-width: 1024px) {
 	#meheader {
 		border-radius: 4px 4px 0 0;
