@@ -1686,22 +1686,31 @@ function checkDB($database,$suser,$spwd) {
 		$query = "INSERT INTO `users` (userName,userType,userHash) VALUES ('$suser',2,'$userPWD');";
 		db_query($query);
 	} else {
-		e_log(8,"Check DB version");
-		$version = db_query("PRAGMA user_version")[0]['user_version'];
-		switch($version) {
-			case "0":
-				e_log(8,"Starting DB update...");
-				db_query(file_get_contents("./sql/db_update_1.sql"));
-				break;
-			case "1":
-					e_log(8,"DB is latest version. No update needed");
+		$olddate = (file_exists("state")) ? file_get_contents("state"):"0";
+		$newdate = filemtime(__FILE__);
+
+		if($olddate != $newdate) {
+			e_log(8,"SyncMarks update dedected. Check database version");
+			$version = db_query("PRAGMA user_version")[0]['user_version'];
+			switch($version) {
+				case "0":
+					e_log(8,"Database update needed. Starting DB update...");
+					db_query(file_get_contents("./sql/db_update_1.sql"));
+					e_log(8,"Write new state to state file");
+					file_put_contents("state",$newdate,true);
 					break;
-			default:
-				$message = "DB version unknown, please check DB manually. Stopping app...";
-				e_log(8,$message);
-				echo $message;
-				exit;
+				case "1":
+					e_log(8,"Database is latest version. No update needed. Write new state to state file");
+					file_put_contents("state",$newdate,true);
+					break;
+				default:
+					$message = "Database version unknown, please check database manually. Stopping app...";
+					e_log(8,$message);
+					echo $message;
+					exit;
 			}
+		}
+		
 	}
 }
 ?>

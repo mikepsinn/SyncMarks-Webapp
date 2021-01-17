@@ -4,6 +4,7 @@ ChangeLog
 -------------------------
 * Removed hidden forms
 * Cleanup functions
+* Check database update only on new version
 
 
 1.3.2 (2020-01-11)
