@@ -428,15 +428,26 @@
 	width: 37px;
 	height: 38px;
 	background-color: transparent;
-	color: white;
+	color: #fff;
 	font-size: 28px;
-	font-weight: bold;
+	font-weight: 700;
 	border-top-right-radius: 6px;
 	border-bottom-right-radius: 6px;
 	position: absolute;
 	top: 7px;
 	right: 10px;
 	outline: 0;
+	cursor: pointer;
+}
+#menu button:active {
+	padding: 0;
+}
+.inlogin1 {
+	background-color: unset !important;
+	cursor: unset !important;
+}
+.inlogin2 {
+	display: none;
 }
 #menu button.asform {
 	background-color: #05589D;
@@ -631,14 +642,15 @@ input[type="submit"]:disabled {
 	font-family: Roboto,Helvetica Neue,sans-serif,Segoe UI;
 	text-align: left;
 }
-#menu a {
-	color: white;
+#mprofile {
+	color: #fff;
 	text-decoration: none;
 	display: block;
 	line-height: 50px;
-	background: transparent;
+	background: 0 0;
 	font-size: 20px;
 	cursor: default;
+	font-weight: bolder;
 }
 span.rdesc {
     font-size: 0.75em;
@@ -1148,7 +1160,7 @@ input:checked + .slider:before {
 		width: 580px;
 	}
 	#bookmarks {
-		bottom: 24px;
+		bottom: 25px;
 	}
 	#bookmarks li {
 		margin-left: 15px;
