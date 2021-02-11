@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.3.2
+ * @version 1.3.3
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -58,13 +58,16 @@ if(isset($_POST['caction'])) {
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$ctime = round(microtime(true) * 1000);
+			e_log(8,print_r($bookmark,true));
+			$index = (isset($bookmark['index'])) ? "AND `bmIndex` = ".$bookmark['index']:"";
 			e_log(8,"Try to identify bookmark");
 			if(isset($bookmark['url'])) {
 				$url = prepare_url($bookmark['url']);
-				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'bookmark' AND `bmIndex` = ".$bookmark['index']." AND `bmURL` = '$url' AND `userID` = ".$userData['userID'].";";
+				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'bookmark'$index AND `bmURL` = '$url' AND `userID` = ".$userData['userID'].";";
 			} else {
-				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmIndex` = ".$bookmark['index']." AND `bmTitle` = '".$bookmark['title']."' AND `userID` = ".$userData['userID'].";";
+				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'folder'$index AND `bmTitle` = '".$bookmark['title']."' AND `userID` = ".$userData['userID'].";";
 			}
+
 			$bData = db_query($query);
 			if(count($bData) == 1) {
 				die(json_encode(delMark($bData[0]['bmID'])));
@@ -491,12 +494,13 @@ if(isset($_POST['caction'])) {
 					<div id='loginformt'>User logged out. <a href='".$_SERVER['PHP_SELF']."'>Login</a> again</div>
 				</div>
 			</div>";
+			echo htmlFooter();
 			exit;
 			break;
 		default:
 			die(json_encode("Unknown Action"));
 	}
-	die();
+	exit;
 }
 
 if(isset($_GET['link'])) {
@@ -539,11 +543,10 @@ if(isset($_GET['link'])) {
 	die();
 }
 
-echo htmlHeader($userData);
-$bmTree = bmTree($userData);
-echo "<div id='bookmarks'>$bmTree</div>";
-echo "<div id='hmarks' style='display: none'>$bmTree</div>";
-echo htmlFooter($userData['userID']);
+echo htmlHeader();
+echo htmlForms($userData);
+echo showBookmarks($userData);
+echo htmlFooter();
 
 function delMark($bmID) {
 	global $userData;
@@ -614,7 +617,6 @@ function getClientType($uas) {
 
 function validate_url($url) {
 	$url = filter_var(filter_var($url, FILTER_SANITIZE_STRING), FILTER_SANITIZE_URL);
-
 	if (filter_var($url, FILTER_VALIDATE_URL)) {
 		return $url;
 	} else {
@@ -821,7 +823,7 @@ function addFolder($ud, $bm) {
 
 function addBookmark($ud, $bm) { 
 	e_log(8,"Check if bookmark already exists for user.");
-	$query = "SELECT `bmID`, COUNT(*) AS `bmcount`, MAX(`bmAction`) AS `bmaction` FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' AND `bmParentID` = '".$bm["folder"]."' AND `userID` = ".$ud["userID"].";";
+	$query = "SELECT `bmID`, COUNT(*) AS `bmcount`, MAX(`bmAction`) AS `bmaction` FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' AND `bmParentID` = '".$bm["nfolder"]."' AND `userID` = ".$ud["userID"].";";
 	$bmExistData = db_query($query);
 	if($bmExistData[0]["bmcount"] > 0) {
 		if($bmExistData[0]["bmaction"] == 1) {
@@ -1024,201 +1026,263 @@ function minFile($infile) {
 	return $outfile;
 }
 
-function htmlHeader($ud=null) {
-	$version = explode ("\n", file_get_contents('./changelog.md',NULL,NULL,0,30))[2];
-	$version = substr($version,0,strpos($version, " "));
+function htmlHeader() {
 	$htmlHeader = "<!DOCTYPE html>
-		<html>
+		<html lang='en'>
 			<head>
 				<meta name='viewport' content='width=device-width, initial-scale=1'>
-				<script type='text/javascript' src='".minfile("bookmarks.js")."'></script>
+				<script src='".minfile("bookmarks.js")."'></script>
 				<link type='text/css' rel='stylesheet' href='".minfile("bookmarks.css")."'>
 				<link type='text/css' rel='stylesheet' href='font-awesome/css/font-awesome.min.css'>
 				<link rel='shortcut icon' type='image/x-icon' href='./images/bookmarks.ico'>
 				<link rel='manifest' href='manifest.json'>
 				<meta name='theme-color' content='#0879D9'>
-				<title>SyncMarks v$version</title>
+				<title>SyncMarks</title>
 			</head>
 			<body>";
-	
-	$htmlHeader.= "<div id='menu'>
-	<div id='hmenu'>
-		<div class='hline'></div>
-		<div class='hline'></div>
-		<div class='hline'></div>
-	</div>
-	<button>&#8981;</button><input type='search' name='bmsearch' value=''>
-	<a id='mprofile' title='v$version'>SyncMarks</a>
-		</div>";
-	
-	if($ud!=null) {
-		$userName = $ud['userName'];
-		$userOldLogin = date("d.m.y H:i",$ud['userOldLogin']);
-		$userID = $ud['userID'];
-		if($ud['userType'] == 2) {
-			$userSelect = "<select id='userSelect' name='userSelect'>";
-			$userSelect.= "<option value='' hidden>-- Select User --</option>";
-			$userList = db_query("SELECT `userID`, `userName` FROM `users`;");
-			foreach ($userList as $key => $user) {
-				$userSelect.= "<option value='".$user['userID']."'>".$user['userName']."</option>";
-			}
-			$userSelect.= "</select>";
-		} else {
-			$userSelect = "";
-		}
 
-		if($ud['userType'] == 2) {
-			$admenu = "<hr><li class='fa fa-file-text-o' id='mlog'>Logfile</li><li class='fa fa-users' id='mngusers'>Users</li>";
-			$logform = "<div id=\"logfile\"><div id=\"close\"><button id='mclear'>clear</button> <button id='mclose'>&times;</button></div><div id='lfiletext'></div></div>";
-			$mnguserform = "<div id='mnguform' class='mbmdialog'><h6>Manage Users</h6><form enctype='multipart/form-data' action='".$_SERVER['PHP_SELF']."' method='POST'>
-							<div class='select'>
-							$userSelect
-							<div class='select__arrow'></div>
-							</div>
-							<input placeholder='Username' type='text' required id='nuser' name='nuser' autocomplete='username' value='' />
-							<input placeholder='Password' type='password' required id='npwd' name='npwd' autocomplete='password' value='' />
-							<input type='hidden' name='caction' value='muedt'>
-							<div class='select'>
-							<select id='userLevel' required name='userLevel'><option value='' hidden>-- Select Level --</option><option value='0'>Normal</option><option value='1'>Admin</option></select>
-							<div class='select__arrow'></div>
-							</div>
-							<div class='dbutton'>
-							<button type='submit' id='muadd' name='muedt' value='Add User' disabled>Save</button><button type='submit' id='mudel' name='muedt' value='Delete User' disabled formnovalidate>Delete</button>
-							</div>
-							</form></div>";
-		}
-		else {
-			$admenu = "";
-			$logform = "";
-			$mnguserform = "";
-		}
-	} else {
-		$admenu = "";
-		$logform = "";
-		$mnguserform = "";
-		$userName = "";
-		$userOldLogin = "";
-		$userID = "0";
-	}
-
-	$clink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-	$bookmarklet = "javascript:void function(){window.open('$clink?title='+document.title+'&link='+encodeURIComponent(document.location.href),'bWindow','width=480,height=245',replace=!0)}();";	
-	$mainmenu = "<div id='mainmenu' class='mmenu'>
-					<ul>
-						<li id='meheader'><span class='appv'><a href='https://github.com/Offerel/SyncMarks-Webapp'>SyncMarks $version</a></span><span class='logo'>&nbsp;</span><span class='text'>$userName<br>Last login: $userOldLogin</span></li>
-						<li class='fa fa-bell' id='nmessages'>Notifications</li>
-						<li class='fa fa-external-link' id='bexport'>Export</li>
-						<li class='fa fa-cogs' id='psettings'>Settings</li>
-						$admenu
-						<hr>
-						<li class='fa fa-sign-out'><form method='POST'><button name='caction' value='logout'>Logout</button></form></li>
-					</ul>
-				</div>";
-				
-	$userform = "<div id='userform' class='mbmdialog'>
-				<h6>Change Username</h6>
-				<div class='dialogdescr'>Here you can change your username. Type in your new username and your current password and click on save to change it.
-				</div>
-					<form action='".$_SERVER['PHP_SELF']."' method='POST'>
-						<input placeholder='Username' required type='text' name='username' id='username' autocomplete='username' value='$userName'>
-						<input placeholder='Password' required type='password' id='password' name='opassword' autocomplete='current-password' value='' />
-						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='uupdate'>Save</button></div>
-					</form>
-				</div>";
-				
-	$passwordform = "<div id='passwordform' class='mbmdialog'>
-				<h6>Change Password</h6>
-				<div class='dialogdescr'>Enter your current password and a new password and confirm the new password. 
-				</div>
-					<form action='".$_SERVER['PHP_SELF']."' method='POST'>					
-						<input required placeholder='Current password' type='password' id='opassword' name='opassword' autocomplete='current-password' value='' />
-						<input required placeholder='New password' type='password' id='npassword' name='npassword' autocomplete='new-password' value='' />
-						<input required placeholder='Confirm new password' type='password' id='cpassword' name='cpassword' autocomplete='new-password' value='' />
-						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='pupdate'>Save</button></div>
-					</form>
-				</div>";
-	if($ud!=null) {
-		$uOptions = json_decode($ud['uOptions'],true);
-		$pAPI = edcrpt('de',json_decode($ud['uOptions'],true)['pAPI']);
-		$pDevice = edcrpt('de',json_decode($ud['uOptions'],true)['pDevice']);
-
-		if($uOptions['notifications'] == 1) {
-			$oswitch = "<label class='switch' title='Enable/Disable Notifications'><input id='cnoti' type='checkbox' checked><span class='slider round'></span></label>";
-		} else {
-			$oswitch = "<label class='switch' title='Enable/Disable Notifications'><input id='cnoti' type='checkbox'><span class='slider round'></span></label>";
-		}
-
-		if($uOptions['pbEnable'] == 1) {
-			$pbswitch = "<label class='switch' title='Enable/Disable Pushbullet'><input id='pbe' name='pbe' value='1' type='checkbox' checked><span class='slider round'></span></label>";
-		} else {
-			$pbswitch = "<label class='switch' title='Enable/Disable Pushbullet'><input id='pbe' name='pbe' value='1' type='checkbox'><span class='slider round'></span></label>";
-		}
-	} else {
-		$pbswitch = "";
-		$pAPI = "";
-		$pDevice = "";
-		$oswitch = "";
-	}
-
-	$pbulletform = "<div id='pbulletform' class='mbmdialog'>
-				<h6>Pushbullet</h6>
-				<div class='dialogdescr'>Maintain your API Token and Device ID. 
-				</div>
-					<form action='".$_SERVER['PHP_SELF']."' method='POST'>$pbswitch
-						<input placeholder='API Token' type='text' id='ptoken' name='ptoken' value='$pAPI' />
-						<input placeholder='Device ID' type='text' id='pdevice' name='pdevice' value='$pDevice' />
-						<input required placeholder='Password' type='password' id='password' name='password' autocomplete='current-password' value='' />
-						<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='pbupdate'>Save</button></div>
-					</form>
-				</div>";
-
-	
-
-	$nmessagesform = "<div id='nmessagesform' class='mmenu'>
-	<div class='tab'>
-	  <button class='tablinks active' data-val='aNoti'>Active</button>
-	  <button class='tablinks' data-val='oNoti'>Archived</button>
-
-	  $oswitch
-
-	</div>
-	<div id='aNoti' class='tabcontent'style='display: block'>
-	  <div class='NotiTable'>
-	  	<div class='NotiTableBody'>
-		  ".notiList($userID, 1)."
+	$htmlHeader.= "
+	<div id='menu'>
+		<div id='hmenu'>
+			<div class='hline'></div>
+			<div class='hline'></div>
+			<div class='hline'></div>
 		</div>
-	  </div>
-	</div>
-	
-	<div id='oNoti' class='tabcontent' style='display: none'>
-	  <div class='NotiTable'>
-	  	<div class='NotiTableBody'>
-		  ".notiList($userID, 0)."
-		</div>
-	  </div>
-	</div>
+		<button>&#8981;</button><input type='search' name='bmsearch' value=''>
+		<div id='mprofile'>SyncMarks</div>
 	</div>";
-	
-	$mngclientform = "<div id='mngcform' class='mmenu'>".bClientlist($userID)."</div>";
-	$mngsettingsform = "<div id='mngsform' class='mmenu'><h6>SyncMarks Settings</h6>
-	<table>
-		<tr><td colspan='2' style='height: 5px;'></td></tr>
-		<tr><td><span class='rdesc'>Username:</span>$userName</td><td class='bright'><button id='muser'>Edit</button></td></tr>
-		<tr><td colspan='2' style='height: 5px;'></td></tr>
-		<tr><td><span class='rdesc'>Password:</span>**********</td><td class='bright'><button id='mpassword'>Edit</button></td></tr>
-		<tr><td colspan='2' style='height: 5px;'></td></tr>
-		<tr><td colspan=2 class='bcenter'><button id='clientedt'>Show Clients</button></td></tr>
-		<tr><td colspan='2' style='height: 2px;'></td></tr>
-		<tr><td colspan=2 class='bcenter'><button id='pbullet'>Pushbullet</button></td></tr>
-		<tr><td colspan='2' style='height: 5px;'></td></tr>
-		<tr><td>Notifications</td><td class='bright'>$oswitch</td></tr>
-	</table>
-	<div id='bmlet'><a href=\"$bookmarklet\">Bookmarklet</a></div>
-	
-	</div>";
-	
-	$htmlHeader.= $mainmenu.$userform.$passwordform.$pbulletform.$logform.$mnguserform.$mngclientform.$mngsettingsform.$nmessagesform;
+
 	return $htmlHeader;
+}
+
+function htmlForms($userData) {
+	$version = explode ("\n", file_get_contents('./changelog.md',NULL,NULL,0,30))[2];
+	$version = substr($version,0,strpos($version, " "));
+	$clink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+	$bookmarklet = "javascript:void function(){window.open('$clink?title='+document.title+'&link='+encodeURIComponent(document.location.href),'bWindow','width=480,height=245',replace=!0)}();";
+	$userName = $userData['userName'];
+	$userID = $userData['userID'];
+	$userOldLogin = date("d.m.y H:i",$userData['userOldLogin']);
+	$admenu = ($userData['userType'] == 2) ? "<hr><li class='fa fa-file-text-o' id='mlog'>Logfile</li><li class='fa fa-users' id='mngusers'>Users</li>":"";
+	$logform = ($userData['userType'] == 2) ? "<div id=\"logfile\"><div id=\"close\"><button id='mclear'>clear</button> <button id='mclose'>&times;</button></div><div id='lfiletext'></div></div>":"";
+
+	$uOptions = json_decode($userData['uOptions'],true);
+	$oswitch = ($uOptions['notifications'] == 1) ? " checked":"";
+	$oswitch =  "<label class='switch' title='Enable/Disable Notifications'><input id='cnoti' type='checkbox'$oswitch><span class='slider round'></span></label>";
+
+	$pbswitch = ($uOptions['pbEnable'] == 1) ? " checked":"";
+	$pbswitch = "<label class='switch' title='Enable/Disable Pushbullet'><input id='pbe' name='pbe' value='1' type='checkbox'$pbswitch><span class='slider round'></span></label>";
+	$pAPI = edcrpt('de',json_decode($userData['uOptions'],true)['pAPI']);
+	$pDevice = edcrpt('de',json_decode($userData['uOptions'],true)['pDevice']);
+
+	$mngsettingsform = "
+	<div id='mngsform' class='mmenu'><h6>SyncMarks Settings</h6>
+		<table>
+			<tr><td colspan='2' style='height: 5px;'></td></tr>
+			<tr><td><span class='rdesc'>Username:</span>$userName</td><td class='bright'><button id='muser'>Edit</button></td></tr>
+			<tr><td colspan='2' style='height: 5px;'></td></tr>
+			<tr><td><span class='rdesc'>Password:</span>**********</td><td class='bright'><button id='mpassword'>Edit</button></td></tr>
+			<tr><td colspan='2' style='height: 5px;'></td></tr>
+			<tr><td colspan=2 class='bcenter'><button id='clientedt'>Show Clients</button></td></tr>
+			<tr><td colspan='2' style='height: 2px;'></td></tr>
+			<tr><td colspan=2 class='bcenter'><button id='pbullet'>Pushbullet</button></td></tr>
+			<tr><td colspan='2' style='height: 5px;'></td></tr>
+			<tr><td>Notifications</td><td class='bright'>$oswitch</td></tr>
+		</table>
+		<div id='bmlet'><a href=\"$bookmarklet\">Bookmarklet</a></div>
+	</div>";
+
+	$mngclientform = "<div id='mngcform' class='mmenu'>".bClientlist($userID)."</div>";
+
+	$nmessagesform = "
+	<div id='nmessagesform' class='mmenu'>
+		<div class='tab'>
+		<button class='tablinks active' data-val='aNoti'>Active</button>
+		<button class='tablinks' data-val='oNoti'>Archived</button>
+		$oswitch
+		</div>
+		<div id='aNoti' class='tabcontent'style='display: block'>
+		<div class='NotiTable'>
+			<div class='NotiTableBody'>
+			".notiList($userID, 1)."
+			</div>
+		</div>
+		</div>
+		<div id='oNoti' class='tabcontent' style='display: none'>
+		<div class='NotiTable'>
+			<div class='NotiTableBody'>
+			".notiList($userID, 0)."
+			</div>
+		</div>
+		</div>
+	</div>";
+
+	$pbulletform = "
+	<div id='pbulletform' class='mbmdialog'>
+		<h6>Pushbullet</h6>
+		<div class='dialogdescr'>Maintain your API Token and Device ID.</div>
+		<form action='".$_SERVER['PHP_SELF']."' method='POST'>$pbswitch
+			<input placeholder='API Token' type='text' id='ptoken' name='ptoken' value='$pAPI' />
+			<input placeholder='Device ID' type='text' id='pdevice' name='pdevice' value='$pDevice' />
+			<input required placeholder='Password' type='password' id='password' name='password' autocomplete='current-password' value='' />
+			<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='pbupdate'>Save</button></div>
+		</form>
+	</div>";
+
+	$passwordform = "
+	<div id='passwordform' class='mbmdialog'>
+		<h6>Change Password</h6>
+		<div class='dialogdescr'>Enter your current password and a new password and confirm the new password.</div>
+		<form action='".$_SERVER['PHP_SELF']."' method='POST'>					
+			<input required placeholder='Current password' type='password' id='opassword' name='opassword' autocomplete='current-password' value='' />
+			<input required placeholder='New password' type='password' id='npassword' name='npassword' autocomplete='new-password' value='' />
+			<input required placeholder='Confirm new password' type='password' id='cpassword' name='cpassword' autocomplete='new-password' value='' />
+			<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='pupdate'>Save</button></div>
+		</form>
+	</div>";
+
+	$userform = "
+	<div id='userform' class='mbmdialog'>
+		<h6>Change Username</h6>
+		<div class='dialogdescr'>Here you can change your username. Type in your new username and your current password and click on save to change it.</div>
+		<form action='".$_SERVER['PHP_SELF']."' method='POST'>
+			<input placeholder='Username' required type='text' name='username' id='username' autocomplete='username' value='$userName'>
+			<input placeholder='Password' required type='password' id='password' name='opassword' autocomplete='current-password' value='' />
+			<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='uupdate'>Save</button></div>
+		</form>
+	</div>";
+
+	$mainmenu = "
+	<div id='mainmenu' class='mmenu'>
+		<ul>
+			<li id='meheader'><span class='appv'><a href='https://github.com/Offerel/SyncMarks-Webapp'>SyncMarks $version</a></span><span class='logo'>&nbsp;</span><span class='text'>$userName<br>Last login: $userOldLogin</span></li>
+			<li class='fa fa-bell' id='nmessages'>Notifications</li>
+			<li class='fa fa-external-link' id='bexport'>Export</li>
+			<li class='fa fa-cogs' id='psettings'>Settings</li>
+			$admenu
+			<hr>
+			<li class='fa fa-sign-out'><form method='POST'><button name='caction' value='logout'>Logout</button></form></li>
+		</ul>
+	</div>";
+
+	if($userData['userType'] == 2) {
+		$userSelect = "<select id='userSelect' name='userSelect'>";
+		$userSelect.= "<option value='' hidden>-- Select User --</option>";
+		$userList = db_query("SELECT `userID`, `userName` FROM `users`;");
+		foreach ($userList as $key => $user) {
+			$userSelect.= "<option value='".$user['userID']."'>".$user['userName']."</option>";
+		}
+		$userSelect.= "</select>";
+
+		$mnguserform = "
+		<div id='mnguform' class='mbmdialog'>
+			<h6>Manage Users</h6>
+			<form enctype='multipart/form-data' action='".$_SERVER['PHP_SELF']."' method='POST'>
+				<div class='select'>
+					$userSelect
+					<div class='select__arrow'></div>
+				</div>
+				<input placeholder='Username' type='text' required id='nuser' name='nuser' autocomplete='username' value='' />
+				<input placeholder='Password' type='password' required id='npwd' name='npwd' autocomplete='password' value='' />
+				<input type='hidden' name='caction' value='muedt'>
+				<div class='select'>
+					<select id='userLevel' required name='userLevel'>
+						<option value='' hidden>-- Select Level --</option>
+						<option value='0'>Normal</option>
+						<option value='1'>Admin</option>
+					</select>
+					<div class='select__arrow'></div>
+				</div>
+				<div class='dbutton'>
+					<button type='submit' id='muadd' name='muedt' value='Add User' disabled>Save</button>
+					<button type='submit' id='mudel' name='muedt' value='Delete User' disabled formnovalidate>Delete</button>
+				</div>
+			</form>
+		</div>";
+	} else {
+		$mnguserform = "";
+	}
+
+	$bmMenu = "
+	<menu class='menu'><input type='hidden' id='bmid' title='bmtitle' value=''>
+		<ul>
+			<li id='btnEdit' class='menu-item fa fa-pencil-square-o'>Edit</li>
+			<li id='btnMove' class='menu-item fa fa-arrows-alt'>Move</li>
+			<li id='btnDelete' class='menu-item fa fa-trash-o'>Delete</li>
+			<li id='btnFolder' class='menu-item fa fa-folder'>New Folder</li>
+		</ul>
+	</menu>";
+
+	$editForm = "
+	<div id='bmarkedt' class='mbmdialog'>
+		<h6>Edit Bookmark</h6>
+		<form id='-' method='POST'>
+			<input placeholder='Title' type='text' id='edtitle' name='edtitle' value=''>
+			<input placeholder='URL' type='text' id='edurl' name='edurl' value=''>
+			<input type='hidden' id='edid' name='edid' value=''>
+			<div class='dbutton'>
+				<button type='submit' id='edsave' name='edsave' value='Save' disabled>Save</button>
+			</div>
+		</form>
+	</div>";
+
+	$sFolderOptions = "<option value='' hidden>Select Folder</option>";
+	$sFolderArr = getUserFolders($userID);
+	foreach ($sFolderArr as $key => $folder) {
+		if($folder['bmID'] === "unfiled_____")
+			$sFolderOptions.= "<option selected value='".$folder['bmID']."'>".$folder['bmTitle']."</option>";
+		else
+			$sFolderOptions.= "<option value='".$folder['bmID']."'>".$folder['bmTitle']."</option>";
+	}
+	$moveForm = "
+	<div id='bmamove' class='mbmdialog'>
+		<h6>Move Bookmark</h6>
+		<form id='bmmv' method='POST'>
+			<input placeholder='Title' type='text' id='mvtitle' name='mvtitle' value='' disabled>
+			<div class='select'>
+				<select id='mvfolder' name='mvfolder'>$sFolderOptions</select>
+				<div class='select__arrow'></div>
+			</div>
+			<input type='hidden' id='mvid' name='mvid' value=''>
+			<div class='dbutton'><button type='submit' id='mvsave' name='mvsave' value='Save' disabled>Save</button></div>
+		</form>
+	</div>";
+
+	$folderForm = "
+	<div id='folderf' class='mbmdialog'>
+		<h6>Create new folder</h6>
+		<form id='fadd' method='POST'>
+			<input placeholder='Foldername' type='text' id='fname' name='fname' value=''>
+			<input type='hidden' id='fbid' name='fbid' value=''>
+			<div class='dbutton'><button type='submit' id='fsave' name='fsave' value='Create' disabled>Create</button></div>
+		</form>
+	</div>";
+
+	$footerButton = "
+	<div id='bmarkadd' class='mbmdialog'>
+		<h6>Add Bookmark</h6>
+		<form id='bmadd' action='?madd' method='POST'>
+			<input placeholder='URL' type='text' id='url' name='url' value=''>
+			<div class='select'>
+				<select id='folder' name='folder'>
+					$sFolderOptions
+				</select>
+				<div class='select__arrow'></div>
+			</div>
+			<div class='dbutton'><button type='submit' id='save' name='madd' value='Save'>Save</button></div>
+		</form>
+	</div>
+	<div id='footer'></div>";
+
+	$htmlData = $folderForm.$moveForm.$editForm.$bmMenu.$mnguserform.$logform.$mainmenu.$userform.$passwordform.$pbulletform.$mngsettingsform.$mngclientform.$nmessagesform.$footerButton;	
+	return $htmlData;
+}
+
+function showBookmarks($userData) {
+	$bmTree = bmTree($userData);
+	$htmlData = "<div id='bookmarks'>$bmTree</div>";
+	$htmlData.= "<div id='hmarks' style='display: none'>$bmTree</div>";
+	return $htmlData;
 }
 
 function bClientlist($uid) {
@@ -1258,64 +1322,9 @@ function notiList($uid, $loop) {
 	return $notiList;
 }
 
-function htmlFooter($uid) {
-	$sFolderOptions = "<option value='' hidden>Select Folder</option>";
-	$sFolderArr = getUserFolders($uid);
-	foreach ($sFolderArr as $key => $folder) {
-		if($folder['bmID'] === "unfiled_____")
-			$sFolderOptions.= "<option selected value='".$folder['bmID']."'>".$folder['bmTitle']."</option>";
-		else
-			$sFolderOptions.= "<option value='".$folder['bmID']."'>".$folder['bmTitle']."</option>";
-	}
-	
-	$editform = "<div id='bmarkedt' class='mbmdialog'><h6>Edit Bookmark</h6><form id='-' method='POST'>
-				<input placeholder='Title' type='text' id='edtitle' name='edtitle' value=''>
-				<input placeholder='URL' type='text' id='edurl' name='edurl' value=''>
-				<input type='hidden' id='edid' name='edid' value=''>
-				<div class='dbutton'><button type='submit' id='edsave' name='edsave' value='Save' disabled>Save</button></div>
-				</form></div>";
-				
-	$moveform = "<div id='bmamove' class='mbmdialog'><h6>Move Bookmark</h6><form id='bmmv' method='POST'>
-				<input placeholder='Title' type='text' id='mvtitle' name='mvtitle' value='' disabled>
-				<div class='select'>
-				<select id='mvfolder' name='mvfolder'>$sFolderOptions</select>
-				<div class='select__arrow'></div>
-				</div>
-				<input type='hidden' id='mvid' name='mvid' value=''>
-				<div class='dbutton'><button type='submit' id='mvsave' name='mvsave' value='Save' disabled>Save</button></div>
-				</form></div>";
-
-	$folderform = "<div id='folderf' class='mbmdialog'><h6>Create new folder</h6><form id='fadd' method='POST'>
-					<input placeholder='Foldername' type='text' id='fname' name='fname' value=''>
-					<input type='hidden' id='fbid' name='fbid' value=''>
-					<div class='dbutton'><button type='submit' id='fsave' name='fsave' value='Create' disabled>Create</button></div>
-					</form></div>";
-
-	$htmlFooter = "<div id='bmarkadd' class='mbmdialog'>
-					<h6>Add Bookmark</h6>
-					<form id='bmadd' action='?madd' method='POST'>
-					<input placeholder='URL' type='text' id='url' name='url' value=''>
-					<div class='select'>
-					<select id='folder' name='folder'>
-						$sFolderOptions
-					</select>
-					<div class='select__arrow'></div>
-					</div>
-					<div class='dbutton'><button type='submit' id='save' name='madd' value='Save'>Save</button></div>
-					</form></div>
-					
-					<div id='footer'></div>
-					</body></html>";
-
-	$menu = "<menu class='menu'><input type='hidden' id='bmid' title='bmtitle' value=''>
-			<ul>
-			<li id='btnEdit' class='menu-item fa fa-pencil-square-o'>Edit</li>
-			<li id='btnMove' class='menu-item fa fa-arrows-alt'>Move</li>
-			<li id='btnDelete' class='menu-item fa fa-trash-o'>Delete</li>
-			<li id='btnFolder' class='menu-item fa fa-folder'>New Folder</li>
-			</ul>
-			</menu>";
-	return $menu.$editform.$moveform.$folderform.$htmlFooter;
+function htmlFooter() {
+	$htmlFooter = "</body></html>";
+	return $htmlFooter;
 }
 
 function getUserFolders($uid) {
@@ -1392,17 +1401,27 @@ function makeHTMLTree($arr) {
 	return $bookmarks;
 }
 
+function cid($id) {
+	switch($id) {
+		case "0": $id = "root________"; break;
+		case "1": $id = "toolbar_____"; break;
+		case "2": $id = "unfiled_____"; break;
+		case "3": $id = "mobile______"; break;
+		default: $id = $id;
+	}
+	return $id;
+}
+
 function importMarks($bookmarks,$uid) {
-	global $database;
 	e_log(8,"Starting import browser bookmarks");
-	$db = new PDO('sqlite:'.$database);
 	foreach ($bookmarks as $bookmark) {
 		$title = htmlspecialchars($bookmark['bmTitle'],ENT_QUOTES,'UTF-8');
 		$dateGroupModified = strlen($bookmark['dateGroupModified']) == 0 ? NULL : $bookmark['dateGroupModified'];
 		$url = strlen($bookmark['bmURL']) == 0 ? NULL : $bookmark['bmURL'];
+
 		$data[] = array(
-			$bookmark['bmID'],
-			$bookmark['bmParentID'],
+			cid($bookmark['bmID']),
+			cid($bookmark['bmParentID']),
 			$bookmark['bmIndex'],
 			$title,
 			$bookmark['bmType'],
@@ -1502,7 +1521,7 @@ function checkLogin($realm) {
 			$_SESSION['cr'] = true;
 		}
 
-		if (isset($_SESSION['fauth']) || !isset($_SESSION['cr'])) {
+		if (!isset($_SESSION['cr'])) {
 			header("Expires: Sat, 01 Jan 2000 00:00:00 GMT");
 			header("Last-Modified: ".gmdate("D, d M Y H:i:s")." GMT");
 			header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
@@ -1518,6 +1537,7 @@ function checkLogin($realm) {
 					<div id='loginformt'>Access denied. You must <a href='".$_SERVER['PHP_SELF']."'>login</a> to use this tool.</div>
 				</div>
 			</div>";
+			echo htmlFooter();
 			exit;
 		} else {
 			if(isset($_SESSION['cr'])) {
@@ -1551,6 +1571,7 @@ function checkLogin($realm) {
 								<div id='loginformt'>You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.</div>
 							</div>
 						</div>";
+						echo htmlFooter();
 						exit;
 					}
 				} else {
@@ -1567,6 +1588,7 @@ function checkLogin($realm) {
 							<div id='loginformt'>You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.</div>
 						</div>
 					</div>";
+					echo htmlFooter();
 					exit;
 				}
 			}
@@ -1586,6 +1608,7 @@ function checkLogin($realm) {
 			</div>
 			</form>
 		</div>";
+		echo htmlFooter();
 		exit;
 	}
 
@@ -1623,6 +1646,7 @@ function db_query($query, $data=null) {
 					$db->rollBack();
 					$queryData = false;
 					e_log(1,"DB transaction failed. Data is rolled back: ".$e->getMessage());
+					exit;
 				}
 			}
 		}
@@ -1672,23 +1696,39 @@ function checkDB($database,$suser,$spwd) {
 		db_query($query);
 		$query = "INSERT INTO `users` (userName,userType,userHash) VALUES ('$suser',2,'$userPWD');";
 		db_query($query);
+		file_put_contents("state",$newdate,true);
 	} else {
-		e_log(8,"Check DB version");
-		$version = db_query("PRAGMA user_version")[0]['user_version'];
-		switch($version) {
-			case "0":
-				e_log(8,"Starting DB update...");
-				db_query(file_get_contents("./sql/db_update_1.sql"));
-				break;
-			case "1":
-					e_log(8,"DB is latest version. No update needed");
+		$olddate = (file_exists("state")) ? file_get_contents("state"):"0";
+		$newdate = filemtime(__FILE__);
+
+		if($olddate != $newdate) {
+			e_log(8,"SyncMarks update dedected. Check database version");
+			$version = db_query("PRAGMA user_version")[0]['user_version'];
+			switch($version) {
+				case "0":
+					e_log(8,"Database update needed. Starting DB update...");
+					db_query(file_get_contents("./sql/db_update_2.sql"));
+					e_log(8,"Write new state to state file");
+					file_put_contents("state",$newdate,true);
 					break;
-			default:
-				$message = "DB version unknown, please check DB manually. Stopping app...";
-				e_log(8,$message);
-				echo $message;
-				exit;
+				case "1":
+					e_log(8,"Database update needed. Starting DB update...");
+					db_query(file_get_contents("./sql/db_update_2.sql"));
+					e_log(8,"Write new state to state file");
+					file_put_contents("state",$newdate,true);
+					break;
+				case "2":
+					e_log(8,"Database is latest version. No update needed. Write new state to state file");
+					file_put_contents("state",$newdate,true);
+					break;
+				default:
+					$message = "Database version unknown, please check database manually. Stopping app...";
+					e_log(8,$message);
+					echo $message;
+					exit;
 			}
+		}
+		
 	}
 }
 ?>

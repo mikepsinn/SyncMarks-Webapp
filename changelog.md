@@ -1,5 +1,13 @@
 ChangeLog
 =========
+1.3.3 (2020-01-15)
+-------------------------
+* Removed hidden forms
+* Cleanup functions
+* Check database update only on new version
+* Fix for import from Chromium
+
+
 1.3.2 (2020-01-11)
 -------------------------
 * Added login/logout form
