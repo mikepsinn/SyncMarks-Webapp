@@ -58,13 +58,16 @@ if(isset($_POST['caction'])) {
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$ctime = round(microtime(true) * 1000);
+			e_log(8,print_r($bookmark,true));
+			$index = (isset($bookmark['index'])) ? "AND `bmIndex` = ".$bookmark['index']:"";
 			e_log(8,"Try to identify bookmark");
 			if(isset($bookmark['url'])) {
 				$url = prepare_url($bookmark['url']);
-				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'bookmark' AND `bmIndex` = ".$bookmark['index']." AND `bmURL` = '$url' AND `userID` = ".$userData['userID'].";";
+				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'bookmark'$index AND `bmURL` = '$url' AND `userID` = ".$userData['userID'].";";
 			} else {
-				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'folder' AND `bmIndex` = ".$bookmark['index']." AND `bmTitle` = '".$bookmark['title']."' AND `userID` = ".$userData['userID'].";";
+				$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmType` = 'folder'$index AND `bmTitle` = '".$bookmark['title']."' AND `userID` = ".$userData['userID'].";";
 			}
+
 			$bData = db_query($query);
 			if(count($bData) == 1) {
 				die(json_encode(delMark($bData[0]['bmID'])));
@@ -497,7 +500,6 @@ if(isset($_POST['caction'])) {
 		default:
 			die(json_encode("Unknown Action"));
 	}
-	e_log(8,"After caction: ".$_POST['caction']);
 	exit;
 }
 
@@ -615,7 +617,6 @@ function getClientType($uas) {
 
 function validate_url($url) {
 	$url = filter_var(filter_var($url, FILTER_SANITIZE_STRING), FILTER_SANITIZE_URL);
-
 	if (filter_var($url, FILTER_VALIDATE_URL)) {
 		return $url;
 	} else {
@@ -822,7 +823,7 @@ function addFolder($ud, $bm) {
 
 function addBookmark($ud, $bm) { 
 	e_log(8,"Check if bookmark already exists for user.");
-	$query = "SELECT `bmID`, COUNT(*) AS `bmcount`, MAX(`bmAction`) AS `bmaction` FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' AND `bmParentID` = '".$bm["folder"]."' AND `userID` = ".$ud["userID"].";";
+	$query = "SELECT `bmID`, COUNT(*) AS `bmcount`, MAX(`bmAction`) AS `bmaction` FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' AND `bmParentID` = '".$bm["nfolder"]."' AND `userID` = ".$ud["userID"].";";
 	$bmExistData = db_query($query);
 	if($bmExistData[0]["bmcount"] > 0) {
 		if($bmExistData[0]["bmaction"] == 1) {
@@ -1400,17 +1401,27 @@ function makeHTMLTree($arr) {
 	return $bookmarks;
 }
 
+function cid($id) {
+	switch($id) {
+		case "0": $id = "root________"; break;
+		case "1": $id = "toolbar_____"; break;
+		case "2": $id = "unfiled_____"; break;
+		case "3": $id = "mobile______"; break;
+		default: $id = $id;
+	}
+	return $id;
+}
+
 function importMarks($bookmarks,$uid) {
-	global $database;
 	e_log(8,"Starting import browser bookmarks");
-	$db = new PDO('sqlite:'.$database);
 	foreach ($bookmarks as $bookmark) {
 		$title = htmlspecialchars($bookmark['bmTitle'],ENT_QUOTES,'UTF-8');
 		$dateGroupModified = strlen($bookmark['dateGroupModified']) == 0 ? NULL : $bookmark['dateGroupModified'];
 		$url = strlen($bookmark['bmURL']) == 0 ? NULL : $bookmark['bmURL'];
+
 		$data[] = array(
-			$bookmark['bmID'],
-			$bookmark['bmParentID'],
+			cid($bookmark['bmID']),
+			cid($bookmark['bmParentID']),
 			$bookmark['bmIndex'],
 			$title,
 			$bookmark['bmType'],
@@ -1510,7 +1521,6 @@ function checkLogin($realm) {
 			$_SESSION['cr'] = true;
 		}
 
-		//if (isset($_SESSION['fauth']) || !isset($_SESSION['cr'])) {
 		if (!isset($_SESSION['cr'])) {
 			header("Expires: Sat, 01 Jan 2000 00:00:00 GMT");
 			header("Last-Modified: ".gmdate("D, d M Y H:i:s")." GMT");
@@ -1636,6 +1646,7 @@ function db_query($query, $data=null) {
 					$db->rollBack();
 					$queryData = false;
 					e_log(1,"DB transaction failed. Data is rolled back: ".$e->getMessage());
+					exit;
 				}
 			}
 		}
@@ -1685,6 +1696,7 @@ function checkDB($database,$suser,$spwd) {
 		db_query($query);
 		$query = "INSERT INTO `users` (userName,userType,userHash) VALUES ('$suser',2,'$userPWD');";
 		db_query($query);
+		file_put_contents("state",$newdate,true);
 	} else {
 		$olddate = (file_exists("state")) ? file_get_contents("state"):"0";
 		$newdate = filemtime(__FILE__);
@@ -1695,11 +1707,17 @@ function checkDB($database,$suser,$spwd) {
 			switch($version) {
 				case "0":
 					e_log(8,"Database update needed. Starting DB update...");
-					db_query(file_get_contents("./sql/db_update_1.sql"));
+					db_query(file_get_contents("./sql/db_update_2.sql"));
 					e_log(8,"Write new state to state file");
 					file_put_contents("state",$newdate,true);
 					break;
 				case "1":
+					e_log(8,"Database update needed. Starting DB update...");
+					db_query(file_get_contents("./sql/db_update_2.sql"));
+					e_log(8,"Write new state to state file");
+					file_put_contents("state",$newdate,true);
+					break;
+				case "2":
 					e_log(8,"Database is latest version. No update needed. Write new state to state file");
 					file_put_contents("state",$newdate,true);
 					break;

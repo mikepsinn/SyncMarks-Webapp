@@ -10,7 +10,6 @@ CREATE TABLE `bookmarks_tmp` (
 	`bmModified`	TEXT,
 	`userID`	INTEGER NOT NULL,
 	`bmAction`	INTEGER,
-	PRIMARY KEY(`bmID`),
 	FOREIGN KEY(`userID`) REFERENCES `users`(`userID`) ON DELETE CASCADE
 );
 INSERT INTO bookmarks_tmp SELECT * FROM bookmarks;
@@ -59,4 +58,4 @@ CREATE TRIGGER on_delete_set_default AFTER DELETE ON clients BEGIN
   UPDATE notifications SET client = 0 WHERE client = old.cid;
 END;
 
-PRAGMA user_version = 1;
+PRAGMA user_version = 2;

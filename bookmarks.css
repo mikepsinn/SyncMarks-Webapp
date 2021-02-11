@@ -801,6 +801,7 @@ span.rdesc {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+  user-select: none;
   display: block;
   width: 100%;
   color: #444;
@@ -937,7 +938,6 @@ span.rdesc {
 .NotiTableCell {
 	display: block;
 	padding: 0 0 0 10px;
-	float: left;
 }
 .NotiTableCell:first-child {
 	width: calc(100% - 60px);
@@ -964,6 +964,11 @@ span.rdesc {
 }
 .NotiTableRow:hover .fa {
 	display: block;
+}
+.NotiTableCell .fa::before {
+	position: absolute;
+	top: -45px;
+	right: -510px;
 }
 .switch {
 	position: absolute;
