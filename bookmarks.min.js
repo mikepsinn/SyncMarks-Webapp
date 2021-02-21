@@ -1,7 +1,7 @@
 /**
  * SyncMarks
  *
- * @version 1.3.4
+ * @version 1.3.5
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
