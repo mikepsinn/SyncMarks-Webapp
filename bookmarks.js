@@ -1,12 +1,11 @@
 /**
  * SyncMarks
  *
- * @version 1.3.3
+ * @version 1.3.5
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
  */
-
 document.addEventListener("DOMContentLoaded", function() {
 	if(document.getElementById("uf")) document.getElementById("uf").focus();
 	if(document.getElementById('loginbody')) {
@@ -108,7 +107,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			xhr.send(data);
 		});
 
-		document.getElementById('userSelect').addEventListener('change', function() {
+		if(document.getElementById('userSelect')) document.getElementById('userSelect').addEventListener('change', function() {
 			if(this.value > 0) {
 				document.getElementById('nuser').value = document.querySelector('#userSelect option:checked').text;
 				checkuform();
@@ -118,9 +117,9 @@ document.addEventListener("DOMContentLoaded", function() {
 		});
 
 
-		document.getElementById('npwd').addEventListener('input', function() {checkuform()});
-		document.getElementById('nuser').addEventListener('input', function() {checkuform()});
-		document.getElementById('userLevel').addEventListener('input', function() {checkuform()});
+		if(document.getElementById('npwd')) document.getElementById('npwd').addEventListener('input', function() {checkuform()});
+		if(document.getElementById('nuser')) document.getElementById('nuser').addEventListener('input', function() {checkuform()});
+		if(document.getElementById('userLevel')) document.getElementById('userLevel').addEventListener('input', function() {checkuform()});
 
 		document.getElementById('hmenu').addEventListener('click', function() {
 			var mainmenu = document.getElementById('mainmenu');
@@ -133,7 +132,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			}
 		});
 
-		document.getElementById('mngusers').addEventListener('click', function() {
+		if(document.getElementById('mngusers')) document.getElementById('mngusers').addEventListener('click', function() {
 			hideMenu();
 			document.getElementById('mnguform').style.display = 'block';
 			document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
@@ -223,7 +222,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			url.addEventListener('input', enableSave);
 		});
 
-		document.getElementById('mlog').addEventListener('click', function() {
+		if(document.getElementById('mlog')) document.getElementById('mlog').addEventListener('click', function() {
 			hideMenu();
 			let logfile = document.getElementById('logfile');
 			if(logfile.style.visibility === 'visible') {
@@ -250,7 +249,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			}
 		});
 
-		document.getElementById('mclear').addEventListener('click', function() {
+		if(document.getElementById('mclear')) document.getElementById('mclear').addEventListener('click', function() {
 			let logfile = document.getElementById('logfile');
 			if(logfile.style.visibility === 'visible') {
 				logfile.style.visibility = 'hidden';
@@ -271,8 +270,8 @@ document.addEventListener("DOMContentLoaded", function() {
 				xhr.send(data);
 			}
 		});
-
-		document.getElementById('mclose').addEventListener('click', function() {
+		
+		if(document.getElementById('mclose')) document.getElementById('mclose').addEventListener('click', function() {
 			if(document.getElementById('logfile').style.visibility === 'visible') {
 				document.getElementById('logfile').style.visibility = 'hidden';
 				document.getElementById('close').style.visibility = 'hidden';
