@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.3.5
+ * @version 1.3.6
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -374,7 +374,7 @@ if(isset($_POST['caction'])) {
 			if($delMark != 0) {
 				if(!isset($_POST['rc'])) {
 					e_log(8,"Deleted bookmark $bmID");
-					die(bmTree($userData));
+					die();
 				} else {
 					die(e_log(8,"Bookmark $bmID deleted by Roundcube"));
 				}
@@ -482,6 +482,20 @@ if(isset($_POST['caction'])) {
 			}
 			exit;
 			break;
+		case "checkdups":
+			e_log(8,"Checking for duplicated bookmarks by url");
+			$query = "SELECT `bmID`, `bmTitle`, `bmURL` FROM `bookmarks` WHERE `userID` = ".$userData['userID']." AND `bmAction` ISNULL OR `bmAction` = 2 GROUP BY `bmURL` HAVING COUNT(`bmURL`) > 1;";
+			$dubData = db_query($query);
+			foreach($dubData as $key => $dub) {
+				$query = "SELECT `bmID`, `bmParentID`, `bmTitle`, `bmAdded` FROM `bookmarks` WHERE `bmURL` = '".$dub['bmURL']."' AND `userID` = ".$userData['userID']." AND `bmAction` ISNULL OR `bmAction` = 2 ORDER BY `bmParentID`, `bmIndex`;";
+				$subData = db_query($query);
+				foreach($subData as $index => $entry) {
+					$subData[$index]['fway'] = fWay($entry['bmParentID'], $userData['userID'],'');
+				}
+				$dubData[$key]['subs'] = $subData;
+			}
+			die(json_encode($dubData));
+			break;
 		case "logout":
 			e_log(8,"Logout user ".$_SESSION['sauth']);
 			unset($_SESSION['sauth']);
@@ -509,8 +523,7 @@ if(isset($_GET['link'])) {
 
 	if(!empty($_GET["title"])) {
 		$title = $_GET["title"];
-	}
-	else {
+	} else {
 		$title = getSiteTitle($url);
 	}
 
@@ -532,12 +545,10 @@ if(isset($_GET['link'])) {
 	if($res == 1) {
 		if(isset($_GET['client']) && $_GET['client'] == 'Android') {
 			echo("URL is added successfully.");
-		}
-		else {
+		} else {
 			echo "<script>window.onload = function() { window.close();}</script>";
 		}
-	}
-	else {
+	} else {
 		echo $res;
 	}
 	die();
@@ -547,6 +558,19 @@ echo htmlHeader();
 echo htmlForms($userData);
 echo showBookmarks($userData);
 echo htmlFooter();
+
+function fWay($parent, $user, $str) {
+	e_log(8,"Get folder structure for bookmark");
+	do {
+		$query = "SELECT `bmID`, `bmParentID`, `bmTitle` FROM `bookmarks` WHERE `bmID` = '$parent' AND `userID` = $user";
+		$fData = db_query($query)[0];
+		$str = ' &#187; '.$fData['bmTitle'].$str;
+		$parent = $fData['bmParentID'];
+	} while (strpos($fData['bmParentID'],'root________') === false);
+	
+	$str = substr($str,8);
+	return $str;
+}
 
 function delMark($bmID) {
 	global $userData;
@@ -1033,7 +1057,7 @@ function htmlHeader() {
 				<meta name='viewport' content='width=device-width, initial-scale=1'>
 				<script src='".minfile("bookmarks.js")."'></script>
 				<link type='text/css' rel='stylesheet' href='".minfile("bookmarks.css")."'>
-				<link type='text/css' rel='stylesheet' href='font-awesome/css/font-awesome.min.css'>
+				<!-- <link type='text/css' rel='stylesheet' href='font-awesome/css/font-awesome.min.css'> -->
 				<link rel='shortcut icon' type='image/x-icon' href='./images/bookmarks.ico'>
 				<link rel='manifest' href='manifest.json'>
 				<meta name='theme-color' content='#0879D9'>
@@ -1063,7 +1087,7 @@ function htmlForms($userData) {
 	$userName = $userData['userName'];
 	$userID = $userData['userID'];
 	$userOldLogin = date("d.m.y H:i",$userData['userOldLogin']);
-	$admenu = ($userData['userType'] == 2) ? "<hr><li class='fa fa-file-text-o' id='mlog'>Logfile</li><li class='fa fa-users' id='mngusers'>Users</li>":"";
+	$admenu = ($userData['userType'] == 2) ? "<hr><li class='menuitem' id='mlog'>Logfile</li><li class='menuitem' id='mngusers'>Users</li>":"";
 	$logform = ($userData['userType'] == 2) ? "<div id=\"logfile\"><div id=\"close\"><button id='mclear'>clear</button> <button id='mclose'>&times;</button></div><div id='lfiletext'></div></div>":"";
 
 	$uOptions = json_decode($userData['uOptions'],true);
@@ -1156,12 +1180,13 @@ function htmlForms($userData) {
 	<div id='mainmenu' class='mmenu'>
 		<ul>
 			<li id='meheader'><span class='appv'><a href='https://github.com/Offerel/SyncMarks-Webapp'>SyncMarks $version</a></span><span class='logo'>&nbsp;</span><span class='text'>$userName<br>Last login: $userOldLogin</span></li>
-			<li class='fa fa-bell' id='nmessages'>Notifications</li>
-			<li class='fa fa-external-link' id='bexport'>Export</li>
-			<li class='fa fa-cogs' id='psettings'>Settings</li>
+			<li class='menuitem' id='nmessages'>Notifications</li>
+			<li class='menuitem' id='bexport'>Export</li>
+			<li class='menuitem' id='duplicates'>Duplicates</li>
+			<li class='menuitem' id='psettings'>Settings</li>
 			$admenu
 			<hr>
-			<li class='fa fa-sign-out'><form method='POST'><button name='caction' value='logout'>Logout</button></form></li>
+			<li class='menuitem' id='logout'><form method='POST'><button name='caction' id='loutaction' value='logout'>Logout</button></form></li>
 		</ul>
 	</div>";
 
@@ -1206,10 +1231,10 @@ function htmlForms($userData) {
 	$bmMenu = "
 	<menu class='menu'><input type='hidden' id='bmid' title='bmtitle' value=''>
 		<ul>
-			<li id='btnEdit' class='menu-item fa fa-pencil-square-o'>Edit</li>
-			<li id='btnMove' class='menu-item fa fa-arrows-alt'>Move</li>
-			<li id='btnDelete' class='menu-item fa fa-trash-o'>Delete</li>
-			<li id='btnFolder' class='menu-item fa fa-folder'>New Folder</li>
+			<li id='btnEdit' class='menu-item'>Edit</li>
+			<li id='btnMove' class='menu-item'>Move</li>
+			<li id='btnDelete' class='menu-item'>Delete</li>
+			<li id='btnFolder' class='menu-item'>New Folder</li>
 		</ul>
 	</menu>";
 
@@ -1295,7 +1320,7 @@ function bClientlist($uid) {
 		if(isset($client['cname'])) $cname = $client['cname'];
 		$timestamp = $client['lastseen'] / 1000;
 		$lastseen = (date('D, d. M. Y H:i', $timestamp));
-		$clientList.= "<li title='".$client['cid']."' data-type='".strtolower($client['ctype'])."' id='".$client['cid']."' class='client'><div class='clientname'>$cname<input type='text' name='cname' value='$cname'><div class='lastseen'>$lastseen</div></div><div class='fa fa-edit rename'></div><div class='fa fa-trash-o remove'></div></li>";
+		$clientList.= "<li title='".$client['cid']."' data-type='".strtolower($client['ctype'])."' id='".$client['cid']."' class='client'><div class='clientname'>$cname<input type='text' name='cname' value='$cname'><div class='lastseen'>$lastseen</div></div><div class='fa-edit rename'></div><div class='fa-trash remove'></div></li>";
 	}
 	$clientList.= "</ul>";
 	return $clientList;
@@ -1316,7 +1341,7 @@ function notiList($uid, $loop) {
 						<span class='nlink'>".$aNoti['message']."</span>
 						<span class='ndate'>".date("d.m.Y H:i",$aNoti['publish_date'])." | $cl</span>
 					</div>
-					<div class='NotiTableCell'><a class='fa fa-trash-o' data-message='".$aNoti['id']."' href='#'></a></div>
+					<div class='NotiTableCell'><a class='fa fa-trash' data-message='".$aNoti['id']."' href='#'></a></div>
 				</div>";
 	}
 	return $notiList;
