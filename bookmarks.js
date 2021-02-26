@@ -88,7 +88,6 @@ document.addEventListener("DOMContentLoaded", function() {
 			hideMenu();
 			let folder = document.getElementById('folder').value;
 			let url = encodeURIComponent(document.getElementById('url').value);
-
 			var xhr = new XMLHttpRequest();
 			var data = "caction=madd&folder=" + folder + "&url=" + url;
 			xhr.onreadystatechange = function () {
@@ -96,12 +95,13 @@ document.addEventListener("DOMContentLoaded", function() {
 					if(this.status == 200) {
 						document.getElementById('bookmarks').innerHTML = this.responseText;
 						console.log("Bookmark added successfully.");
+						document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
+						document.querySelectorAll('.folder').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
 					} else {
 						alert("Error adding bookmark, please check server log.");
 					}
 				}
 			};
-
 			xhr.open("POST", document.location.href, true);
 			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 			xhr.send(data);
@@ -115,7 +115,6 @@ document.addEventListener("DOMContentLoaded", function() {
 				document.getElementById('mudel').disabled = false;
 			}
 		});
-
 
 		if(document.getElementById('npwd')) document.getElementById('npwd').addEventListener('input', function() {checkuform()});
 		if(document.getElementById('nuser')) document.getElementById('nuser').addEventListener('input', function() {checkuform()});
@@ -181,12 +180,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
 		document.getElementById('duplicates').addEventListener('click', function() {
 			hideMenu();
-
 			let loader = document.createElement('div');
 			loader.classList.add('db-spinner');
 			loader.id = 'db-spinner';
 			document.querySelector('body').appendChild(loader);
-
 			var xhr = new XMLHttpRequest();
 			var data = "caction=checkdups";
 			xhr.onreadystatechange = function () {
@@ -223,12 +220,10 @@ document.addEventListener("DOMContentLoaded", function() {
 										let xhrDel = new XMLHttpRequest();
 										let dub = this;
 										let delData = "caction=mdel&rc=1&id="+dub.dataset.bmid;
-
 										let loader = document.createElement('div');
 										loader.classList.add('db-spinner');
 										loader.id = 'db-spinner';
 										document.querySelector('body').appendChild(loader);
-
 										xhrDel.open("POST", document.location.href, true);
 										xhrDel.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 										xhrDel.addEventListener('load', function(event){
@@ -256,7 +251,6 @@ document.addEventListener("DOMContentLoaded", function() {
 							alert('No duplicates found');
 						}
 					} else {
-						
 						alert("Error checking for duplicates, please check server log.");
 					}
 				}

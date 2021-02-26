@@ -3,6 +3,7 @@ ChangeLog
 1.3.6 (2020-02-25)
 -------------------------
 * Added duplicates checker
+* Fix contextmenu when manually adding bookmark
 
 
 1.3.5 (2020-02-21)

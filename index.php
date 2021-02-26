@@ -1147,7 +1147,7 @@ function htmlForms($userData) {
 		<div class='dialogdescr'>Maintain your API Token and Device ID.</div>
 		<form action='".$_SERVER['PHP_SELF']."' method='POST'>$pbswitch
 			<input placeholder='API Token' type='text' id='ptoken' name='ptoken' value='$pAPI' />
-			<input placeholder='Device ID' type='text' id='pdevice' name='pdevice' value='$pDevice' />
+			<input placeholder='Device ID' type='text' id='pdevice' name='pdevice' value='$pDevice' autocomplete='device-token' />
 			<input required placeholder='Password' type='password' id='password' name='password' autocomplete='current-password' value='' />
 			<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='pbupdate'>Save</button></div>
 		</form>
@@ -1171,7 +1171,7 @@ function htmlForms($userData) {
 		<div class='dialogdescr'>Here you can change your username. Type in your new username and your current password and click on save to change it.</div>
 		<form action='".$_SERVER['PHP_SELF']."' method='POST'>
 			<input placeholder='Username' required type='text' name='username' id='username' autocomplete='username' value='$userName'>
-			<input placeholder='Password' required type='password' id='password' name='opassword' autocomplete='current-password' value='' />
+			<input placeholder='Password' required type='password' id='oopassword' name='opassword' autocomplete='current-password' value='' />
 			<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='uupdate'>Save</button></div>
 		</form>
 	</div>";
