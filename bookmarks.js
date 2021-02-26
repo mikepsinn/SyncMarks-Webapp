@@ -1,7 +1,7 @@
 /**
  * SyncMarks
  *
- * @version 1.3.5
+ * @version 1.3.6
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -88,7 +88,6 @@ document.addEventListener("DOMContentLoaded", function() {
 			hideMenu();
 			let folder = document.getElementById('folder').value;
 			let url = encodeURIComponent(document.getElementById('url').value);
-
 			var xhr = new XMLHttpRequest();
 			var data = "caction=madd&folder=" + folder + "&url=" + url;
 			xhr.onreadystatechange = function () {
@@ -96,12 +95,13 @@ document.addEventListener("DOMContentLoaded", function() {
 					if(this.status == 200) {
 						document.getElementById('bookmarks').innerHTML = this.responseText;
 						console.log("Bookmark added successfully.");
+						document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
+						document.querySelectorAll('.folder').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
 					} else {
 						alert("Error adding bookmark, please check server log.");
 					}
 				}
 			};
-
 			xhr.open("POST", document.location.href, true);
 			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 			xhr.send(data);
@@ -115,7 +115,6 @@ document.addEventListener("DOMContentLoaded", function() {
 				document.getElementById('mudel').disabled = false;
 			}
 		});
-
 
 		if(document.getElementById('npwd')) document.getElementById('npwd').addEventListener('input', function() {checkuform()});
 		if(document.getElementById('nuser')) document.getElementById('nuser').addEventListener('input', function() {checkuform()});
@@ -179,6 +178,91 @@ document.addEventListener("DOMContentLoaded", function() {
 			document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
 		});
 
+		document.getElementById('duplicates').addEventListener('click', function() {
+			hideMenu();
+			let loader = document.createElement('div');
+			loader.classList.add('db-spinner');
+			loader.id = 'db-spinner';
+			document.querySelector('body').appendChild(loader);
+			var xhr = new XMLHttpRequest();
+			var data = "caction=checkdups";
+			xhr.onreadystatechange = function () {
+				if(this.readyState == 4) {
+					if(this.status == 200) {
+						let dubData = JSON.parse(this.responseText);
+						if(dubData.length > 0) {
+							let dubDIV = document.createElement('div');
+							let head = document.createElement('h6');
+							head.innerText = dubData.length + ' duplicates found';
+							let hspan = document.createElement('span');
+							hspan.innerText = 'Click on a entry to delete the duplicate';
+							dubDIV.id = 'dubDIV';
+							dubDIV.classList.add('mbmdialog');
+							dubDIV.appendChild(head);
+							dubDIV.appendChild(hspan);
+							document.querySelector('body').appendChild(dubDIV);
+							let dubMenu = document.createElement('ul');
+							dubMenu.id = 'dubMenu';
+							dubData.forEach(function(dubURL){
+								let dubSub = document.createElement('ul');
+								dubSub.classList.add('dubSub');
+								let dubLi = document.createElement('li');
+								dubLi.id = 'dub_' + dubURL.bmID;
+								dubLi.innerText = dubURL.bmTitle;
+								dubLi.dataset.url = dubURL.bmURL;
+								dubLi.title = dubURL.bmURL;
+								dubURL.subs.forEach(function(subEntry){
+									let subLi = document.createElement('li');
+									subLi.classList.add('menuitem');
+									subLi.innerText = subEntry.bmTitle;
+									subLi.dataset.bmid = subEntry.bmID;
+									subLi.addEventListener('click', function(){
+										let xhrDel = new XMLHttpRequest();
+										let dub = this;
+										let delData = "caction=mdel&rc=1&id="+dub.dataset.bmid;
+										let loader = document.createElement('div');
+										loader.classList.add('db-spinner');
+										loader.id = 'db-spinner';
+										document.querySelector('body').appendChild(loader);
+										xhrDel.open("POST", document.location.href, true);
+										xhrDel.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+										xhrDel.addEventListener('load', function(event){
+											if(xhrDel.status >= 200 && xhrDel.status < 300) {
+												dub.style.display = 'none';
+												document.getElementById(dub.dataset.bmid).parentNode.remove();
+												document.getElementById('db-spinner').remove();
+											}
+										});
+										xhrDel.send(delData);
+									});
+									let subSp = document.createElement('span');
+									subSp.innerHTML = subEntry.fway;
+									subSp.title = subSp.innerHTML;
+									subLi.appendChild(subSp);
+									dubSub.appendChild(subLi);
+								});
+								dubLi.appendChild(dubSub);
+								dubMenu.appendChild(dubLi);
+								dubDIV.appendChild(dubMenu);
+								dubDIV.style.display = 'block';
+							});
+							document.getElementById('db-spinner').remove();
+						} else {
+							alert('No duplicates found');
+						}
+					} else {
+						alert("Error checking for duplicates, please check server log.");
+					}
+				}
+			};
+
+			xhr.open("POST", document.location.href, true);
+			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+			xhr.send(data);
+			
+			return false;
+		});
+		
 		document.getElementById('bexport').addEventListener('click', function() {
 			hideMenu();
 			var today = new Date();
@@ -443,13 +527,18 @@ function delBookmark(id, title) {
 	if(confirm("Would you like to delete \"" + title + "\"?")) {
 		let xhr = new XMLHttpRequest();
 		let data = 'caction=mdel&id=' + id;
+
+		let loader = document.createElement('div');
+		loader.classList.add('db-spinner');
+		loader.id = 'db-spinner';
+		document.querySelector('body').appendChild(loader);
+
 		xhr.onreadystatechange = function () {
 			if (this.readyState == 4) {
+				document.getElementById('db-spinner').remove();
 				if(this.status == 200) {
 					hideMenu();
-					document.getElementById('bookmarks').innerHTML = this.responseText;
-					document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
-					document.querySelectorAll('.folder').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
+					document.getElementById(id).parentNode.remove();
 				}
 				else
 					console.log("There was a problem removing that bookmark.");
@@ -484,6 +573,7 @@ function hideMenu(){
 	menu.style.display = 'none';
 	document.querySelectorAll('.mmenu').forEach(function(item) {item.style.display = 'none'});
 	document.querySelectorAll('.mbmdialog').forEach(function(item) {item.style.display = 'none'});
+	if(document.getElementById('dubDIV')) document.querySelector('body').removeChild(document.getElementById('dubDIV'));
 }
 
 function onContextMenu(e){
