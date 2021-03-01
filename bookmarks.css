@@ -858,12 +858,15 @@ span.rdesc {
 #bookmarks :not(.mainFolder) label {
 	position: unset;
 	top: unset;
-	width: unset;
+	width: max-content;
 	z-index: unset;
 	left: unset;
 	background-color: unset;
 	height: unset;
 	border-bottom: unset;
+	padding: 0px 5px 0px 25px;
+	margin-left: 10px;
+	border-radius: 3px;
 }
 #bookmarks :not(.mainFolder) ol {
 	position: unset;
@@ -1334,12 +1337,12 @@ input:checked + .slider:before {
 		background: url(images/toggle-small-expand.png) 40px -2px no-repeat;
 	}
 	#bookmarks li input:checked + ol {
-		background: url(images/toggle-small.png) 40px 3px no-repeat;
+		background: url(images/toggle-small.png) 40px 1px no-repeat;
 		margin: -1.25em 0 0 -44px;
 		padding: 1.563em 0 0 80px;
 	}
 	#bookmarks li label {
-		background: url(images/folder-horizontal.png) 12px 4px no-repeat;
+		background: url(images/folder-horizontal.png) 3px 3px no-repeat;
 		font-size: unset;
 		padding-left: 34px;
 		line-height: unset;

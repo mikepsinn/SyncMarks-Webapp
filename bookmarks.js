@@ -1,7 +1,7 @@
 /**
  * SyncMarks
  *
- * @version 1.3.6
+ * @version 1.3.7
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -64,11 +64,57 @@ document.addEventListener("DOMContentLoaded", function() {
 		document.addEventListener("mouseup", function(){
 			document.removeEventListener("mousemove", resize, false);
 		}, false);
-
-		document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
+		var draggable;
+		document.querySelectorAll('.file').forEach(function(bookmark){
+			bookmark.addEventListener('contextmenu',onContextMenu,false);
+			bookmark.addEventListener('dragstart', function(event){
+				event.target.style.opacity = '.3';
+			});
+			bookmark.addEventListener('dragend', function(event){
+				event.target.style.opacity = '';
+			});
+		});
 		document.querySelectorAll('.folder').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
+
+		document.querySelectorAll('.lbl').forEach(function(folder) {
+			folder.addEventListener('dragover', function(event){
+				event.preventDefault();
+			});
+			folder.addEventListener('dragenter', function(event){		
+				event.target.parentElement.style = 'background-color: lightblue;';
+			});
+			folder.addEventListener('dragleave', function(event){		
+				event.target.parentElement.style = 'background-color: unset;';
+			});
+			folder.addEventListener('drop', function(event){
+				event.preventDefault();
+				let data = 'caction=bmmv&folder='+event.target.htmlFor.substring(2)+'&id='+draggable.target.id;
+				let xhr = new XMLHttpRequest();
+				xhr.onreadystatechange = function () {
+					if (this.readyState == 4) {
+						if(this.status == 200) {
+							if(this.responseText == 1) {
+								let obm = document.getElementById(draggable.target.id).parentElement;
+								obm.remove();
+								let nfolder = document.getElementById(event.target.htmlFor).parentElement;
+								nfolder.lastChild.appendChild(obm);
+								event.target.parentElement.style = 'background-color: unset;';
+							} else
+								alert("There was a problem moving that bookmark.");
+						}
+					}
+				};
+				xhr.open("POST", document.location.href, true);
+				xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+				xhr.send(data);
+			});
+		});
+		document.addEventListener("drag", function(event) {
+			draggable = event;
+		});
+
 		document.querySelectorAll('.tablinks').forEach(tab => tab.addEventListener('click',openMessages, false));
-		document.querySelectorAll('.NotiTableCell .fa-trash-o').forEach(message => message.addEventListener('click',delMessage, false));
+		document.querySelectorAll('.NotiTableCell .fa-trash').forEach(message => message.addEventListener('click',delMessage, false));
 		document.querySelector('#cnoti').addEventListener('change',eNoti,false);
 
 		if(sessionStorage.getItem('gNoti') != 1) getNotifications();
@@ -450,9 +496,9 @@ document.addEventListener("DOMContentLoaded", function() {
 				if (this.readyState == 4) {
 					if(this.status == 200) {
 						if(this.responseText == 1)
-							location.reload(false);
+							location.reload();
 						else
-							console.log("There was a problem moving that bookmark.");
+							alert("There was a problem moving that bookmark.");
 					}
 				}
 			};
@@ -677,7 +723,7 @@ function delMessage(message) {
 		if (this.readyState == 4) {
 			if(this.status == 200) {
 				document.querySelector('#'+loop+' .NotiTable .NotiTableBody').innerHTML = this.responseText;
-				document.querySelectorAll('.NotiTableCell .fa-trash-o').forEach(function(element) {element.addEventListener('click', delMessage, false)});
+				document.querySelectorAll('.NotiTableCell .fa-trash').forEach(function(element) {element.addEventListener('click', delMessage, false)});
 			}
 		}
 	};

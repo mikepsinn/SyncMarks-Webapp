@@ -1,5 +1,13 @@
 ChangeLog
 =========
+1.3.7 (2020-02-28)
+-------------------------
+* Add drag&drop for bookmarks move
+* Fix notifications
+* Fix import bookmarks
+* Fix delete notifications
+
+
 1.3.6 (2020-02-25)
 -------------------------
 * Added duplicates checker

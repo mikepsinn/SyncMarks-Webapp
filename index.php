@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.3.6
+ * @version 1.3.7
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -11,6 +11,7 @@ session_start();
 include_once "config.inc.php.dist";
 include_once "config.inc.php";
 set_error_handler("e_log");
+file_put_contents("/tmp/test.txt", time());
 
 checkDB($database,$suser,$spwd);
 
@@ -154,7 +155,7 @@ if(isset($_POST['caction'])) {
 			$title = getSiteTitle($url);
 			e_log(8,"Received new pushed URL: ".$url);
 			$uidd = $userData['userID'];
-			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`client`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, $target, 1, $ctime, $uidd)";
+			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`client`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, '$target', 1, $ctime, $uidd)";
 			$erg = db_query($query);
 			if($erg !== 0) echo("URL successfully pushed.");
 			break;
@@ -1410,10 +1411,10 @@ function makeHTMLTree($arr) {
 			$bookmark = "\n<li class='file'><a id='".$bm['bmID']."' title='".$title."' rel='noopener' target='_blank' href='".$bm['bmURL']."'>".$title."</a></li>%ID".$bm['bmParentID'];
 			$bookmarks = str_replace("%ID".$bm['bmParentID'], $bookmark, $bookmarks);
 		}
-		
+
 		if($bm['bmType'] == "folder") {
-			$fclass = strpos($bm['bmID'], '_____') === false ? "class='folder'" : "";
-			$nFolder = "\n<li $fclass id='f_".$bm['bmID']."'><label for=\"i_".$bm['bmID']."\">".$bm['bmTitle']."</label><input class='ffolder' value='".$bm['bmID']."' id=\"i_".$bm['bmID']."\" type=\"checkbox\"><ol>%ID".$bm['bmID']."\n</ol></li>";
+			$fclass = strpos($bm['bmID'], '_____') === false ? "class='folder dropzone'" : "class='dropzone'";
+			$nFolder = "\n<li $fclass id='f_".$bm['bmID']."'><label for=\"i_".$bm['bmID']."\" class='lbl'>".$bm['bmTitle']."</label><input class='ffolder' value='".$bm['bmID']."' id=\"i_".$bm['bmID']."\" type=\"checkbox\"><ol>%ID".$bm['bmID']."\n</ol></li>";
 			if(strpos($bookmarks, "%ID".$bm['bmParentID']) > 0) {
 				$nFolder = "\n".$nFolder."\n%ID".$bm['bmParentID'];
 				$bookmarks = str_replace("%ID".$bm['bmParentID'], $nFolder, $bookmarks);
