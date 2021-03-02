@@ -69,6 +69,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			bookmark.addEventListener('contextmenu',onContextMenu,false);
 			bookmark.addEventListener('dragstart', function(event){
 				event.target.style.opacity = '.3';
+				event.dataTransfer.effectAllowed = "move";
 			});
 			bookmark.addEventListener('dragend', function(event){
 				event.target.style.opacity = '';
@@ -79,34 +80,18 @@ document.addEventListener("DOMContentLoaded", function() {
 		document.querySelectorAll('.lbl').forEach(function(folder) {
 			folder.addEventListener('dragover', function(event){
 				event.preventDefault();
+				event.dataTransfer.dropEffect = "move"
 			});
-			folder.addEventListener('dragenter', function(event){		
-				event.target.parentElement.style = 'background-color: lightblue;';
+			folder.addEventListener('dragenter', function(){		
+				this.style = 'background-color: lightblue;';
 			});
-			folder.addEventListener('dragleave', function(event){		
-				event.target.parentElement.style = 'background-color: unset;';
+			folder.addEventListener('dragleave', function(){		
+				this.style = 'background-color: unset;';
 			});
 			folder.addEventListener('drop', function(event){
 				event.preventDefault();
-				let data = 'caction=bmmv&folder='+event.target.htmlFor.substring(2)+'&id='+draggable.target.id;
-				let xhr = new XMLHttpRequest();
-				xhr.onreadystatechange = function () {
-					if (this.readyState == 4) {
-						if(this.status == 200) {
-							if(this.responseText == 1) {
-								let obm = document.getElementById(draggable.target.id).parentElement;
-								obm.remove();
-								let nfolder = document.getElementById(event.target.htmlFor).parentElement;
-								nfolder.lastChild.appendChild(obm);
-								event.target.parentElement.style = 'background-color: unset;';
-							} else
-								alert("There was a problem moving that bookmark.");
-						}
-					}
-				};
-				xhr.open("POST", document.location.href, true);
-				xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-				xhr.send(data);
+				movBookmark(event.target.htmlFor.substring(2), draggable.target.id);
+				event.target.style = 'background-color: unset;';
 			});
 		});
 		document.addEventListener("drag", function(event) {
@@ -490,25 +475,32 @@ document.addEventListener("DOMContentLoaded", function() {
 		
 		document.getElementById('mvsave').addEventListener('click', function(e) {
 			e.preventDefault();
-			let xhr = new XMLHttpRequest();
-			let data = 'caction=bmmv&title=' + document.getElementById('mvtitle').value + '&folder=' + document.getElementById('mvfolder').value + '&id=' + document.getElementById('mvid').value;
-			xhr.onreadystatechange = function () {
-				if (this.readyState == 4) {
-					if(this.status == 200) {
-						if(this.responseText == 1)
-							location.reload();
-						else
-							alert("There was a problem moving that bookmark.");
-					}
-				}
-			};
-			xhr.open("POST", document.location.href, true);
-			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-			xhr.send(data);
-			return false;
+			movBookmark(document.getElementById('mvfolder').value, document.getElementById('mvid').value);
+			document.getElementById('bmamove').style.display = 'none';
 		});
 	}
 }, false);
+
+function movBookmark(folderID, bookmarkID) {
+	let data = 'caction=bmmv&folder='+folderID+'&id='+bookmarkID;
+	let xhr = new XMLHttpRequest();
+	xhr.onreadystatechange = function () {
+		if (this.readyState == 4) {
+			if(this.status == 200) {
+				if(this.responseText == 1) {
+					let obm = document.getElementById(bookmarkID).parentElement;
+					let nfolder = document.getElementById('f_'+folderID);
+					obm.remove();
+					nfolder.lastChild.appendChild(obm);
+				} else
+					alert("There was a problem moving that bookmark.");
+			}
+		}
+	};
+	xhr.open("POST", document.location.href, true);
+	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	xhr.send(data);
+}
 
 function delClient(element) {
 	let xhr = new XMLHttpRequest();
