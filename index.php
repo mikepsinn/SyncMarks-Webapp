@@ -11,7 +11,6 @@ session_start();
 include_once "config.inc.php.dist";
 include_once "config.inc.php";
 set_error_handler("e_log");
-file_put_contents("/tmp/test.txt", time());
 
 checkDB($database,$suser,$spwd);
 
@@ -512,6 +511,11 @@ if(isset($_POST['caction'])) {
 			echo htmlFooter();
 			exit;
 			break;
+		case "maddon":
+			$rResponse['bookmarks'] = showBookmarks($userData, 1);
+			$rResponse['folders'] = getUserFolders($userData['userID']);
+			die(json_encode($rResponse));
+			break;
 		default:
 			die(json_encode("Unknown Action"));
 	}
@@ -557,7 +561,7 @@ if(isset($_GET['link'])) {
 
 echo htmlHeader();
 echo htmlForms($userData);
-echo showBookmarks($userData);
+echo showBookmarks($userData, 2);
 echo htmlFooter();
 
 function fWay($parent, $user, $str) {
@@ -972,9 +976,9 @@ function bmTree($userData) {
 
 function getIndex($folder) {
 	e_log(8,"Get new bookmark ID");
-	$query = "SELECT MAX(`bmIndex`) FROM `bookmarks` WHERE `bmParentID` = '".$folder."'";
+	$query = "SELECT MAX(`bmIndex`) AS OIndex  FROM `bookmarks` WHERE `bmParentID` = '".$folder."'";
 	$IndexArr = db_query($query);
-	$maxIndex = $IndexArr[0][0] + 1;
+	$maxIndex = $IndexArr[0]['OIndex'] + 1;
 	return $maxIndex;
 }
 
@@ -1304,10 +1308,10 @@ function htmlForms($userData) {
 	return $htmlData;
 }
 
-function showBookmarks($userData) {
+function showBookmarks($userData, $mode) {
 	$bmTree = bmTree($userData);
 	$htmlData = "<div id='bookmarks'>$bmTree</div>";
-	$htmlData.= "<div id='hmarks' style='display: none'>$bmTree</div>";
+	if($mode === 2) $htmlData.= "<div id='hmarks' style='display: none'>$bmTree</div>";
 	return $htmlData;
 }
 
