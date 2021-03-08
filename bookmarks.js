@@ -282,6 +282,7 @@ document.addEventListener("DOMContentLoaded", function() {
 							loader.remove();
 						} else {
 							loader.remove();
+							console.info("No duplicates found");
 							show_noti({title:"Syncmarks - Info", url:"No duplicates found", key:""}, false);
 						}
 					} else {
@@ -473,7 +474,7 @@ document.addEventListener("DOMContentLoaded", function() {
 				if (this.readyState == 4) {
 					if(this.status == 200) {
 						if(this.responseText == 1)
-							location.reload(false);
+							location.reload();
 						else {
 							let message = "There was a problem changing that bookmark.";
 							console.error(message);
