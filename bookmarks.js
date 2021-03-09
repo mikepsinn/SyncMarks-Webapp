@@ -1,7 +1,7 @@
 /**
  * SyncMarks
  *
- * @version 1.3.6
+ * @version 1.3.7
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -64,11 +64,42 @@ document.addEventListener("DOMContentLoaded", function() {
 		document.addEventListener("mouseup", function(){
 			document.removeEventListener("mousemove", resize, false);
 		}, false);
-
-		document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
+		var draggable;
+		document.querySelectorAll('.file').forEach(function(bookmark){
+			bookmark.addEventListener('contextmenu',onContextMenu,false);
+			bookmark.addEventListener('dragstart', function(event){
+				event.target.style.opacity = '.3';
+				event.dataTransfer.effectAllowed = "move";
+			});
+			bookmark.addEventListener('dragend', function(event){
+				event.target.style.opacity = '';
+			});
+		});
 		document.querySelectorAll('.folder').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
+
+		document.querySelectorAll('.lbl').forEach(function(folder) {
+			folder.addEventListener('dragover', function(event){
+				event.preventDefault();
+				event.dataTransfer.dropEffect = "move"
+			});
+			folder.addEventListener('dragenter', function(){		
+				this.style = 'background-color: lightblue;';
+			});
+			folder.addEventListener('dragleave', function(){		
+				this.style = 'background-color: unset;';
+			});
+			folder.addEventListener('drop', function(event){
+				event.preventDefault();
+				movBookmark(event.target.htmlFor.substring(2), draggable.target.id);
+				event.target.style = 'background-color: unset;';
+			});
+		});
+		document.addEventListener("drag", function(event) {
+			draggable = event;
+		});
+
 		document.querySelectorAll('.tablinks').forEach(tab => tab.addEventListener('click',openMessages, false));
-		document.querySelectorAll('.NotiTableCell .fa-trash-o').forEach(message => message.addEventListener('click',delMessage, false));
+		document.querySelectorAll('.NotiTableCell .fa-trash').forEach(message => message.addEventListener('click',delMessage, false));
 		document.querySelector('#cnoti').addEventListener('change',eNoti,false);
 
 		if(sessionStorage.getItem('gNoti') != 1) getNotifications();
@@ -94,11 +125,13 @@ document.addEventListener("DOMContentLoaded", function() {
 				if (this.readyState == 4) {
 					if(this.status == 200) {
 						document.getElementById('bookmarks').innerHTML = this.responseText;
-						console.log("Bookmark added successfully.");
+						console.info("Bookmark added successfully.");
 						document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
 						document.querySelectorAll('.folder').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
 					} else {
-						alert("Error adding bookmark, please check server log.");
+						let message = "Error adding bookmark, please check server log.";
+						show_noti({title:"Syncmarks - Error", url:message, key:""}, false);
+						console.error(message);
 					}
 				}
 			};
@@ -246,12 +279,14 @@ document.addEventListener("DOMContentLoaded", function() {
 								dubDIV.appendChild(dubMenu);
 								dubDIV.style.display = 'block';
 							});
-							document.getElementById('db-spinner').remove();
+							loader.remove();
 						} else {
-							alert('No duplicates found');
+							loader.remove();
+							console.info("No duplicates found");
+							show_noti({title:"Syncmarks - Info", url:"No duplicates found", key:""}, false);
 						}
 					} else {
-						alert("Error checking for duplicates, please check server log.");
+						show_noti({title:"Syncmarks - Error", url:"Error checking for duplicates, please check server log.", key:""}, false);
 					}
 				}
 			};
@@ -284,9 +319,11 @@ document.addEventListener("DOMContentLoaded", function() {
 						link.href = window.URL.createObjectURL(blob);
 						link.download = "bookmarks_" + today + ".html";
 						link.click();
-						console.log("HTML successfully, please look in your download folder.");
+						console.info("HTML export successfully, please look in your download folder.");
 					} else {
-						alert("Error generating export, please check server log.");
+						let message = "Error generating export, please check server log.";
+						console.error(message);
+						show_noti({title:"Syncmarks - Error", url:message, key:""}, false);
 					}
 				}
 			};
@@ -323,7 +360,9 @@ document.addEventListener("DOMContentLoaded", function() {
 							document.getElementById('lfiletext').innerHTML = this.responseText;
 							moveEnd();
 						} else {
-							alert("Error loading logfile, please check server log.");
+							let message = "Error loading logfile, please check server log.";
+							show_noti({title:"Syncmarks - Error", url:message, key:""}, false);
+							console.error(message);
 						}
 					}
 				};
@@ -343,9 +382,11 @@ document.addEventListener("DOMContentLoaded", function() {
 				xhr.onreadystatechange = function () {
 					if (this.readyState == 4) {
 						if(this.status == 200) {
-							console.log("Logfile should now be empty.");
+							console.info("Logfile should now be empty.");
 						} else {
-							console.log("Error couldnt clear logfile.");
+							let message = "Error couldnt clear logfile.";
+							console.error(message);
+							show_noti({title:"Syncmarks - Error", url:message, key:""}, false);
 						}
 					}
 				};
@@ -409,8 +450,11 @@ document.addEventListener("DOMContentLoaded", function() {
 					if(this.status == 200) {
 						if(this.responseText == 1)
 							location.reload(false);
-						else
-							console.log("There was a problem adding the new folder."); 
+						else {
+							let message = "There was a problem adding the new folder.";
+							console.error(message);
+							show_noti({title:"Syncmarks - Error", url:message, key:""}, false);
+						}
 					}
 				}
 			};
@@ -430,9 +474,12 @@ document.addEventListener("DOMContentLoaded", function() {
 				if (this.readyState == 4) {
 					if(this.status == 200) {
 						if(this.responseText == 1)
-							location.reload(false);
-						else
-							console.log("There was a problem changing that bookmark.");
+							location.reload();
+						else {
+							let message = "There was a problem changing that bookmark.";
+							console.error(message);
+							show_noti({title:"Syncmarks - Error", url:message, key:""}, false);
+						}
 					}
 				}
 			};
@@ -444,25 +491,36 @@ document.addEventListener("DOMContentLoaded", function() {
 		
 		document.getElementById('mvsave').addEventListener('click', function(e) {
 			e.preventDefault();
-			let xhr = new XMLHttpRequest();
-			let data = 'caction=bmmv&title=' + document.getElementById('mvtitle').value + '&folder=' + document.getElementById('mvfolder').value + '&id=' + document.getElementById('mvid').value;
-			xhr.onreadystatechange = function () {
-				if (this.readyState == 4) {
-					if(this.status == 200) {
-						if(this.responseText == 1)
-							location.reload(false);
-						else
-							console.log("There was a problem moving that bookmark.");
-					}
-				}
-			};
-			xhr.open("POST", document.location.href, true);
-			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-			xhr.send(data);
-			return false;
+			movBookmark(document.getElementById('mvfolder').value, document.getElementById('mvid').value);
+			document.getElementById('bmamove').style.display = 'none';
 		});
 	}
 }, false);
+
+function movBookmark(folderID, bookmarkID) {
+	let data = 'caction=bmmv&folder='+folderID+'&id='+bookmarkID;
+	let xhr = new XMLHttpRequest();
+	xhr.onreadystatechange = function () {
+		if (this.readyState == 4) {
+			if(this.status == 200) {
+				if(this.responseText == 1) {
+					let obm = document.getElementById(bookmarkID).parentElement;
+					let nfolder = document.getElementById('f_'+folderID);
+					obm.remove();
+					nfolder.lastChild.appendChild(obm);
+				} else {
+					let message = "Error moving bookmark";
+					show_noti({title:"Syncmarks - Error", url:message, key:""}, false);
+					console.error(message);
+				}
+					
+			}
+		}
+	};
+	xhr.open("POST", document.location.href, true);
+	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	xhr.send(data);
+}
 
 function delClient(element) {
 	let xhr = new XMLHttpRequest();
@@ -540,8 +598,11 @@ function delBookmark(id, title) {
 					hideMenu();
 					document.getElementById(id).parentNode.remove();
 				}
-				else
-					console.log("There was a problem removing that bookmark.");
+				else {
+					let message = "There was a problem removing that bookmark.";
+					show_noti({title:"Syncmarks - Error", url:message, key:""}, false);
+					console.error(message);
+				}
 			}
 		};
 		xhr.open("POST", document.location.href, true);
@@ -677,7 +738,7 @@ function delMessage(message) {
 		if (this.readyState == 4) {
 			if(this.status == 200) {
 				document.querySelector('#'+loop+' .NotiTable .NotiTableBody').innerHTML = this.responseText;
-				document.querySelectorAll('.NotiTableCell .fa-trash-o').forEach(function(element) {element.addEventListener('click', delMessage, false)});
+				document.querySelectorAll('.NotiTableCell .fa-trash').forEach(function(element) {element.addEventListener('click', delMessage, false)});
 			}
 		}
 	};
@@ -723,9 +784,11 @@ function setOption(option,val) {
 		if (this.readyState == 4) {
 			if(this.status == 200) {
 				if(this.responseText === "1") {
-					console.log("Option saved.");
+					console.info("Option saved.");
 				} else {
-					alert("Error saving option, please check server log");
+					let message = "There was a problem, saving the option";
+					show_noti({title:"Syncmarks - Error", url:message, key:""}, false);
+					console.error(message);
 				}
 			}
 		}
@@ -742,9 +805,11 @@ function rNot(noti) {
 		if (this.readyState == 4) {
 			if(this.status == 200) {
 				if(this.responseText === "1") {
-					console.log("Notification removed");
+					console.info("Notification removed");
 				} else {
-					alert("Problem removing notification, please check server log.");
+					let message = "Problem removing notification, please check server log.";
+					console.error(message);
+					show_noti({title:"Syncmarks - Error", url:message, key:""}, false);
 				}
 			}
 		}
@@ -754,19 +819,21 @@ function rNot(noti) {
 	xhr.send(data);
 }
 
-function show_noti(noti) {
+function show_noti(noti, rei = true) {
 	if (Notification.permission !== 'granted')
 		Notification.requestPermission();
 	else {
 		let notification = new Notification(noti.title, {
 			body: noti.url,
 			icon: './images/bookmarks192.png',
-			requireInteraction: true
+			requireInteraction: rei
 		});
 		
 		notification.onclick = function() {
-			window.open(noti.url);
-			rNot(noti.nkey);
+			if(noti.url.indexOf('http') >= 0) {
+				window.open(noti.url);
+				rNot(noti.nkey);
+			}
 		};
 	}
 }

@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.3.6
+ * @version 1.3.7
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -154,7 +154,7 @@ if(isset($_POST['caction'])) {
 			$title = getSiteTitle($url);
 			e_log(8,"Received new pushed URL: ".$url);
 			$uidd = $userData['userID'];
-			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`client`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, $target, 1, $ctime, $uidd)";
+			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`client`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, '$target', 1, $ctime, $uidd)";
 			$erg = db_query($query);
 			if($erg !== 0) echo("URL successfully pushed.");
 			break;
@@ -262,7 +262,7 @@ if(isset($_POST['caction'])) {
 			$folder = filter_var($_POST['folder'], FILTER_SANITIZE_STRING);
 			$query = "SELECT MAX(bmIndex)+1 AS 'index' FROM `bookmarks` WHERE `bmParentID` = '$folder';";
 			$folderData = db_query($query);
-			$query = "UPDATE `bookmarks` SET `bmIndex` = ".$folderData[0]['index'].", `bmParentID` = '$folder', `bmAdded` = '".round(microtime(true) * 1000)."' WHERE `bmID` = '$id' AND `userID` = ".$userData['userID'].";";
+			$query = "UPDATE `bookmarks` SET `bmIndex` = ".$folderData[0]['index'].", `bmParentID` = '$folder', `bmAction` = 2, `bmAdded` = '".round(microtime(true) * 1000)."' WHERE `bmID` = '$id' AND `userID` = ".$userData['userID'].";";
 			$count = db_query($query);
 			($count > 0) ? die(true) : die(false);
 			break;
@@ -511,6 +511,11 @@ if(isset($_POST['caction'])) {
 			echo htmlFooter();
 			exit;
 			break;
+		case "maddon":
+			$rResponse['bookmarks'] = showBookmarks($userData, 1);
+			$rResponse['folders'] = getUserFolders($userData['userID']);
+			die(json_encode($rResponse));
+			break;
 		default:
 			die(json_encode("Unknown Action"));
 	}
@@ -556,7 +561,7 @@ if(isset($_GET['link'])) {
 
 echo htmlHeader();
 echo htmlForms($userData);
-echo showBookmarks($userData);
+echo showBookmarks($userData, 2);
 echo htmlFooter();
 
 function fWay($parent, $user, $str) {
@@ -971,9 +976,9 @@ function bmTree($userData) {
 
 function getIndex($folder) {
 	e_log(8,"Get new bookmark ID");
-	$query = "SELECT MAX(`bmIndex`) FROM `bookmarks` WHERE `bmParentID` = '".$folder."'";
+	$query = "SELECT MAX(`bmIndex`) AS OIndex  FROM `bookmarks` WHERE `bmParentID` = '".$folder."'";
 	$IndexArr = db_query($query);
-	$maxIndex = $IndexArr[0][0] + 1;
+	$maxIndex = $IndexArr[0]['OIndex'] + 1;
 	return $maxIndex;
 }
 
@@ -1303,10 +1308,10 @@ function htmlForms($userData) {
 	return $htmlData;
 }
 
-function showBookmarks($userData) {
+function showBookmarks($userData, $mode) {
 	$bmTree = bmTree($userData);
 	$htmlData = "<div id='bookmarks'>$bmTree</div>";
-	$htmlData.= "<div id='hmarks' style='display: none'>$bmTree</div>";
+	if($mode === 2) $htmlData.= "<div id='hmarks' style='display: none'>$bmTree</div>";
 	return $htmlData;
 }
 
@@ -1410,10 +1415,10 @@ function makeHTMLTree($arr) {
 			$bookmark = "\n<li class='file'><a id='".$bm['bmID']."' title='".$title."' rel='noopener' target='_blank' href='".$bm['bmURL']."'>".$title."</a></li>%ID".$bm['bmParentID'];
 			$bookmarks = str_replace("%ID".$bm['bmParentID'], $bookmark, $bookmarks);
 		}
-		
+
 		if($bm['bmType'] == "folder") {
 			$fclass = strpos($bm['bmID'], '_____') === false ? "class='folder'" : "";
-			$nFolder = "\n<li $fclass id='f_".$bm['bmID']."'><label for=\"i_".$bm['bmID']."\">".$bm['bmTitle']."</label><input class='ffolder' value='".$bm['bmID']."' id=\"i_".$bm['bmID']."\" type=\"checkbox\"><ol>%ID".$bm['bmID']."\n</ol></li>";
+			$nFolder = "\n<li $fclass id='f_".$bm['bmID']."'><label for=\"i_".$bm['bmID']."\" class='lbl'>".$bm['bmTitle']."</label><input class='ffolder' value='".$bm['bmID']."' id=\"i_".$bm['bmID']."\" type=\"checkbox\"><ol>%ID".$bm['bmID']."\n</ol></li>";
 			if(strpos($bookmarks, "%ID".$bm['bmParentID']) > 0) {
 				$nFolder = "\n".$nFolder."\n%ID".$bm['bmParentID'];
 				$bookmarks = str_replace("%ID".$bm['bmParentID'], $nFolder, $bookmarks);
