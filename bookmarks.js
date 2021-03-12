@@ -1,7 +1,7 @@
 /**
  * SyncMarks
  *
- * @version 1.3.7
+ * @version 1.3.8
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -110,7 +110,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			}
 		});
 
-		document.querySelector("#mngcform input[type='text']").addEventListener('focus', function() {
+		if(document.querySelector("#mngcform input[type='text']")) document.querySelector("#mngcform input[type='text']").addEventListener('focus', function() {
 			this.select();
 		});
 
