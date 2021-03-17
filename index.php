@@ -1268,7 +1268,7 @@ function htmlHeader() {
 }
 
 function htmlForms($userData) {
-	$version = explode ("\n", file_get_contents('./changelog.md',NULL,NULL,0,30))[2];
+	$version = explode ("\n", file_get_contents('./CHANGELOG.md',NULL,NULL,0,30))[2];
 	$version = substr($version,0,strpos($version, " "));
 	$clink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
 	$bookmarklet = "javascript:void function(){window.open('$clink?title='+document.title+'&link='+encodeURIComponent(document.location.href),'bWindow','width=480,height=245',replace=!0)}();";
