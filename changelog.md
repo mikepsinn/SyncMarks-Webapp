@@ -1,5 +1,14 @@
 ChangeLog
 =========
+1.4.0 (2020-03-17)
+-------------------------
+- Fixed #61
+- Removed manual enter password
+- Added password reset function
+- Added e-mail field for user
+- Changed login behavior
+- Updated DB
+
 1.3.7 (2020-03-05)
 -------------------------
 - Added drag&drop for bookmarks move

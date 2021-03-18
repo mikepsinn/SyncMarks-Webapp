@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.3.7
+ * @version 1.4.0
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -13,6 +13,112 @@ include_once "config.inc.php";
 set_error_handler("e_log");
 
 checkDB($database,$suser,$spwd);
+
+if(isset($_GET['reset'])){
+	$reset = filter_var($_GET['reset'], FILTER_SANITIZE_STRING);
+	
+	$headers = "From: SyncMarks <$sender>";
+	switch($reset) {
+		case "request":
+			$user = filter_var($_GET['u'], FILTER_SANITIZE_STRING);
+			e_log(8,"Passwort Reset request for '$user'");
+			$user = filter_var($_GET['u'], FILTER_SANITIZE_STRING);
+			$query = "SELECT `userID`, `userMail` FROM `users` WHERE `userName` = '$user';";
+			$result = db_query($query)[0];
+			$uid = $result['userID'];
+			$mail = $result['userMail'];
+
+			$token = openssl_random_pseudo_bytes(16);
+			$token = bin2hex($token);
+			$time = time();
+
+			$query = "DELETE FROM `reset` WHERE `userID` = $uid;";
+			db_query($query);
+
+			$query = "INSERT INTO `reset`(`userID`,`tokenTime`,`token`) VALUES ($uid,'$time','$token');";
+			if(db_query($query)) {
+				$message = "Hello $user,\r\nYou requested a new password for your account. If this is correct, please open the following link, to confirm creating a new password:\n".$_SERVER['REQUEST_SCHEME']."://".$_SERVER['HTTP_HOST'].$_SERVER['SCRIPT_NAME']."?reset=confirm&t=$token\r\nIf this request is not from your side, you should click the following link to chancel the request:\n".$_SERVER['REQUEST_SCHEME']."://".$_SERVER['HTTP_HOST'].$_SERVER['SCRIPT_NAME']."?reset=chancel&t=$token";
+				if(!mail($mail, "Passwort request confirmation",$message,$headers)) {
+					e_log(1,"Error sending password reset request to user");
+				}
+			}
+			
+			die(json_encode("1"));
+			break;
+		case "chancel":
+			$token = filter_var($_GET['t'], FILTER_SANITIZE_STRING);
+			$query = "SELECT `r`.`userID`, `u`.`userName`, `u`.`userMail`, `r`.`tokenTime`, `r`.`token` FROM `reset` `r` INNER JOIN `users` `u` ON `u`.`userID` = `r`.`userID` WHERE `token` = '$token';";
+			$result = db_query($query)[0];
+			e_log(8,"Passwort Reset chancel for token '$token', '".$result['userName']."'");
+			$query = "DELETE FROM `reset` WHERE `token` = '$token';";
+			if(db_query($query)) {
+				e_log(8,"Request removed successful");
+				$message = "Hello ".$result['userName'].",\r\nYour password request is chanceled, You can login with your old credentials at ".$_SERVER['REQUEST_SCHEME']."://".$_SERVER['HTTP_HOST'].$_SERVER['SCRIPT_NAME'].". If you want to make sure, that your account is healthy, you should change your password to a new one after logging in.";
+				if(!mail($result['userMail'], "Password request chanceled",$message,$headers)) {
+					e_log(1,"Error sending remove chancel to ".$result['userName']);
+				}
+			}
+			echo htmlHeader();
+			echo "<div id='loginbody'>
+				<div id='loginform'>
+					<div id='loginformh'>Welcome to SyncMarks</div>
+					<div id='loginformt'>Password reset chanceled. You can login now <a href='".$_SERVER['REQUEST_SCHEME']."://".$_SERVER['HTTP_HOST'].$_SERVER['SCRIPT_NAME']."'>login</a> with your new password.</div>
+				</div>
+			</div>";
+			echo htmlFooter();
+			die();
+			break;
+		case "confirm":
+			$token = filter_var($_GET['t'], FILTER_SANITIZE_STRING);
+			$query = "SELECT `r`.`userID`, `u`.`userName`, `u`.`userMail`, `r`.`tokenTime`, `r`.`token` FROM `reset` `r` INNER JOIN `users` `u` ON `u`.`userID` = `r`.`userID` WHERE `token` = '$token';";
+			$result = db_query($query)[0];
+			e_log(8,"Passwort Reset confirmation for token '$token', '".$result['userName']."'");
+			$tdiff = time() - $result['tokenTime'];
+			if($tdiff <= 300) {
+				$npwd = gpwd(16);
+				$pwd = password_hash($npwd,PASSWORD_DEFAULT);
+				$query = "UPDATE `users` SET `userHash` = '$pwd' WHERE `userID` = ".$result['userID'].";";
+				if(db_query($query)) {
+					$query = "DELETE FROM `reset` WHERE `token` = '$token';";
+					if(db_query($query)) {
+						e_log(8,"New password set successful");
+						$message = "Hello ".$result['userName'].",\r\nYour new password is set successful, please use:\n$npwd\n\nYou can login at:\n".$_SERVER['REQUEST_SCHEME']."://".$_SERVER['HTTP_HOST'].$_SERVER['SCRIPT_NAME'];
+						if(!mail($result['userMail'], "New password",$message,$headers)) {
+							e_log(1,"Error sending new password to ".$result['userName']);
+						}
+					}
+				} else {
+					e_log(1,"Password reset failed");
+					die(json_encode("Password reset failed"));
+				}
+				echo htmlHeader();
+				echo "<div id='loginbody'>
+					<div id='loginform'>
+						<div id='loginformh'>Welcome to SyncMarks</div>
+						<div id='loginformt'>Password reset successful, please check your mail. You can login now <a href='".$_SERVER['REQUEST_SCHEME']."://".$_SERVER['HTTP_HOST'].$_SERVER['SCRIPT_NAME']."'>login</a> with your new password.</div>
+					</div>
+				</div>";
+				echo htmlFooter();
+			} else {
+				echo htmlHeader();
+				echo "<div id='loginbody'>
+					<div id='loginform'>
+						<div id='loginformh'>Welcome to SyncMarks</div>
+						<div id='loginformt'>Token expired, Password reset failed. You can try to <a data-reset='".$result['userName']."' id='preset' href='#'>reset</a> it again.</div>
+					</div>
+				</div>";
+				echo htmlFooter();
+				e_log(1,"Token expired, Password reset failed");
+				$query = "DELETE FROM `reset` WHERE `token` = '$token';";
+				db_query($query);
+				die();
+			}
+			break;
+		default:
+			die(e_log(1,"Undefined Request"));
+	}
+	die();
+}
 
 if(!isset($_SESSION['sauth']) || isset($_SESSION['fauth'])) checkLogin($realm);
 
@@ -281,42 +387,86 @@ if(isset($_POST['caction'])) {
 			$count = db_query($query);
 			($count > 0) ? die(bClientlist($userData['userID'])) : die(false);
 			break;
+		case "cmail":
+			e_log(8,"Change e-mail for ".$userData['userName']);
+			$nmail = filter_var($_POST['mail'],FILTER_SANITIZE_EMAIL);
+			if(filter_var($nmail, FILTER_VALIDATE_EMAIL)) {
+				$query = "UPDATE `users` SET `userMail` = '$nmail' WHERE `userID` = ".$userData['userID'].";";
+				die(json_encode(db_query($query)));
+			} else {
+				e_log(1,"No valid E-Mail. Stop changing E-Mail");
+				die(json_encode("No valid mail address. Mail not changed."));
+			}
+			die();
+			break;
 		case "muedt":
 			$del = false;
-			$headers = "From: PHPMarks <$sender>";
-			$url = $_SERVER['REQUEST_SCHEME']."://".$_SERVER['SERVER_NAME'].$_SERVER['PHP_SELF'];
-			$variant = filter_var($_POST['muedt'], FILTER_SANITIZE_STRING);
-			$password = filter_var($_POST['npwd'], FILTER_SANITIZE_STRING);
-			$userLevel = filter_var($_POST['userLevel'], FILTER_VALIDATE_INT) + 1;
+			$headers = "From: SyncMarks <$sender>";
+			$url = $_SERVER['REQUEST_SCHEME']."://".$_SERVER['HTTP_HOST'].$_SERVER['SCRIPT_NAME'];
+			$variant = filter_var($_POST['type'], FILTER_VALIDATE_INT);
+			$password = gpwd(16);
+			$userLevel = filter_var($_POST['userLevel'], FILTER_VALIDATE_INT);
 			$user = filter_var($_POST['nuser'], FILTER_SANITIZE_STRING);
 			$uID = filter_var($_POST['userSelect'], FILTER_VALIDATE_INT);
 
 			switch($variant) {
-				case "Add User":
+				case 1:
 					$pwd = password_hash($password,PASSWORD_DEFAULT);
 					e_log(8,"Adding new user $user");
-					$query = "INSERT INTO `users` (`userName`,`userType`,`userHash`) VALUES ('$user', '$userLevel', '".$pwd."')";
-					if(db_query($query) == 1) {
-						$message = "Hello,\r\n\r\na account with the following credentials is created and stored encrypted on the database:\r\nE-Mail: $user\r\nPassword: $password\r\n\r\nYou can login at $url";
-						if(!mail ($user, "Account created",$message,$headers)) e_log(1,"Error sending data for created user account to user");
+					$query = "INSERT INTO `users` (`userName`,`userMail`,`userType`,`userHash`) VALUES ('$user', '$user', '$userLevel', '$pwd')";
+					$nuid = db_query($query);
+					if($nuid > 0) {
+						if(filter_var($user, FILTER_VALIDATE_EMAIL)) {
+							$response = "User created successful, Try to send E-Mail to user";
+							$message = "Hello,\r\na new account with the following credentials is created and stored encrypted on for SyncMarks:\r\nUsername: $user\r\nPassword: $password\r\n\r\nYou can login at $url";
+							if(!mail ($user, "Account created",$message,$headers)) {
+								e_log(1,"Error sending data for created user account to user");
+								$response = "User created successful, E-Mail could not send";
+							}
+						} else {
+							$response = "User created successful, No mail send to user";
+						}
+						$bmAdded = round(microtime(true) * 1000);
+						$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('unfiled_____', 'root________', 0, 'Other Bookmarks', 'folder', NULL, ".$bmAdded.", $nuid)";
+						db_query($query);
+						$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', 'unfiled_____', 0, 'GitHub Repository', 'bookmark', 'https://github.com/Offerel', ".$bmAdded.", $nuid)";
+						db_query($query);
+					} else {
+						$response = "User creation failed";
 					}
+					die(json_encode($response));
 					break;
-				case "Edit User":
-					$pwd = password_hash($password,PASSWORD_DEFAULT);
+				case 2:
 					e_log(8,"Updating user $user");
-					$query = "UPDATE `users` SET `userName`= '$user', `userType`= '$userLevel', `userHash`= '".$pwd."' WHERE `userID` = $uID;";
+					$query = "UPDATE `users` SET `userName`= '$user', `userType`= '$userLevel' WHERE `userID` = $uID;";
 					if(db_query($query) == 1) {
-						$message = "Hello,\r\n\r\nyour account is changed and stored encrypted on the database. Your new credentials are:\r\nE-Mail: $user\r\nPassword: $password\r\n\r\nYou can login at $url";
-						if(!mail ($user, "Account changed",$message,$headers)) e_log(1,"Error sending email for changed user account");
+						if(filter_var($user, FILTER_VALIDATE_EMAIL)) {
+							$response = "User changed successful, Try to send E-Mail to user";
+							$message = "Hello,\r\nyour account is changed for SyncMarks. You can login at $url";
+							if(!mail ($user, "Account changed",$message,$headers)) e_log(1,"Error sending email for changed user account");
+						} else {
+							$response = "User changed successful, No mail send to user";
+						}
+					} else {
+						$response = "User change failed";
 					}
+					die(json_encode($response));
 					break;
-				case "Delete User":
+				case 3:
 					e_log(8,"Delete user $user");
 					$query = "DELETE FROM `users` WHERE `userID` = $uID;";
 					if(db_query($query) == 1) {
-						$message = "Hello,\r\n\r\nyour account '$user' and all it's data is removed from $url.";
-						if(!mail ($_POST['nuser'], "Account removed",$message,$headers)) e_log(1,"Error sending data for created user account to user");
+						if(filter_var($user, FILTER_VALIDATE_EMAIL)) {
+							$response = "User deleted, Try to send E-Mail to user";
+							$message = "Hello,\r\nyour account '$user' and all it's data is removed from $url.";
+							if(!mail ($user, "Account removed",$message,$headers)) e_log(1,"Error sending data for created user account to user");
+						} else {
+							$response = "User deleted successful, No mail send to user";
+						}
+					} else {
+						$response = "Delete user failed";
 					}
+					die(json_encode($response));
 					break;
 				default:
 					$message = "Unknown action for managing users";
@@ -395,28 +545,33 @@ if(isset($_POST['caction'])) {
 					if($npassword === $cpassword) {
 						e_log(8,"Userchange: New and confirmed password");
 						if($npassword != $opassword) {
-							e_log(2,"Userchange: Old and new password NOT identical");
 							$password = password_hash($npassword,PASSWORD_DEFAULT);
 							$query = "UPDATE `users` SET `userHash`='$password' WHERE `userID`=".$userData['userID'].";";
 							db_query($query);
 							e_log(8,"Userchange: Password changed");
-							unset($_SESSION['fauth']);
-						}
-						else {
+						} else {
 							e_log(2,"Userchange: Old and new password identical, user not changed");
 						}
 					}
-					else {
-						e_log(2,"Userchange: Old and new password are different");
-					}
-				}
-				else {
+				} else {
 					e_log(2,"Userchange: Old password missmatch");
 				}
-			}
-			else {
+			} else {
 				e_log(2,"Userchange: Data missing, process failed");
 			}
+
+			unset($_SESSION['sauth']);
+			$_SESSION['fauth'] = true;
+			e_log(8,"User logged out");
+			echo htmlHeader();
+			echo "<div id='loginbody'>
+				<div id='loginform'>
+					<div id='loginformh'>Logout successful</div>
+					<div id='loginformt'>User logged out. <a href='".$_SERVER['SCRIPT_NAME']."'>Login</a> again</div>
+				</div>
+			</div>";
+			echo htmlFooter();
+
 			die();
 			break;
 		case "pbupdate":
@@ -446,6 +601,7 @@ if(isset($_POST['caction'])) {
 				e_log(1,"Password missmatch. Pushbullet not updated.");
 				die("Password missmatch. Pushbullet not updated.");
 			}
+			die();
 			break;
 		case "uupdate":
 			e_log(8,"Userchange: Updating user name started");
@@ -459,7 +615,6 @@ if(isset($_POST['caction'])) {
 					$query = "UPDATE `users` SET `userName`='$username' WHERE `userID`=".$userData['userID'].";";
 					db_query($query);
 					e_log(8,"Userchange: Username changed");
-					unset($_SESSION['fauth']);
 				}
 				else {
 					e_log(2,"Userchange: Failed to verify original password");
@@ -468,6 +623,17 @@ if(isset($_POST['caction'])) {
 			else {
 				e_log(2,"Userchange: Data missing");
 			}
+			unset($_SESSION['sauth']);
+			$_SESSION['fauth'] = true;
+			e_log(8,"User logged out");
+			echo htmlHeader();
+			echo "<div id='loginbody'>
+				<div id='loginform'>
+					<div id='loginformh'>Logout successful</div>
+					<div id='loginformt'>User logged out. <a href='".$_SERVER['PHP_SELF']."'>Login</a> again</div>
+				</div>
+			</div>";
+			echo htmlFooter();
 			die();
 			break;
 		case "fexport":
@@ -516,6 +682,15 @@ if(isset($_POST['caction'])) {
 			$rResponse['folders'] = getUserFolders($userData['userID']);
 			die(json_encode($rResponse));
 			break;
+		case "getUsers":
+			if($userData['userType'] == 2) {
+				$query = "SELECT `userID`, `userName`, `userType` FROM `users` ORDER BY `userName`;";
+				$uData = db_query($query);
+				die(json_encode($uData));
+			} else {
+				die(json_encode('Editing users not allowed'));
+			}
+			break;
 		default:
 			die(json_encode("Unknown Action"));
 	}
@@ -563,6 +738,14 @@ echo htmlHeader();
 echo htmlForms($userData);
 echo showBookmarks($userData, 2);
 echo htmlFooter();
+
+function gpwd($length = 12){
+	$allowedC =  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-=~!#$^&*()_+,./<>:[]{}|';
+	$pwd = '';
+	$max = strlen($allowedC) - 1;
+	for ($i=0; $i < $length; $i++) $pwd .= $allowedC[random_int(0, $max)];
+	return $pwd;
+}
 
 function fWay($parent, $user, $str) {
 	e_log(8,"Get folder structure for bookmark");
@@ -619,7 +802,7 @@ function cfolder($ctime,$fname,$fbid,$ud) {
 		if(count($idata) == 1) {
 			e_log(8,"Add new folder to database");
 			$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', '$parentid', ".$idata[0]['nIndex'].", '$fname', 'folder', $ctime, ".$ud["userID"].")";
-			if(db_query($query) != 1)
+			if(db_query($query) < 1)
 				$res = "Adding folder failed.";
 			else {
 				$res = 1;
@@ -880,7 +1063,7 @@ function addBookmark($ud, $bm) {
 	$title = htmlspecialchars($bm['title'],ENT_QUOTES,'UTF-8');
 	e_log(8,"Add bookmark '".$title."'");
 	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '$folderID', $nindex, '".$title."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].");";
-	if(db_query($query) != 1 ) {
+	if(db_query($query) < 1 ) {
 		$message = "Adding bookmark failed";
 		e_log(1,$message);
 		return $message;
@@ -1085,11 +1268,12 @@ function htmlHeader() {
 }
 
 function htmlForms($userData) {
-	$version = explode ("\n", file_get_contents('./changelog.md',NULL,NULL,0,30))[2];
+	$version = explode ("\n", file_get_contents('./CHANGELOG.md',NULL,NULL,0,30))[2];
 	$version = substr($version,0,strpos($version, " "));
 	$clink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
 	$bookmarklet = "javascript:void function(){window.open('$clink?title='+document.title+'&link='+encodeURIComponent(document.location.href),'bWindow','width=480,height=245',replace=!0)}();";
 	$userName = $userData['userName'];
+	$userMail = $userData['userMail'];
 	$userID = $userData['userID'];
 	$userOldLogin = date("d.m.y H:i",$userData['userOldLogin']);
 	$admenu = ($userData['userType'] == 2) ? "<hr><li class='menuitem' id='mlog'>Logfile</li><li class='menuitem' id='mngusers'>Users</li>":"";
@@ -1111,6 +1295,8 @@ function htmlForms($userData) {
 			<tr><td><span class='rdesc'>Username:</span>$userName</td><td class='bright'><button id='muser'>Edit</button></td></tr>
 			<tr><td colspan='2' style='height: 5px;'></td></tr>
 			<tr><td><span class='rdesc'>Password:</span>**********</td><td class='bright'><button id='mpassword'>Edit</button></td></tr>
+			<tr><td colspan='2' style='height: 5px;'></td></tr>
+			<tr><td><span class='rdesc'>E-Mail:</span><span id='userMail'>$userMail</span></td><td class='bright'><button id='mmail'>Edit</button></td></tr>
 			<tr><td colspan='2' style='height: 5px;'></td></tr>
 			<tr><td colspan=2 class='bcenter'><button id='clientedt'>Show Clients</button></td></tr>
 			<tr><td colspan='2' style='height: 2px;'></td></tr>
@@ -1195,44 +1381,6 @@ function htmlForms($userData) {
 		</ul>
 	</div>";
 
-	if($userData['userType'] == 2) {
-		$userSelect = "<select id='userSelect' name='userSelect'>";
-		$userSelect.= "<option value='' hidden>-- Select User --</option>";
-		$userList = db_query("SELECT `userID`, `userName` FROM `users`;");
-		foreach ($userList as $key => $user) {
-			$userSelect.= "<option value='".$user['userID']."'>".$user['userName']."</option>";
-		}
-		$userSelect.= "</select>";
-
-		$mnguserform = "
-		<div id='mnguform' class='mbmdialog'>
-			<h6>Manage Users</h6>
-			<form enctype='multipart/form-data' action='".$_SERVER['PHP_SELF']."' method='POST'>
-				<div class='select'>
-					$userSelect
-					<div class='select__arrow'></div>
-				</div>
-				<input placeholder='Username' type='text' required id='nuser' name='nuser' autocomplete='username' value='' />
-				<input placeholder='Password' type='password' required id='npwd' name='npwd' autocomplete='password' value='' />
-				<input type='hidden' name='caction' value='muedt'>
-				<div class='select'>
-					<select id='userLevel' required name='userLevel'>
-						<option value='' hidden>-- Select Level --</option>
-						<option value='0'>Normal</option>
-						<option value='1'>Admin</option>
-					</select>
-					<div class='select__arrow'></div>
-				</div>
-				<div class='dbutton'>
-					<button type='submit' id='muadd' name='muedt' value='Add User' disabled>Save</button>
-					<button type='submit' id='mudel' name='muedt' value='Delete User' disabled formnovalidate>Delete</button>
-				</div>
-			</form>
-		</div>";
-	} else {
-		$mnguserform = "";
-	}
-
 	$bmMenu = "
 	<menu class='menu'><input type='hidden' id='bmid' title='bmtitle' value=''>
 		<ul>
@@ -1304,7 +1452,7 @@ function htmlForms($userData) {
 	</div>
 	<div id='footer'></div>";
 
-	$htmlData = $folderForm.$moveForm.$editForm.$bmMenu.$mnguserform.$logform.$mainmenu.$userform.$passwordform.$pbulletform.$mngsettingsform.$mngclientform.$nmessagesform.$footerButton;	
+	$htmlData = $folderForm.$moveForm.$editForm.$bmMenu.$logform.$mainmenu.$userform.$passwordform.$pbulletform.$mngsettingsform.$mngclientform.$nmessagesform.$footerButton;	
 	return $htmlData;
 }
 
@@ -1353,7 +1501,7 @@ function notiList($uid, $loop) {
 }
 
 function htmlFooter() {
-	$htmlFooter = "</body></html>";
+	$htmlFooter = "<script src='bookmarksf.js'></script></body></html>";
 	return $htmlFooter;
 }
 
@@ -1591,16 +1739,18 @@ function checkLogin($realm) {
 						session_destroy();
 						unset($_SESSION['sauth']);
 						$_SESSION['fauth'] = true;
-						header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-						http_response_code(401);
+						//header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+						//http_response_code(401);
 						e_log(8,"Login failed. Password missmatch");
 						echo htmlHeader();
-						echo "<div id='loginbody'>
+						$lform = "<div id='loginbody'>
 							<div id='loginform'>
 								<div id='loginformh'>Login failed</div>
-								<div id='loginformt'>You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.</div>
-							</div>
+								<div id='loginformt'>You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.";
+								if(filter_var($udata[0]['userMail'], FILTER_VALIDATE_EMAIL)) $lform.= "<br />Forgot your password? You can try to <a data-reset='$user' id='preset' href='#'>reset</a> it.";
+						$lform.= "</div></div>
 						</div>";
+						echo $lform;
 						echo htmlFooter();
 						exit;
 					}
@@ -1608,8 +1758,8 @@ function checkLogin($realm) {
 					unset($_SESSION['sauth']);
 					$_SESSION['fauth'] = true;
 					session_destroy();
-					header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-					http_response_code(401);
+					//header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+					//http_response_code(401);
 					e_log(8,"Login failed. Credential missmatch");
 					echo htmlHeader();
 					echo "<div id='loginbody'>
@@ -1693,6 +1843,7 @@ function db_query($query, $data=null) {
 		} else {
 			try {
 				$queryData = $db->exec($query);
+				if(strpos($query, 'INSERT') === 0) $queryData = $db->lastInsertId();
 			} catch(PDOException $e) {
 				e_log(1,"DB update failed: ".$e->getMessage());
 				return false;
@@ -1718,7 +1869,7 @@ function checkDB($database,$suser,$spwd) {
 		e_log(8,"Initialise new database");
 		db_query(file_get_contents("./sql/db_init.sql"));
 
-		$bmAdded = time();
+		$bmAdded = round(microtime(true) * 1000);
 		$userPWD = password_hash($spwd,PASSWORD_DEFAULT);
 		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('unfiled_____', 'root________', 0, 'Other Bookmarks', 'folder', NULL, ".$bmAdded.", 1)";
 		db_query($query);
@@ -1737,18 +1888,25 @@ function checkDB($database,$suser,$spwd) {
 			switch($version) {
 				case "0":
 					e_log(8,"Database update needed. Starting DB update...");
-					db_query(file_get_contents("./sql/db_update_2.sql"));
+					db_query(file_get_contents("./sql/db_update_3.sql"));
 					e_log(8,"Write new state to state file");
 					file_put_contents("state",$newdate,true);
 					break;
 				case "1":
 					e_log(8,"Database update needed. Starting DB update...");
-					db_query(file_get_contents("./sql/db_update_2.sql"));
+					db_query(file_get_contents("./sql/db_update_3.sql"));
 					e_log(8,"Write new state to state file");
 					file_put_contents("state",$newdate,true);
 					break;
 				case "2":
-					e_log(8,"Database is latest version. No update needed. Write new state to state file");
+					e_log(8,"Database update needed. Starting DB update...");
+					db_query(file_get_contents("./sql/db_update_3.sql"));
+					e_log(8,"Write new state to state file");
+					file_put_contents("state",$newdate,true);
+					break;
+				case "3":
+					e_log(8,"Database up to date...");
+					e_log(8,"Write new state to state file");
 					file_put_contents("state",$newdate,true);
 					break;
 				default:

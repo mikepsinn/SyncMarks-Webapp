@@ -1,11 +1,11 @@
 /**
  * SyncMarks
  *
- * @version 1.3.7
+ * @version 1.4.0
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
- */
+ */	
 document.addEventListener("DOMContentLoaded", function() {
 	if(document.getElementById("uf")) document.getElementById("uf").focus();
 	if(document.getElementById('loginbody')) {
@@ -110,7 +110,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			}
 		});
 
-		document.querySelector("#mngcform input[type='text']").addEventListener('focus', function() {
+		if(document.querySelector("#mngcform input[type='text']")) document.querySelector("#mngcform input[type='text']").addEventListener('focus', function() {
 			this.select();
 		});
 
@@ -140,15 +140,6 @@ document.addEventListener("DOMContentLoaded", function() {
 			xhr.send(data);
 		});
 
-		if(document.getElementById('userSelect')) document.getElementById('userSelect').addEventListener('change', function() {
-			if(this.value > 0) {
-				document.getElementById('nuser').value = document.querySelector('#userSelect option:checked').text;
-				checkuform();
-				document.getElementById('muadd').value = 'Edit User';
-				document.getElementById('mudel').disabled = false;
-			}
-		});
-
 		if(document.getElementById('npwd')) document.getElementById('npwd').addEventListener('input', function() {checkuform()});
 		if(document.getElementById('nuser')) document.getElementById('nuser').addEventListener('input', function() {checkuform()});
 		if(document.getElementById('userLevel')) document.getElementById('userLevel').addEventListener('input', function() {checkuform()});
@@ -166,14 +157,256 @@ document.addEventListener("DOMContentLoaded", function() {
 
 		if(document.getElementById('mngusers')) document.getElementById('mngusers').addEventListener('click', function() {
 			hideMenu();
-			document.getElementById('mnguform').style.display = 'block';
-			document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
+			let xhr = new XMLHttpRequest();
+			let data = "caction=getUsers";
+			xhr.onreadystatechange = function () {
+				if(this.readyState == 4) {
+					if(this.status == 200) {
+						let uData = JSON.parse(xhr.responseText);
+						if(uData.indexOf('not allowed') != -1) {
+							console.warn('SyncMarks - Warning: '+uData);
+							show_noti({title:"Syncmarks - Warning", url:uData, key:""}, false);
+						} else {
+							document.querySelector('#bookmarks').addEventListener('click', hideMenu, false);
+							let mnguform = document.createElement('div');
+							mnguform.id = 'mnguform';
+							mnguform.classList.add('mbmdialog');
+							mnguform.style.display = 'block';
+							let heading = document.createElement('h6');
+							heading.appendChild(document.createTextNode('Manage Users'));
+							mnguform.appendChild(heading);
+							let userSelect = document.createElement('select');
+							userSelect.id = 'userSelect';
+							let uOptionA = document.createElement('option');
+							uOptionA.text = '-- Add new user --';
+							uOptionA.value = 0;
+							userSelect.appendChild(uOptionA);
+
+							mngUform(uData, userSelect);
+
+							let nuser = document.createElement('input');
+							nuser.id = 'nuser';
+							nuser.placeholder = 'Username';
+							nuser.type = 'text';
+							nuser.required = true;
+							nuser.autocomplete = 'username';
+
+							let userLevel = document.createElement('select');
+							userLevel.id = 'userLevel';
+
+							let uLevel0 = document.createElement('option');
+							uLevel0.text = 'Normal';
+							uLevel0.value = 1;
+							userLevel.appendChild(uLevel0);
+							let uLevel1 = document.createElement('option');
+							uLevel1.text = 'Admin';
+							uLevel1.value = 2;
+							userLevel.appendChild(uLevel1);
+
+							let dbutton = document.createElement('div');
+							dbutton.classList.add('dbutton');
+							let muadd = document.createElement('button');
+							muadd.id = 'muadd';
+							muadd.type = 'submit';
+							muadd.disabled = true;
+							muadd.innerText = 'Save';
+							let mudel = document.createElement('button');
+							mudel.id = 'mudel';
+							mudel.type = 'submit';
+							mudel.disabled = true;
+							mudel.innerText = 'Delete';
+							dbutton.appendChild(muadd);
+							dbutton.appendChild(mudel);
+
+							userSelect.addEventListener('change', function(e) {
+								if(e.target.options[e.target.selectedIndex].value != 0) {
+									nuser.value = e.target.options[e.target.selectedIndex].text;
+									userLevel.value = e.target.options[e.target.selectedIndex].dataset.lvl;
+									mudel.disabled = false;
+								} else {
+									nuser.value = '';
+									userLevel.value = 1;
+									mudel.disabled = true;
+								}
+							});
+							
+							nuser.addEventListener('input', function () {
+								muadd.disabled = (this.originalValue != this.value || this.value != '') ? false:true;
+							});
+
+							userLevel.addEventListener('change', function() {
+								muadd.disabled = false;
+							});
+
+							mnguform.appendChild(userSelect);
+							mnguform.appendChild(nuser);
+							mnguform.appendChild(userLevel);
+							mnguform.appendChild(dbutton);
+							document.querySelector('body').appendChild(mnguform);
+
+							muadd.addEventListener('click', function(e) {
+								e.preventDefault();
+								let loader = document.createElement('div');
+								loader.classList.add('db-spinner');
+								loader.id = 'db-spinner';
+								document.querySelector('body').appendChild(loader);
+								let xhrAdd = new XMLHttpRequest();
+								let type = (userSelect.selectedIndex == 0) ? 1:2;
+								let AddData = "caction=muedt&type="+type+"&userLevel="+userLevel.value+"&nuser="+nuser.value+"&userSelect="+userSelect.options[userSelect.selectedIndex].value;
+								xhrAdd.onreadystatechange = function () {
+									if(this.readyState == 4) {
+										if(this.status == 200) {
+											let response = JSON.parse(xhrAdd.responseText);
+											if(response.indexOf('failed') != -1) {
+												console.error("Syncmarks: "+response);
+												show_noti({title:"Syncmarks - Error", url:response, key:""}, false);
+											} else if(response.indexOf('not send') != -1) {
+												console.warn("Syncmarks: "+response);
+											} else {
+												console.info("Syncmarks: "+response);
+											}
+											let xhrUpdate = new XMLHttpRequest();
+											let UpdateData = "caction=getUsers";
+											xhrUpdate.onreadystatechange = function () {
+												if(this.readyState == 4) {
+													if(this.status == 200) {
+														loader.remove();
+														let uUData = JSON.parse(xhrUpdate.responseText);
+														if(uUData.indexOf('not allowed') != -1) {
+															show_noti({title:"Syncmarks - Warning", url:uUData, key:""}, false);
+														} else {
+															mngUform(uUData, userSelect);
+														}
+													}
+												}
+											}
+											xhrUpdate.open("POST", document.location.href, true);
+											xhrUpdate.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+											xhrUpdate.send(UpdateData);
+										}
+									}
+								}
+								xhrAdd.open("POST", document.location.href, true);
+								xhrAdd.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+								xhrAdd.send(AddData);
+							});
+
+							mudel.addEventListener('click', function(e) {
+								e.preventDefault();
+								let loader = document.createElement('div');
+								loader.classList.add('db-spinner');
+								loader.id = 'db-spinner';
+								document.querySelector('body').appendChild(loader);
+								let xhrDel = new XMLHttpRequest();
+								let DelData = "caction=muedt&type=3&userLevel="+userLevel.value+"&nuser="+nuser.value+"&userSelect="+userSelect.options[userSelect.selectedIndex].value;
+								xhrDel.onreadystatechange = function () {
+									if(this.readyState == 4) {
+										if(this.status == 200) {
+											let response = JSON.parse(xhrDel.responseText);
+											if(response.indexOf('failed') != -1) {
+												console.error("Syncmarks: "+response);
+												show_noti({title:"Syncmarks - Error", url:response, key:""}, false);
+											} else if(response.indexOf('not send') != -1) {
+												console.warn("Syncmarks: "+response);
+											} else {
+												console.info("Syncmarks: "+response);
+											}
+											let xhrUpdate = new XMLHttpRequest();
+											let UpdateData = "caction=getUsers";
+											xhrUpdate.onreadystatechange = function () {
+												if(this.readyState == 4) {
+													if(this.status == 200) {
+														loader.remove();
+														let uUData = JSON.parse(xhrUpdate.responseText);
+														if(uUData.indexOf('not allowed') != -1) {
+															show_noti({title:"Syncmarks - Warning", url:uUData, key:""}, false);
+														} else {
+															mngUform(uUData, userSelect);
+														}
+													}
+												}
+											}
+											xhrUpdate.open("POST", document.location.href, true);
+											xhrUpdate.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+											xhrUpdate.send(UpdateData);
+										}
+									}
+								}
+								xhrDel.open("POST", document.location.href, true);
+								xhrDel.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+								xhrDel.send(DelData);
+							});
+						}
+					}
+				}
+			}
+			xhr.open("POST", document.location.href, true);
+			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+			xhr.send(data);
+			return false;
 		});
 
 		document.getElementById('muser').addEventListener('click', function(e) {
 			e.preventDefault();
 			hideMenu();
 			document.getElementById('userform').style.display = 'block';
+			document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
+		});
+
+		document.getElementById('mmail').addEventListener('click', function(e) {
+			e.preventDefault();
+			if(document.getElementById('mailform')) document.getElementById('mailform').remove();
+			hideMenu();
+			let mailform = document.createElement('div');
+			mailform.id = 'mailform';
+			mailform.classList.add('mbmdialog');
+			let heading = document.createElement('h6');
+			heading.appendChild(document.createTextNode("Change E-Mail"));
+			let mput = document.createElement('input');
+			mput.id = 'mput';
+			mput.value = document.getElementById('userMail').innerText;
+
+			let dbutton = document.createElement('div');
+			dbutton.classList.add('dbutton');
+			let mchange = document.createElement('button');
+			mchange.id = 'mchange';
+			mchange.type = 'submit';
+			mchange.disabled = true;
+			mchange.innerText = 'Save';
+			dbutton.appendChild(mchange);
+			
+			mput.addEventListener('input', function(){
+				mchange.disabled = (this.originalValue != this.value || this.value != '') ? false:true;
+			});
+
+			mchange.addEventListener('click', function(){
+				let xhr = new XMLHttpRequest();
+				let data = "caction=cmail&mail="+mput.value;
+				xhr.onreadystatechange = function () {
+					if (this.readyState == 4 && this.status == 200) {
+						let response = JSON.parse(this.responseText);
+						if(response == 1) {
+							document.getElementById('userMail').innerText = mput.value;
+							console.info("Mail changed.");
+							mailform.remove();
+						} else {
+							let message = response;
+							console.error(message);
+							show_noti({title:"Syncmarks - Error", url:message, key:""}, false);
+						}
+					}
+				};
+				xhr.open("POST", document.location.href, true);
+				xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+				xhr.send(data);
+			});
+
+			mailform.appendChild(heading);
+			mailform.appendChild(mput);
+			mailform.appendChild(dbutton);
+
+			document.querySelector('body').appendChild(mailform);
+			document.getElementById('mailform').style.display = 'block';
 			document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
 		});
 
@@ -449,7 +682,7 @@ document.addEventListener("DOMContentLoaded", function() {
 				if (this.readyState == 4) {
 					if(this.status == 200) {
 						if(this.responseText == 1)
-							location.reload(false);
+							location.reload();
 						else {
 							let message = "There was a problem adding the new folder.";
 							console.error(message);
@@ -496,6 +729,17 @@ document.addEventListener("DOMContentLoaded", function() {
 		});
 	}
 }, false);
+
+function mngUform(uData, userSelect) {
+	userSelect.options.length = 1;
+	uData.forEach(function(user){
+		let uOption = document.createElement('option');
+		uOption.text = user['userName'];
+		uOption.value = user['userID'];
+		uOption.dataset.lvl = user['userType'];
+		userSelect.appendChild(uOption);
+	});
+}
 
 function movBookmark(folderID, bookmarkID) {
 	let data = 'caction=bmmv&folder='+folderID+'&id='+bookmarkID;
@@ -561,21 +805,6 @@ function resize(e){
 	document.getElementById("logfile").style.width = wdt + "px";
 }
 
-function checkuform() {
-	if(document.getElementById('nuser').value.length > 0 && document.getElementById('npwd').value.length > 0 && document.getElementById('userLevel').value.length > 0) {
-		document.getElementById('muadd').disabled = false;
-		document.getElementById('mudel').disabled = false;
-	}
-	else {
-		document.getElementById('muadd').disabled = true;
-		document.getElementById('mudel').disabled = true;
-	}
-	
-	if(document.getElementById('userSelect').value.length < 1) {
-		document.getElementById('mudel').disabled = true;
-	}
-}
-
 function moveEnd () {
 	let lfiletext = document.getElementById("lfiletext");
 	lfiletext.scrollTop = lfiletext.scrollHeight;
@@ -635,6 +864,7 @@ function hideMenu(){
 	document.querySelectorAll('.mmenu').forEach(function(item) {item.style.display = 'none'});
 	document.querySelectorAll('.mbmdialog').forEach(function(item) {item.style.display = 'none'});
 	if(document.getElementById('dubDIV')) document.querySelector('body').removeChild(document.getElementById('dubDIV'));
+	if(document.getElementById('mnguform')) document.getElementById('mnguform').remove();
 }
 
 function onContextMenu(e){

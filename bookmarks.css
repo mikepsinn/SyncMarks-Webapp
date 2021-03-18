@@ -197,6 +197,8 @@
 	font-size: 1em;
 	padding: 0;
 	margin-bottom: 10px;
+	cursor: pointer;
+	outline: 0;
 }
 #bmlet a {
 	border-radius: 5px;
@@ -312,7 +314,7 @@
     text-transform: uppercase;
     color: white;
     font-weight: 501;
-    margin-inline-start: 3px;
+    margin-inline-start: 5px;
     padding: 3px 6px;
     border-radius: 4px;
     box-shadow: 0 3px 1px -2px rgba(0, 0, 0, 0.2), 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12);
@@ -335,10 +337,13 @@
 	width: 100%;
 	margin: 5px 0;
 	line-height: 23px;
-	border: 0;
-	border-bottom: 1px solid #bbb;
+	border: 1px solid #bbb;
 	font-size: 1.2em;
 	outline: 0;
+	color: #555;
+	border-radius: 4px;
+	padding: 3px 5px;
+	box-sizing: border-box;
 }
 .mbmdialog input:disabled {
 	background-color: transparent;
@@ -350,20 +355,13 @@
 	width: 100%;
 }
 .mbmdialog select {
-	display: inline-block;
 	width: 100%;
-	padding: 10px 0px;
+	padding: 5px 3px;
 	outline: 0;
-	border: 0;
-	border-radius: 0;
-	background: white;
-	color: black;
-	appearance: none;
-	-webkit-appearance: none;
-	-moz-appearance: none;
-} 
-.mbmdialog select:-ms-expand {
-	display: none;
+	border: 1px solid #bbb;
+	border-radius: 4px;
+	color: #555;
+	margin: 10px 0;
 }
 .mbmdialog .select__arrow {
 	position: absolute;
@@ -1187,7 +1185,6 @@ input:checked + .slider:before {
 	position: absolute;
 	left: 50%;
 	transform: translate(-50%, -50%);
-	/* padding: 15px; */
 	box-shadow: 0 .1875rem .375rem rgba(0,0,0,.25);
 	background: white;
 	border-radius: 3px;
@@ -1241,6 +1238,9 @@ input:checked + .slider:before {
 }
 #loginform button:hover {
 	background-color: #0879d9;
+}
+.info {
+	background-color: gold;
 }
 .db-spinner {
 	width: 30px;
