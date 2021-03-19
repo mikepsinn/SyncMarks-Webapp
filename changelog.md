@@ -1,5 +1,12 @@
 ChangeLog
 =========
+1.4.1 (2020-03-19)
+-------------------------
+- Fixed bug for user creation
+- Fixed bug user delete
+- Fixed login bug
+
+
 1.4.0 (2020-03-17)
 -------------------------
 - Fixed #61
@@ -8,6 +15,7 @@ ChangeLog
 - Added e-mail field for user
 - Changed login behavior
 - Updated DB
+
 
 1.3.7 (2020-03-05)
 -------------------------

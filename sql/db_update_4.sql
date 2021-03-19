@@ -66,7 +66,7 @@ DROP TABLE `notifications`;
 ALTER TABLE `notifications_tmp` RENAME TO `notifications`;
 
 -- Add reset table
-CREATE TABLE `reset` (
+CREATE TABLE IF NOT EXISTS `reset` (
 	`tokenID`	INTEGER NOT NULL UNIQUE,
 	`userID`	INTEGER NOT NULL,
 	`tokenTime`	VARCHAR(255) NOT NULL,
@@ -75,55 +75,41 @@ CREATE TABLE `reset` (
 );
 
 -- Add system table
-CREATE TABLE `system` (
+CREATE TABLE IF NOT EXISTS `system` (
 	`app_version`	varchar(10),
 	`db_version`	varchar(10),
 	`updated`	varchar(250)
 );
 
 -- Create index
-CREATE INDEX `i1` ON `bookmarks` (`bmURL`, `bmTitle`);
-CREATE INDEX `i2` ON `users` ( `userID`);
-CREATE INDEX `i3` ON `clients` (`cid`);
+CREATE INDEX IF NOT EXISTS `i1` ON `bookmarks` (`bmURL`, `bmTitle`);
+CREATE INDEX IF NOT EXISTS `i2` ON `users` ( `userID`);
+CREATE INDEX IF NOT EXISTS `i3` ON `clients` (`cid`);
 
 -- Create triggers
-CREATE TRIGGER `on_delete_set_default`
+CREATE TRIGGER IF NOT EXISTS `on_delete_set_default`
 	AFTER DELETE ON `clients`
 BEGIN
 	UPDATE `notifications` SET `client` = 0 WHERE `client` = old.cid;
 END;
 
-CREATE TRIGGER `delete_userclients `
+CREATE TRIGGER IF NOT EXISTS`delete_userclients `
 	AFTER DELETE ON `users`
 	FOR EACH ROW
 BEGIN
 	DELETE FROM `clients` WHERE `uid` = OLD.userID;
 END;
 
-CREATE TRIGGER `delete_usermarks`
+CREATE TRIGGER IF NOT EXISTS `delete_usermarks`
 	AFTER DELETE ON `users`
 	FOR EACH ROW
 BEGIN
 	DELETE FROM `bookmarks` WHERE `userID` = OLD.userID;
 END;
 
-CREATE TRIGGER delete_userreset 
-   AFTER DELETE
-   ON users
-FOR EACH ROW
-BEGIN
-    DELETE FROM clients WHERE userID = OLD.userID;
-END;
+DROP TRIGGER `main`.`delete_userreset`;
+DROP TRIGGER `main`.`delete_usernotifications`;
 
-
-CREATE TRIGGER delete_usernotifications 
-   AFTER DELETE
-   ON users
-FOR EACH ROW
-BEGIN
-    DELETE FROM clients WHERE userID = OLD.userID;
-END;
-
-INSERT INTO `system` (`app_version`, `db_version`, `updated`) VALUES ('1.4.1', '4', '1615899874');
+INSERT INTO `system` (`app_version`, `db_version`, `updated`) VALUES ('1.4.1', '4', '1616155755');
 PRAGMA foreign_keys = ON;
 PRAGMA user_version = 3;
