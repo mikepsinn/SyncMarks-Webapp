@@ -8,6 +8,7 @@ CREATE TABLE "users" (
 	`sessionID`	VARCHAR(255) UNIQUE,
 	`userOldLogin`	INT(11),
 	`uOptions`	TEXT,
+	`userMail`	VARCHAR(255),
 	PRIMARY KEY(`userID`)
 );
 
@@ -51,14 +52,48 @@ CREATE TABLE `notifications` (
 	FOREIGN KEY(`userID`) REFERENCES `users`(`userID`) ON DELETE CASCADE
 );
 
+-- Create reset table
+CREATE TABLE IF NOT EXISTS `reset` (
+	`tokenID`	INTEGER NOT NULL UNIQUE,
+	`userID`	INTEGER NOT NULL,
+	`tokenTime`	VARCHAR(255) NOT NULL,
+	`token`	VARCHAR(255) NOT NULL UNIQUE,
+	PRIMARY KEY(`tokenID` AUTOINCREMENT)
+);
+
+-- Create system table
+CREATE TABLE IF NOT EXISTS `system` (
+	`app_version`	varchar(10),
+	`db_version`	varchar(10),
+	`updated`	varchar(250)
+);
+
 -- Create index
 CREATE INDEX `i1` ON `bookmarks` (`bmURL`, `bmTitle`);
 CREATE INDEX `i2` ON `users` ( `userID`);
 CREATE INDEX `i3` ON `clients` (`cid`);
 
 -- Create triggers
-CREATE TRIGGER on_delete_set_default AFTER DELETE ON clients BEGIN
-  UPDATE notifications SET client = 0 WHERE client = old.cid;
+CREATE TRIGGER IF NOT EXISTS `on_delete_set_default`
+	AFTER DELETE ON `clients`
+BEGIN
+	UPDATE `notifications` SET `client` = 0 WHERE `client` = old.cid;
 END;
 
-PRAGMA user_version = 2;
+CREATE TRIGGER IF NOT EXISTS`delete_userclients `
+	AFTER DELETE ON `users`
+	FOR EACH ROW
+BEGIN
+	DELETE FROM `clients` WHERE `uid` = OLD.userID;
+END;
+
+CREATE TRIGGER IF NOT EXISTS `delete_usermarks`
+	AFTER DELETE ON `users`
+	FOR EACH ROW
+BEGIN
+	DELETE FROM `bookmarks` WHERE `userID` = OLD.userID;
+END;
+
+INSERT INTO `system` (`app_version`, `db_version`, `updated`) VALUES ('1.4.2', '4', '1616155755');
+
+PRAGMA user_version = 4;

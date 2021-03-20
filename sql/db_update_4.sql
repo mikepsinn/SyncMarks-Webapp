@@ -110,6 +110,6 @@ END;
 DROP TRIGGER `main`.`delete_userreset`;
 DROP TRIGGER `main`.`delete_usernotifications`;
 
-INSERT INTO `system` (`app_version`, `db_version`, `updated`) VALUES ('1.4.1', '4', '1616155755');
+INSERT INTO `system` (`app_version`, `db_version`, `updated`) VALUES ('1.4.2', '4', '1616155755');
 PRAGMA foreign_keys = ON;
-PRAGMA user_version = 3;
+PRAGMA user_version = 4;
