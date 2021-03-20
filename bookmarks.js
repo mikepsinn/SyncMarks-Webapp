@@ -1,7 +1,7 @@
 /**
  * SyncMarks
  *
- * @version 1.4.1
+ * @version 1.4.2
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -538,7 +538,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			today = dd+'-'+mm+'-'+yyyy;
 
 			var xhr = new XMLHttpRequest();
-			var data = "caction=fexport&type=html";
+			var data = "caction=export&type=html";
 
 			xhr.onreadystatechange = function () {
 				if (this.readyState == 4) {

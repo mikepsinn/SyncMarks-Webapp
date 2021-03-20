@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.4.1
+ * @version 1.4.2
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -237,21 +237,6 @@ if(isset($_POST['caction'])) {
 			updateClient($client, $ctype, $userData, $ctime, true);
 			die(json_encode(importMarks($armarks,$userData['userID'])));
 			break;
-		case "export":
-			e_log(8,"Browser requested bookmark import...");
-			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
-			$ctype = getClientType($_SERVER['HTTP_USER_AGENT']);
-			$ctime = round(microtime(true) * 1000);
-			$bookmarks = json_encode(getBookmarks($userData));
-			if($loglevel = 9 && $cexpjson == true) {
-				$filename = "export_".substr($client,0,8)."_".time().".json";
-				file_put_contents($filename,$bookmarks,true);
-			}
-			echo $bookmarks;
-			e_log(8,count(json_decode($bookmarks))." bookmarks send to client.");
-			updateClient($client, $ctype, $userData, $ctime, true);
-			die();
-			break;
 		case "getpurl":
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$url = validate_url($_POST['url']);
@@ -334,8 +319,8 @@ if(isset($_POST['caction'])) {
 			$query = "SELECT * FROM `notifications` WHERE `nloop` = 1 AND `userID` = ".$userData['userID']." AND `client` IN ('".$client."','0');";
 			$uOptions = json_decode($userData['uOptions'],true);
 			$notificationData = db_query($query);
-			e_log(8,"Found ".count($notificationData)." links. Will push them to the client.");
 			if (!empty($notificationData)) {
+				e_log(8,"Found ".count($notificationData)." links. Will push them to the client.");
 				foreach($notificationData as $key => $notification) {
 					$myObj[$key]['title'] = html_entity_decode($notification['title'],ENT_QUOTES,'UTF-8');
 					$myObj[$key]['url'] = $notification['message'];
@@ -344,7 +329,8 @@ if(isset($_POST['caction'])) {
 				}
 				die(json_encode($myObj));
 			} else {
-				die();
+				e_log(8,"No pushed sites found");
+				die(json_encode("0"));
 			}
 			break;
 		case "durl":
@@ -641,12 +627,27 @@ if(isset($_POST['caction'])) {
 			echo htmlFooter();
 			die();
 			break;
-		case "fexport":
+		case "export":
+			e_log(8,"Requested bookmark export...");
+			$ctype = getClientType($_SERVER['HTTP_USER_AGENT']);
+			$ctime = round(microtime(true) * 1000);
 			$format = filter_var($_POST['type'], FILTER_SANITIZE_STRING);
 			switch($format) {
 				case "html":
-					e_log(2,"Exporting in html format for download");
+					e_log(8,"Exporting in HTML format for download");
 					die(html_export($userData));
+					break;
+				case "json":
+					e_log(8,"Exporting in JSON format");
+					$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
+					$bookmarks = json_encode(getBookmarks($userData));
+					if($loglevel = 9 && $cexpjson == true) {
+						$filename = "export_".substr($client,0,8)."_".time().".json";
+						file_put_contents($filename,$bookmarks,true);
+					}
+					e_log(8,"Send now ".count(json_decode($bookmarks))." bookmarks to the client");
+					updateClient($client, $ctype, $userData, $ctime, true);
+					die($bookmarks);
 					break;
 				default:
 					die(e_log(2,"Unknown export format, exit process"));

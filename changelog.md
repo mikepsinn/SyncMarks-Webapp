@@ -1,5 +1,10 @@
 ChangeLog
 =========
+1.4.2 (2020-03-20)
+-------------------------
+- Changed Export behavior
+
+
 1.4.1 (2020-03-19)
 -------------------------
 - Fixed bug for user creation
