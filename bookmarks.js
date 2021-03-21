@@ -1,7 +1,7 @@
 /**
  * SyncMarks
  *
- * @version 1.4.0
+ * @version 1.4.1
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -122,17 +122,15 @@ document.addEventListener("DOMContentLoaded", function() {
 			var xhr = new XMLHttpRequest();
 			var data = "caction=madd&folder=" + folder + "&url=" + url;
 			xhr.onreadystatechange = function () {
-				if (this.readyState == 4) {
-					if(this.status == 200) {
-						document.getElementById('bookmarks').innerHTML = this.responseText;
-						console.info("Bookmark added successfully.");
-						document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
-						document.querySelectorAll('.folder').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
-					} else {
-						let message = "Error adding bookmark, please check server log.";
-						show_noti({title:"Syncmarks - Error", url:message, key:""}, false);
-						console.error(message);
-					}
+				if (this.readyState == 4 && this.status == 200) {
+					document.getElementById('bookmarks').innerHTML = this.responseText;
+					console.info("Bookmark added successfully.");
+					document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
+					document.querySelectorAll('.folder').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
+				} else {
+					let message = "Error adding bookmark, please check server log.";
+					show_noti({title:"Syncmarks - Error", url:message, key:""}, false);
+					console.error(message);
 				}
 			};
 			xhr.open("POST", document.location.href, true);
@@ -160,183 +158,181 @@ document.addEventListener("DOMContentLoaded", function() {
 			let xhr = new XMLHttpRequest();
 			let data = "caction=getUsers";
 			xhr.onreadystatechange = function () {
-				if(this.readyState == 4) {
-					if(this.status == 200) {
-						let uData = JSON.parse(xhr.responseText);
-						if(uData.indexOf('not allowed') != -1) {
-							console.warn('SyncMarks - Warning: '+uData);
-							show_noti({title:"Syncmarks - Warning", url:uData, key:""}, false);
-						} else {
-							document.querySelector('#bookmarks').addEventListener('click', hideMenu, false);
-							let mnguform = document.createElement('div');
-							mnguform.id = 'mnguform';
-							mnguform.classList.add('mbmdialog');
-							mnguform.style.display = 'block';
-							let heading = document.createElement('h6');
-							heading.appendChild(document.createTextNode('Manage Users'));
-							mnguform.appendChild(heading);
-							let userSelect = document.createElement('select');
-							userSelect.id = 'userSelect';
-							let uOptionA = document.createElement('option');
-							uOptionA.text = '-- Add new user --';
-							uOptionA.value = 0;
-							userSelect.appendChild(uOptionA);
+				if(this.readyState == 4 && this.status == 200) {
+					let uData = JSON.parse(xhr.responseText);
+					if(uData.indexOf('not allowed') != -1) {
+						console.warn('SyncMarks - Warning: '+uData);
+						show_noti({title:"Syncmarks - Warning", url:uData, key:""}, false);
+					} else {
+						document.querySelector('#bookmarks').addEventListener('click', hideMenu, false);
+						let mnguform = document.createElement('div');
+						mnguform.id = 'mnguform';
+						mnguform.classList.add('mbmdialog');
+						mnguform.style.display = 'block';
+						let heading = document.createElement('h6');
+						heading.appendChild(document.createTextNode('Manage Users'));
+						mnguform.appendChild(heading);
+						let userSelect = document.createElement('select');
+						userSelect.id = 'userSelect';
+						let uOptionA = document.createElement('option');
+						uOptionA.text = '-- Add new user --';
+						uOptionA.value = 0;
+						userSelect.appendChild(uOptionA);
 
-							mngUform(uData, userSelect);
+						mngUform(uData, userSelect);
 
-							let nuser = document.createElement('input');
-							nuser.id = 'nuser';
-							nuser.placeholder = 'Username';
-							nuser.type = 'text';
-							nuser.required = true;
-							nuser.autocomplete = 'username';
+						let nuser = document.createElement('input');
+						nuser.id = 'nuser';
+						nuser.placeholder = 'Username';
+						nuser.type = 'text';
+						nuser.required = true;
+						nuser.autocomplete = 'username';
 
-							let userLevel = document.createElement('select');
-							userLevel.id = 'userLevel';
+						let userLevel = document.createElement('select');
+						userLevel.id = 'userLevel';
 
-							let uLevel0 = document.createElement('option');
-							uLevel0.text = 'Normal';
-							uLevel0.value = 1;
-							userLevel.appendChild(uLevel0);
-							let uLevel1 = document.createElement('option');
-							uLevel1.text = 'Admin';
-							uLevel1.value = 2;
-							userLevel.appendChild(uLevel1);
+						let uLevel0 = document.createElement('option');
+						uLevel0.text = 'Normal';
+						uLevel0.value = 1;
+						userLevel.appendChild(uLevel0);
+						let uLevel1 = document.createElement('option');
+						uLevel1.text = 'Admin';
+						uLevel1.value = 2;
+						userLevel.appendChild(uLevel1);
 
-							let dbutton = document.createElement('div');
-							dbutton.classList.add('dbutton');
-							let muadd = document.createElement('button');
-							muadd.id = 'muadd';
-							muadd.type = 'submit';
-							muadd.disabled = true;
-							muadd.innerText = 'Save';
-							let mudel = document.createElement('button');
-							mudel.id = 'mudel';
-							mudel.type = 'submit';
-							mudel.disabled = true;
-							mudel.innerText = 'Delete';
-							dbutton.appendChild(muadd);
-							dbutton.appendChild(mudel);
+						let dbutton = document.createElement('div');
+						dbutton.classList.add('dbutton');
+						let muadd = document.createElement('button');
+						muadd.id = 'muadd';
+						muadd.type = 'submit';
+						muadd.disabled = true;
+						muadd.innerText = 'Save';
+						let mudel = document.createElement('button');
+						mudel.id = 'mudel';
+						mudel.type = 'submit';
+						mudel.disabled = true;
+						mudel.innerText = 'Delete';
+						dbutton.appendChild(muadd);
+						dbutton.appendChild(mudel);
 
-							userSelect.addEventListener('change', function(e) {
-								if(e.target.options[e.target.selectedIndex].value != 0) {
-									nuser.value = e.target.options[e.target.selectedIndex].text;
-									userLevel.value = e.target.options[e.target.selectedIndex].dataset.lvl;
-									mudel.disabled = false;
-								} else {
-									nuser.value = '';
-									userLevel.value = 1;
-									mudel.disabled = true;
-								}
-							});
-							
-							nuser.addEventListener('input', function () {
-								muadd.disabled = (this.originalValue != this.value || this.value != '') ? false:true;
-							});
+						userSelect.addEventListener('change', function(e) {
+							if(e.target.options[e.target.selectedIndex].value != 0) {
+								nuser.value = e.target.options[e.target.selectedIndex].text;
+								userLevel.value = e.target.options[e.target.selectedIndex].dataset.lvl;
+								mudel.disabled = false;
+							} else {
+								nuser.value = '';
+								userLevel.value = 1;
+								mudel.disabled = true;
+							}
+						});
+						
+						nuser.addEventListener('input', function () {
+							muadd.disabled = (this.originalValue != this.value || this.value != '') ? false:true;
+						});
 
-							userLevel.addEventListener('change', function() {
-								muadd.disabled = false;
-							});
+						userLevel.addEventListener('change', function() {
+							muadd.disabled = false;
+						});
 
-							mnguform.appendChild(userSelect);
-							mnguform.appendChild(nuser);
-							mnguform.appendChild(userLevel);
-							mnguform.appendChild(dbutton);
-							document.querySelector('body').appendChild(mnguform);
+						mnguform.appendChild(userSelect);
+						mnguform.appendChild(nuser);
+						mnguform.appendChild(userLevel);
+						mnguform.appendChild(dbutton);
+						document.querySelector('body').appendChild(mnguform);
 
-							muadd.addEventListener('click', function(e) {
-								e.preventDefault();
-								let loader = document.createElement('div');
-								loader.classList.add('db-spinner');
-								loader.id = 'db-spinner';
-								document.querySelector('body').appendChild(loader);
-								let xhrAdd = new XMLHttpRequest();
-								let type = (userSelect.selectedIndex == 0) ? 1:2;
-								let AddData = "caction=muedt&type="+type+"&userLevel="+userLevel.value+"&nuser="+nuser.value+"&userSelect="+userSelect.options[userSelect.selectedIndex].value;
-								xhrAdd.onreadystatechange = function () {
-									if(this.readyState == 4) {
-										if(this.status == 200) {
-											let response = JSON.parse(xhrAdd.responseText);
-											if(response.indexOf('failed') != -1) {
-												console.error("Syncmarks: "+response);
-												show_noti({title:"Syncmarks - Error", url:response, key:""}, false);
-											} else if(response.indexOf('not send') != -1) {
-												console.warn("Syncmarks: "+response);
-											} else {
-												console.info("Syncmarks: "+response);
-											}
-											let xhrUpdate = new XMLHttpRequest();
-											let UpdateData = "caction=getUsers";
-											xhrUpdate.onreadystatechange = function () {
-												if(this.readyState == 4) {
-													if(this.status == 200) {
-														loader.remove();
-														let uUData = JSON.parse(xhrUpdate.responseText);
-														if(uUData.indexOf('not allowed') != -1) {
-															show_noti({title:"Syncmarks - Warning", url:uUData, key:""}, false);
-														} else {
-															mngUform(uUData, userSelect);
-														}
+						muadd.addEventListener('click', function(e) {
+							e.preventDefault();
+							let loader = document.createElement('div');
+							loader.classList.add('db-spinner');
+							loader.id = 'db-spinner';
+							document.querySelector('body').appendChild(loader);
+							let xhrAdd = new XMLHttpRequest();
+							let type = (userSelect.selectedIndex == 0) ? 1:2;
+							let AddData = "caction=muedt&type="+type+"&userLevel="+userLevel.value+"&nuser="+nuser.value+"&userSelect="+userSelect.options[userSelect.selectedIndex].value;
+							xhrAdd.onreadystatechange = function () {
+								if(this.readyState == 4) {
+									if(this.status == 200) {
+										let response = JSON.parse(xhrAdd.responseText);
+										if(response.indexOf('failed') != -1) {
+											console.error("Syncmarks: "+response);
+											show_noti({title:"Syncmarks - Error", url:response, key:""}, false);
+										} else if(response.indexOf('not send') != -1) {
+											console.warn("Syncmarks: "+response);
+										} else {
+											console.info("Syncmarks: "+response);
+										}
+										let xhrUpdate = new XMLHttpRequest();
+										let UpdateData = "caction=getUsers";
+										xhrUpdate.onreadystatechange = function () {
+											if(this.readyState == 4) {
+												if(this.status == 200) {
+													loader.remove();
+													let uUData = JSON.parse(xhrUpdate.responseText);
+													if(uUData.indexOf('not allowed') != -1) {
+														show_noti({title:"Syncmarks - Warning", url:uUData, key:""}, false);
+													} else {
+														mngUform(uUData, userSelect);
 													}
 												}
 											}
-											xhrUpdate.open("POST", document.location.href, true);
-											xhrUpdate.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-											xhrUpdate.send(UpdateData);
 										}
+										xhrUpdate.open("POST", document.location.href, true);
+										xhrUpdate.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+										xhrUpdate.send(UpdateData);
 									}
 								}
-								xhrAdd.open("POST", document.location.href, true);
-								xhrAdd.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-								xhrAdd.send(AddData);
-							});
+							}
+							xhrAdd.open("POST", document.location.href, true);
+							xhrAdd.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+							xhrAdd.send(AddData);
+						});
 
-							mudel.addEventListener('click', function(e) {
-								e.preventDefault();
-								let loader = document.createElement('div');
-								loader.classList.add('db-spinner');
-								loader.id = 'db-spinner';
-								document.querySelector('body').appendChild(loader);
-								let xhrDel = new XMLHttpRequest();
-								let DelData = "caction=muedt&type=3&userLevel="+userLevel.value+"&nuser="+nuser.value+"&userSelect="+userSelect.options[userSelect.selectedIndex].value;
-								xhrDel.onreadystatechange = function () {
-									if(this.readyState == 4) {
-										if(this.status == 200) {
-											let response = JSON.parse(xhrDel.responseText);
-											if(response.indexOf('failed') != -1) {
-												console.error("Syncmarks: "+response);
-												show_noti({title:"Syncmarks - Error", url:response, key:""}, false);
-											} else if(response.indexOf('not send') != -1) {
-												console.warn("Syncmarks: "+response);
-											} else {
-												console.info("Syncmarks: "+response);
-											}
-											let xhrUpdate = new XMLHttpRequest();
-											let UpdateData = "caction=getUsers";
-											xhrUpdate.onreadystatechange = function () {
-												if(this.readyState == 4) {
-													if(this.status == 200) {
-														loader.remove();
-														let uUData = JSON.parse(xhrUpdate.responseText);
-														if(uUData.indexOf('not allowed') != -1) {
-															show_noti({title:"Syncmarks - Warning", url:uUData, key:""}, false);
-														} else {
-															mngUform(uUData, userSelect);
-														}
+						mudel.addEventListener('click', function(e) {
+							e.preventDefault();
+							let loader = document.createElement('div');
+							loader.classList.add('db-spinner');
+							loader.id = 'db-spinner';
+							document.querySelector('body').appendChild(loader);
+							let xhrDel = new XMLHttpRequest();
+							let DelData = "caction=muedt&type=3&userLevel="+userLevel.value+"&nuser="+nuser.value+"&userSelect="+userSelect.options[userSelect.selectedIndex].value;
+							xhrDel.onreadystatechange = function () {
+								if(this.readyState == 4) {
+									if(this.status == 200) {
+										let response = JSON.parse(xhrDel.responseText);
+										if(response.indexOf('failed') != -1) {
+											console.error("Syncmarks: "+response);
+											show_noti({title:"Syncmarks - Error", url:response, key:""}, false);
+										} else if(response.indexOf('not send') != -1) {
+											console.warn("Syncmarks: "+response);
+										} else {
+											console.info("Syncmarks: "+response);
+										}
+										let xhrUpdate = new XMLHttpRequest();
+										let UpdateData = "caction=getUsers";
+										xhrUpdate.onreadystatechange = function () {
+											if(this.readyState == 4) {
+												if(this.status == 200) {
+													loader.remove();
+													let uUData = JSON.parse(xhrUpdate.responseText);
+													if(uUData.indexOf('not allowed') != -1) {
+														show_noti({title:"Syncmarks - Warning", url:uUData, key:""}, false);
+													} else {
+														mngUform(uUData, userSelect);
 													}
 												}
 											}
-											xhrUpdate.open("POST", document.location.href, true);
-											xhrUpdate.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-											xhrUpdate.send(UpdateData);
 										}
+										xhrUpdate.open("POST", document.location.href, true);
+										xhrUpdate.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+										xhrUpdate.send(UpdateData);
 									}
 								}
-								xhrDel.open("POST", document.location.href, true);
-								xhrDel.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-								xhrDel.send(DelData);
-							});
-						}
+							}
+							xhrDel.open("POST", document.location.href, true);
+							xhrDel.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+							xhrDel.send(DelData);
+						});
 					}
 				}
 			}
@@ -542,7 +538,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			today = dd+'-'+mm+'-'+yyyy;
 
 			var xhr = new XMLHttpRequest();
-			var data = "caction=fexport&type=html";
+			var data = "caction=export&type=html";
 
 			xhr.onreadystatechange = function () {
 				if (this.readyState == 4) {
@@ -770,12 +766,10 @@ function delClient(element) {
 	let xhr = new XMLHttpRequest();
 	let data = 'caction=adel&cido=' + element.target.parentElement.id;
 	xhr.onreadystatechange = function () {
-		if (xhr.readyState == 4) {
-			if(xhr.status == 200) {
-				document.getElementById('mngcform').innerHTML = xhr.responseText;
-				document.querySelectorAll("#mngcform li div.remove").forEach(function(element) {element.addEventListener('click', delClient, false)});
-				document.querySelectorAll("#mngcform li div.rename").forEach(function(element) {element.addEventListener('click', mvClient, false)});
-			}
+		if (xhr.readyState == 4 && xhr.status == 200) {
+			document.getElementById('mngcform').innerHTML = xhr.responseText;
+			document.querySelectorAll("#mngcform li div.remove").forEach(function(element) {element.addEventListener('click', delClient, false)});
+			document.querySelectorAll("#mngcform li div.rename").forEach(function(element) {element.addEventListener('click', mvClient, false)});
 		}
 	};
 	xhr.open("POST", document.location.href, true);
@@ -787,12 +781,10 @@ function mvClient(element) {
 	let xhr = new XMLHttpRequest();
 	let data = 'caction=arename&cido=' + element.target.parentElement.id + '&nname=' + element.target.parentElement.children[0].children['cname'].value;
 	xhr.onreadystatechange = function () {
-		if (xhr.readyState == 4) {
-			if(xhr.status == 200) {
-				document.getElementById('mngcform').innerHTML = xhr.responseText;
-				document.querySelectorAll("#mngcform li div.remove").forEach(function(element) {element.addEventListener('click', delClient, false)});
-				document.querySelectorAll("#mngcform li div.rename").forEach(function(element) {element.addEventListener('click', mvClient, false)});
-			}
+		if (xhr.readyState == 4 && xhr.status == 200) {
+			document.getElementById('mngcform').innerHTML = xhr.responseText;
+			document.querySelectorAll("#mngcform li div.remove").forEach(function(element) {element.addEventListener('click', delClient, false)});
+			document.querySelectorAll("#mngcform li div.rename").forEach(function(element) {element.addEventListener('click', mvClient, false)});
 		}
 	};
 	xhr.open("POST", document.location.href, true);

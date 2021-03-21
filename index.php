@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.4.0
+ * @version 1.4.1
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -237,21 +237,6 @@ if(isset($_POST['caction'])) {
 			updateClient($client, $ctype, $userData, $ctime, true);
 			die(json_encode(importMarks($armarks,$userData['userID'])));
 			break;
-		case "export":
-			e_log(8,"Browser requested bookmark import...");
-			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
-			$ctype = getClientType($_SERVER['HTTP_USER_AGENT']);
-			$ctime = round(microtime(true) * 1000);
-			$bookmarks = json_encode(getBookmarks($userData));
-			if($loglevel = 9 && $cexpjson == true) {
-				$filename = "export_".substr($client,0,8)."_".time().".json";
-				file_put_contents($filename,$bookmarks,true);
-			}
-			echo $bookmarks;
-			e_log(8,count(json_decode($bookmarks))." bookmarks send to client.");
-			updateClient($client, $ctype, $userData, $ctime, true);
-			die();
-			break;
 		case "getpurl":
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$url = validate_url($_POST['url']);
@@ -334,8 +319,8 @@ if(isset($_POST['caction'])) {
 			$query = "SELECT * FROM `notifications` WHERE `nloop` = 1 AND `userID` = ".$userData['userID']." AND `client` IN ('".$client."','0');";
 			$uOptions = json_decode($userData['uOptions'],true);
 			$notificationData = db_query($query);
-			e_log(8,"Found ".count($notificationData)." links. Will push them to the client.");
 			if (!empty($notificationData)) {
+				e_log(8,"Found ".count($notificationData)." links. Will push them to the client.");
 				foreach($notificationData as $key => $notification) {
 					$myObj[$key]['title'] = html_entity_decode($notification['title'],ENT_QUOTES,'UTF-8');
 					$myObj[$key]['url'] = $notification['message'];
@@ -344,7 +329,8 @@ if(isset($_POST['caction'])) {
 				}
 				die(json_encode($myObj));
 			} else {
-				die();
+				e_log(8,"No pushed sites found");
+				die(json_encode("0"));
 			}
 			break;
 		case "durl":
@@ -400,6 +386,10 @@ if(isset($_POST['caction'])) {
 			die();
 			break;
 		case "muedt":
+			if($userData['userType'] < 2) {
+				e_log(1,"Stop userchange, no sufficent privileges.");
+				die();
+			}
 			$del = false;
 			$headers = "From: SyncMarks <$sender>";
 			$url = $_SERVER['REQUEST_SCHEME']."://".$_SERVER['HTTP_HOST'].$_SERVER['SCRIPT_NAME'];
@@ -407,7 +397,6 @@ if(isset($_POST['caction'])) {
 			$password = gpwd(16);
 			$userLevel = filter_var($_POST['userLevel'], FILTER_VALIDATE_INT);
 			$user = filter_var($_POST['nuser'], FILTER_SANITIZE_STRING);
-			$uID = filter_var($_POST['userSelect'], FILTER_VALIDATE_INT);
 
 			switch($variant) {
 				case 1:
@@ -417,14 +406,14 @@ if(isset($_POST['caction'])) {
 					$nuid = db_query($query);
 					if($nuid > 0) {
 						if(filter_var($user, FILTER_VALIDATE_EMAIL)) {
-							$response = "User created successful, Try to send E-Mail to user";
+							$response = $nuid;
 							$message = "Hello,\r\na new account with the following credentials is created and stored encrypted on for SyncMarks:\r\nUsername: $user\r\nPassword: $password\r\n\r\nYou can login at $url";
 							if(!mail ($user, "Account created",$message,$headers)) {
 								e_log(1,"Error sending data for created user account to user");
 								$response = "User created successful, E-Mail could not send";
 							}
 						} else {
-							$response = "User created successful, No mail send to user";
+							$response = $nuid;
 						}
 						$bmAdded = round(microtime(true) * 1000);
 						$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('unfiled_____', 'root________', 0, 'Other Bookmarks', 'folder', NULL, ".$bmAdded.", $nuid)";
@@ -438,6 +427,7 @@ if(isset($_POST['caction'])) {
 					break;
 				case 2:
 					e_log(8,"Updating user $user");
+					$uID = filter_var($_POST['userSelect'], FILTER_VALIDATE_INT);
 					$query = "UPDATE `users` SET `userName`= '$user', `userType`= '$userLevel' WHERE `userID` = $uID;";
 					if(db_query($query) == 1) {
 						if(filter_var($user, FILTER_VALIDATE_EMAIL)) {
@@ -454,7 +444,8 @@ if(isset($_POST['caction'])) {
 					break;
 				case 3:
 					e_log(8,"Delete user $user");
-					$query = "DELETE FROM `users` WHERE `userID` = $uID;";
+					$uID = filter_var($_POST['userSelect'], FILTER_VALIDATE_INT);
+					$query = "DELETE FROM users WHERE userID = $uID;";
 					if(db_query($query) == 1) {
 						if(filter_var($user, FILTER_VALIDATE_EMAIL)) {
 							$response = "User deleted, Try to send E-Mail to user";
@@ -636,12 +627,27 @@ if(isset($_POST['caction'])) {
 			echo htmlFooter();
 			die();
 			break;
-		case "fexport":
+		case "export":
+			e_log(8,"Requested bookmark export...");
+			$ctype = getClientType($_SERVER['HTTP_USER_AGENT']);
+			$ctime = round(microtime(true) * 1000);
 			$format = filter_var($_POST['type'], FILTER_SANITIZE_STRING);
 			switch($format) {
 				case "html":
-					e_log(2,"Exporting in html format for download");
+					e_log(8,"Exporting in HTML format for download");
 					die(html_export($userData));
+					break;
+				case "json":
+					e_log(8,"Exporting in JSON format");
+					$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
+					$bookmarks = json_encode(getBookmarks($userData));
+					if($loglevel = 9 && $cexpjson == true) {
+						$filename = "export_".substr($client,0,8)."_".time().".json";
+						file_put_contents($filename,$bookmarks,true);
+					}
+					e_log(8,"Send now ".count(json_decode($bookmarks))." bookmarks to the client");
+					updateClient($client, $ctype, $userData, $ctime, true);
+					die($bookmarks);
 					break;
 				default:
 					die(e_log(2,"Unknown export format, exit process"));
@@ -1684,9 +1690,8 @@ function prepare_url($url) {
 
 function checkLogin($realm) {
 	e_log(8,"Check login");
-	if(count($_GET) != 0 || count($_POST) != 0 ) {
+	if(count($_GET) != 0 || count($_POST) != 0) {
 		unset($_SESSION['cr']);
-
 		if(isset($_POST['login']) && isset($_POST['username']) && isset($_POST['password'])) {
 			$user = $_POST['username'];
 			$pw = $_POST['password'];
@@ -1739,8 +1744,8 @@ function checkLogin($realm) {
 						session_destroy();
 						unset($_SESSION['sauth']);
 						$_SESSION['fauth'] = true;
-						//header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-						//http_response_code(401);
+						header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+						http_response_code(401);
 						e_log(8,"Login failed. Password missmatch");
 						echo htmlHeader();
 						$lform = "<div id='loginbody'>
@@ -1758,17 +1763,20 @@ function checkLogin($realm) {
 					unset($_SESSION['sauth']);
 					$_SESSION['fauth'] = true;
 					session_destroy();
-					//header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-					//http_response_code(401);
+					if(!isset($_POST['login'])) {
+						header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+						http_response_code(401);
+					} else {
+						echo htmlHeader();
+						echo "<div id='loginbody'>
+								<div id='loginform'>
+									<div id='loginformh'>Login failed</div>
+									<div id='loginformt'>You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.</div>
+								</div>
+							</div>";
+						echo htmlFooter();
+					}
 					e_log(8,"Login failed. Credential missmatch");
-					echo htmlHeader();
-					echo "<div id='loginbody'>
-						<div id='loginform'>
-							<div id='loginformh'>Login failed</div>
-							<div id='loginformt'>You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.</div>
-						</div>
-					</div>";
-					echo htmlFooter();
 					exit;
 				}
 			}
@@ -1879,41 +1887,19 @@ function checkDB($database,$suser,$spwd) {
 		db_query($query);
 		file_put_contents("state",$newdate,true);
 	} else {
-		$olddate = (file_exists("state")) ? file_get_contents("state"):"0";
+		$vInfo = db_query("SELECT * FROM `system` ORDER BY `updated` DESC LIMIT 1;")[0];
+		$olddate = $vInfo['updated'];
 		$newdate = filemtime(__FILE__);
 
 		if($olddate != $newdate) {
 			e_log(8,"SyncMarks update dedected. Check database version");
-			$version = db_query("PRAGMA user_version")[0]['user_version'];
-			switch($version) {
-				case "0":
-					e_log(8,"Database update needed. Starting DB update...");
-					db_query(file_get_contents("./sql/db_update_3.sql"));
-					e_log(8,"Write new state to state file");
-					file_put_contents("state",$newdate,true);
-					break;
-				case "1":
-					e_log(8,"Database update needed. Starting DB update...");
-					db_query(file_get_contents("./sql/db_update_3.sql"));
-					e_log(8,"Write new state to state file");
-					file_put_contents("state",$newdate,true);
-					break;
-				case "2":
-					e_log(8,"Database update needed. Starting DB update...");
-					db_query(file_get_contents("./sql/db_update_3.sql"));
-					e_log(8,"Write new state to state file");
-					file_put_contents("state",$newdate,true);
-					break;
-				case "3":
-					e_log(8,"Database up to date...");
-					e_log(8,"Write new state to state file");
-					file_put_contents("state",$newdate,true);
-					break;
-				default:
-					$message = "Database version unknown, please check database manually. Stopping app...";
-					e_log(8,$message);
-					echo $message;
-					exit;
+			if($vInfo['db_version'] < 4) {
+				e_log(8,"Database update needed. Starting DB update...");
+				db_query(file_get_contents("./sql/db_update_4.sql"));
+				db_query("UPDATE `system` SET `updated` = '$newdate' WHERE `updated` = '$olddate';");
+			} else {
+				e_log(8,"Database up to date. Write new state to DB");
+				db_query("UPDATE `system` SET `updated` = '$newdate' WHERE `updated` = '$olddate';");
 			}
 		}
 		

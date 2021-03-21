@@ -107,20 +107,23 @@ BEGIN
 	DELETE FROM `bookmarks` WHERE `userID` = OLD.userID;
 END;
 
-CREATE TRIGGER `delete_usernotifications`
-	AFTER DELETE ON `users`
-	FOR EACH ROW
+CREATE TRIGGER delete_userreset 
+   AFTER DELETE
+   ON users
+FOR EACH ROW
 BEGIN
-	DELETE FROM `clients` WHERE `userID` = OLD.userID;
+    DELETE FROM clients WHERE userID = OLD.userID;
 END;
 
-CREATE TRIGGER `delete_userreset`
-	AFTER DELETE ON `users`
-	FOR EACH ROW
+
+CREATE TRIGGER delete_usernotifications 
+   AFTER DELETE
+   ON users
+FOR EACH ROW
 BEGIN
-	DELETE FROM `clients` WHERE `userID` = OLD.userID;
+    DELETE FROM clients WHERE userID = OLD.userID;
 END;
 
-INSERT INTO `system` (`app_version`, `db_version`, `updated`) VALUES ('1.4.0', '3', '1615899874');
+INSERT INTO `system` (`app_version`, `db_version`, `updated`) VALUES ('1.4.1', '4', '1615899874');
 PRAGMA foreign_keys = ON;
 PRAGMA user_version = 3;

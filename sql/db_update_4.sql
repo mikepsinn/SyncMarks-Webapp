@@ -1,4 +1,6 @@
--- Create users table
+PRAGMA foreign_keys = OFF;
+ALTER TABLE `users` RENAME TO `users_old`;
+-- Change users table
 CREATE TABLE "users" (
 	`userID`	INTEGER NOT NULL UNIQUE,
 	`userName`	TEXT NOT NULL UNIQUE,
@@ -11,9 +13,11 @@ CREATE TABLE "users" (
 	`userMail`	VARCHAR(255),
 	PRIMARY KEY(`userID`)
 );
+INSERT INTO `users` SELECT `userID`,`userName`,`userType`,`userHash`,`userLastLogin`,`sessionID`,`userOldLogin`,`uOptions`,NULL FROM `users_old`;
+DROP TABLE `users_old`;
 
--- Create bookmark table
-CREATE TABLE `bookmarks` (
+-- Change bookmark table
+CREATE TABLE `bookmarks_tmp` (
 	`bmID`	TEXT NOT NULL,
 	`bmParentID`	TEXT NOT NULL,
 	`bmIndex`	INTEGER NOT NULL,
@@ -26,9 +30,12 @@ CREATE TABLE `bookmarks` (
 	`bmAction`	INTEGER,
 	FOREIGN KEY(`userID`) REFERENCES `users`(`userID`) ON DELETE CASCADE
 );
+INSERT INTO `bookmarks_tmp` SELECT * FROM `bookmarks`;
+DROP TABLE `bookmarks`;
+ALTER TABLE `bookmarks_tmp` RENAME TO `bookmarks`;
 
--- Create clients table
-CREATE TABLE `clients` (
+-- Change clients table
+CREATE TABLE `clients_tmp` (
 	`cid`	TEXT NOT NULL UNIQUE,
 	`cname`	TEXT,
 	`ctype`	TEXT NOT NULL,
@@ -37,9 +44,12 @@ CREATE TABLE `clients` (
 	PRIMARY KEY(`cid`),
 	FOREIGN KEY(`uid`) REFERENCES `users`(`userID`) ON DELETE CASCADE
 );
+INSERT INTO `clients_tmp` SELECT * FROM `clients`;
+DROP TABLE `clients`;
+ALTER TABLE `clients_tmp` RENAME TO `clients`;
 
--- Create notifications table
-CREATE TABLE `notifications` (
+-- Change notifications table
+CREATE TABLE `notifications_tmp` (
 	`id`	INTEGER NOT NULL,
 	`title`	varchar(250) NOT NULL,
 	`message`	TEXT NOT NULL,
@@ -51,8 +61,11 @@ CREATE TABLE `notifications` (
 	PRIMARY KEY(`id`),
 	FOREIGN KEY(`userID`) REFERENCES `users`(`userID`) ON DELETE CASCADE
 );
+INSERT INTO `notifications_tmp` SELECT * FROM `notifications`;
+DROP TABLE `notifications`;
+ALTER TABLE `notifications_tmp` RENAME TO `notifications`;
 
--- Create reset table
+-- Add reset table
 CREATE TABLE IF NOT EXISTS `reset` (
 	`tokenID`	INTEGER NOT NULL UNIQUE,
 	`userID`	INTEGER NOT NULL,
@@ -61,7 +74,7 @@ CREATE TABLE IF NOT EXISTS `reset` (
 	PRIMARY KEY(`tokenID` AUTOINCREMENT)
 );
 
--- Create system table
+-- Add system table
 CREATE TABLE IF NOT EXISTS `system` (
 	`app_version`	varchar(10),
 	`db_version`	varchar(10),
@@ -69,9 +82,9 @@ CREATE TABLE IF NOT EXISTS `system` (
 );
 
 -- Create index
-CREATE INDEX `i1` ON `bookmarks` (`bmURL`, `bmTitle`);
-CREATE INDEX `i2` ON `users` ( `userID`);
-CREATE INDEX `i3` ON `clients` (`cid`);
+CREATE INDEX IF NOT EXISTS `i1` ON `bookmarks` (`bmURL`, `bmTitle`);
+CREATE INDEX IF NOT EXISTS `i2` ON `users` ( `userID`);
+CREATE INDEX IF NOT EXISTS `i3` ON `clients` (`cid`);
 
 -- Create triggers
 CREATE TRIGGER IF NOT EXISTS `on_delete_set_default`
@@ -94,6 +107,9 @@ BEGIN
 	DELETE FROM `bookmarks` WHERE `userID` = OLD.userID;
 END;
 
-INSERT INTO `system` (`app_version`, `db_version`, `updated`) VALUES ('1.4.2', '4', '1616155755');
+DROP TRIGGER `main`.`delete_userreset`;
+DROP TRIGGER `main`.`delete_usernotifications`;
 
+INSERT INTO `system` (`app_version`, `db_version`, `updated`) VALUES ('1.4.2', '4', '1616155755');
+PRAGMA foreign_keys = ON;
 PRAGMA user_version = 4;
