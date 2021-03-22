@@ -1135,18 +1135,21 @@ function updateClient($cl, $ct, $ud, $time, $sync = false) {
 	$uid = $ud["userID"];
 	$query = "SELECT * FROM `clients` WHERE `cid` = '".$cl."' AND uid = ".$uid.";";
 	$clientData = db_query($query);
+	$message = "";
 
 	if (!empty($clientData) && $sync) {
 		e_log(8,"Updating lastlogin for client $cl.");
 		$query = "UPDATE `clients` SET `lastseen`= '".$time."' WHERE `cid` = '".$cl."';";
-		db_query($query);
+		$message = (db_query($query)) ? "Client updated.":"Failed update client";
 	} else if(empty($clientData)) {
-		e_log(8,"New client detected. Register client $cl for user ".$ud["userName"]);
+		e_log(8,"New client detected. Try to register client $cl for user ".$ud["userName"]);
 		$query = "INSERT INTO `clients` (`cid`,`cname`,`ctype`,`uid`,`lastseen`) VALUES ('".$cl."','".$cl."', '".$ct."', ".$uid.", '0')";
-		db_query($query);
+		$message = (db_query($query)) ? "Client updated/registered.":"Failed to register client";
+	} elseif(!empty($clientData)) {
+		$message = "Client updated";
 	}
 	
-	return "Client updated.";
+	return $message;
 }
 
 function bmTree($userData) {
