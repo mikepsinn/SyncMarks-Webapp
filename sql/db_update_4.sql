@@ -13,7 +13,7 @@ CREATE TABLE "users" (
 	`userMail`	VARCHAR(255),
 	PRIMARY KEY(`userID`)
 );
-INSERT INTO `users` SELECT `userID`,`userName`,`userType`,`userHash`,`userLastLogin`,`sessionID`,`userOldLogin`,`uOptions`,NULL FROM `users_old`;
+INSERT INTO `users` SELECT `userID`,`userName`,`userType`,`userHash`,`userLastLogin`,NULL,NULL,NULL,NULL FROM `users_old`;
 DROP TABLE `users_old`;
 
 -- Change bookmark table
@@ -48,8 +48,8 @@ INSERT INTO `clients_tmp` SELECT * FROM `clients`;
 DROP TABLE `clients`;
 ALTER TABLE `clients_tmp` RENAME TO `clients`;
 
--- Change notifications table
-CREATE TABLE `notifications_tmp` (
+-- CREATE notifications table
+CREATE TABLE IF NOT EXISTS `notifications` (
 	`id`	INTEGER NOT NULL,
 	`title`	varchar(250) NOT NULL,
 	`message`	TEXT NOT NULL,
@@ -61,9 +61,34 @@ CREATE TABLE `notifications_tmp` (
 	PRIMARY KEY(`id`),
 	FOREIGN KEY(`userID`) REFERENCES `users`(`userID`) ON DELETE CASCADE
 );
+
+-- CREATE notifications table
+CREATE TABLE IF NOT EXISTS `notifications_tmp` (
+	`id`	INTEGER NOT NULL,
+	`title`	varchar(250) NOT NULL,
+	`message`	TEXT NOT NULL,
+	`ntime`	varchar(250) NOT NULL DEFAULT NULL,
+	`client`	TEXT NOT NULL DEFAULT 0,
+	`nloop`	INTEGER NOT NULL DEFAULT 1,
+	`publish_date`	varchar(250) NOT NULL,
+	`userID`	INTEGER NOT NULL,
+	PRIMARY KEY(`id`),
+	FOREIGN KEY(`userID`) REFERENCES `users`(`userID`) ON DELETE CASCADE
+);
+
 INSERT INTO `notifications_tmp` SELECT * FROM `notifications`;
-DROP TABLE `notifications`;
+DROP TABLE IF EXISTS `notifications`;
+
+DROP TRIGGER IF EXISTS `on_delete_set_default`;
+
 ALTER TABLE `notifications_tmp` RENAME TO `notifications`;
+
+-- Create triggers
+CREATE TRIGGER IF NOT EXISTS `on_delete_set_default`
+	AFTER DELETE ON `clients`
+BEGIN
+	UPDATE `notifications` SET `client` = 0 WHERE `client` = old.cid;
+END;
 
 -- Add reset table
 CREATE TABLE IF NOT EXISTS `reset` (
@@ -107,8 +132,8 @@ BEGIN
 	DELETE FROM `bookmarks` WHERE `userID` = OLD.userID;
 END;
 
-DROP TRIGGER `main`.`delete_userreset`;
-DROP TRIGGER `main`.`delete_usernotifications`;
+DROP TRIGGER IF EXISTS `delete_userreset`;
+DROP TRIGGER IF EXISTS `delete_usernotifications`;
 
 INSERT INTO `system` (`app_version`, `db_version`, `updated`) VALUES ('1.4.2', '4', '1616155755');
 PRAGMA foreign_keys = ON;

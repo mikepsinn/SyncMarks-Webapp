@@ -1,5 +1,10 @@
 ChangeLog
 =========
+1.4.2 (2020-03-22)
+-------------------------
+- Changed feedback to client, when cant be registered
+
+
 1.4.1 (2020-03-20)
 -------------------------
 - Fixed bug for user creation

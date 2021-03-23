@@ -1207,7 +1207,7 @@ input:checked + .slider:before {
 	font-size: 0.9em;
 }
 #loginformb {
-	padding: 5px 10px 10px;
+	padding: 5px 20px 20px;
 	text-align: right;
 }
 #loginform input {
@@ -1218,23 +1218,25 @@ input:checked + .slider:before {
 	padding: 0 .25rem;
 	margin: 5px 0;
 	outline: 0;
-	height: 1.7rem;
+	height: 2rem;
 	color: #3f464c;
+	background-color: #e3e3e3;
 }
 #loginform button {
-	background-color: rgb(33,150,243);
+	background-color: #2196f3;
 	border: none;
 	text-transform: uppercase;
-	color: white;
+	color: #fff;
 	font-weight: 501;
 	padding: 3px 6px;
 	border-radius: 4px;
-	box-shadow: 0 3px 1px -2px rgba(0, 0, 0, 0.2), 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12);
-	font-family: "Roboto", "Segoe UI", BlinkMacSystemFont, system-ui;
-	line-height: 20px;
-	outline: none;
+	box-shadow: 0 3px 1px -2px rgba(0,0,0,.2),0 2px 2px 0 rgba(0,0,0,.14),0 1px 5px 0 rgba(0,0,0,.12);
+	font-family: Roboto,"Segoe UI",BlinkMacSystemFont,system-ui;
+	line-height: 1.8em;
+	outline: 0;
 	cursor: pointer;
 	margin: 10px 0;
+	width: 100%;
 }
 #loginform button:hover {
 	background-color: #0879d9;

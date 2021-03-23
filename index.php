@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.4.1
+ * @version 1.4.2
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -644,6 +644,7 @@ if(isset($_POST['caction'])) {
 					if($loglevel = 9 && $cexpjson == true) {
 						$filename = "export_".substr($client,0,8)."_".time().".json";
 						file_put_contents($filename,$bookmarks,true);
+						e_log(8,'Export file is saved to '.dirname(__FILE__).'/'.$filename);
 					}
 					e_log(8,"Send now ".count(json_decode($bookmarks))." bookmarks to the client");
 					updateClient($client, $ctype, $userData, $ctime, true);
@@ -1119,8 +1120,11 @@ function getChanges($cl, $ct, $ud, $time) {
 			e_log(8,"No bookmarks found to delete from the database");
 		}
 
-		$filename = "changes_".substr($cl,0,8)."_".time().".json";
-		if($cexpjson && $loglevel = 9) file_put_contents($filename,json_encode($bookmarkData),true);
+		if($cexpjson && $loglevel = 9) {
+			$filename = "changes_".substr($cl,0,8)."_".time().".json";
+			file_put_contents($filename,json_encode($bookmarkData),true);
+			e_log(8,'Export file is saved to '.dirname(__FILE__).'/'.$filename);
+		}
 
 		e_log(8,"Found ".count($bookmarkData)." changes. Sending them to the client");
 		return $bookmarkData;
@@ -1206,19 +1210,19 @@ function e_log($level,$message,$errfile="",$errline="",$output=0) {
 	global $logfile,$loglevel;
 	switch($level) {
 		case 9:
-			$mode = "debug";
+			$mode = "debug ";
 			break;
 		case 8:
 			$mode = "notice";
 			break;
 		case 4:
-			$mode = "parse";
+			$mode = "parse ";
 			break;
 		case 2:
-			$mode = "warn";
+			$mode = "warn  ";
 			break;
 		case 1:
-			$mode = "error";
+			$mode = "error ";
 			break;
 		default:
 			$mode = "unknown";
@@ -1226,12 +1230,22 @@ function e_log($level,$message,$errfile="",$errline="",$output=0) {
 	}
 	if($errfile != "") $message = $message." in ".$errfile." on line ".$errline;
 	$user = '';
-	if(isset($_SESSION['sauth'])) $user = $_SESSION['sauth'];
-	$line = "[".date("d-M-Y H:i:s")."] - [$mode] - $user - ".$_SERVER['REMOTE_ADDR']." - $message\n";
+	if(isset($_SESSION['sauth'])) $user = "- ".$_SESSION['sauth']." ";
+	$line = "[".date("d-M-Y H:i:s")."] [$mode] ".filterIP($_SERVER['REMOTE_ADDR'])." $user- $message\n";
 
 	if($level <= $loglevel) {
 		file_put_contents($logfile, $line, FILE_APPEND);
 	}
+}
+
+function filterIP($remote) {
+	$v4mapped_prefix_bin = hex2bin('00000000000000000000ffff'); 
+	$addr_bin = inet_pton($remote);
+	if($addr_bin === FALSE ) die(e_log(1,'Invalid IP address'));
+
+	if( substr($addr_bin, 0, strlen($v4mapped_prefix_bin)) == $v4mapped_prefix_bin) $addr_bin = substr($addr_bin, strlen($v4mapped_prefix_bin));
+
+	return inet_ntop($addr_bin);
 }
 
 function delUsermarks($uid) {
@@ -1843,8 +1857,8 @@ function db_query($query, $data=null) {
 		}
 	} else {
 		if(strpos($query, 'SELECT') === 0 || strpos($query, 'PRAGMA') === 0) {
-			$statement = $db->prepare($query);
 			try {
+				$statement = $db->prepare($query);
 				$statement->execute();
 			} catch(PDOException $e) {
 				e_log(1,"DB query failed: ".$e->getMessage());
@@ -1899,11 +1913,10 @@ function checkDB($database,$suser,$spwd) {
 			if($vInfo['db_version'] < 4) {
 				e_log(8,"Database update needed. Starting DB update...");
 				db_query(file_get_contents("./sql/db_update_4.sql"));
-				db_query("UPDATE `system` SET `updated` = '$newdate' WHERE `updated` = '$olddate';");
 			} else {
 				e_log(8,"Database up to date. Write new state to DB");
-				db_query("UPDATE `system` SET `updated` = '$newdate' WHERE `updated` = '$olddate';");
 			}
+			db_query("UPDATE `system` SET `updated` = '$newdate' WHERE `updated` = '$olddate';");
 		}
 		
 	}
