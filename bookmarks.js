@@ -1,7 +1,7 @@
 /**
  * SyncMarks
  *
- * @version 1.4.2
+ * @version 1.5.0
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -188,6 +188,12 @@ document.addEventListener("DOMContentLoaded", function() {
 						nuser.required = true;
 						nuser.autocomplete = 'username';
 
+						let npwd = document.createElement('input');
+						npwd.id = 'npwd';
+						npwd.placeholder = 'Password';
+						npwd.type = 'password';
+						npwd.autocomplete = 'password';
+
 						let userLevel = document.createElement('select');
 						userLevel.id = 'userLevel';
 
@@ -231,12 +237,17 @@ document.addEventListener("DOMContentLoaded", function() {
 							muadd.disabled = (this.originalValue != this.value || this.value != '') ? false:true;
 						});
 
+						npwd.addEventListener('input', function () {
+							muadd.disabled = (this.originalValue != this.value || this.value != '') ? false:true;
+						});
+
 						userLevel.addEventListener('change', function() {
 							muadd.disabled = false;
 						});
 
 						mnguform.appendChild(userSelect);
 						mnguform.appendChild(nuser);
+						mnguform.appendChild(npwd);
 						mnguform.appendChild(userLevel);
 						mnguform.appendChild(dbutton);
 						document.querySelector('body').appendChild(mnguform);
@@ -249,7 +260,7 @@ document.addEventListener("DOMContentLoaded", function() {
 							document.querySelector('body').appendChild(loader);
 							let xhrAdd = new XMLHttpRequest();
 							let type = (userSelect.selectedIndex == 0) ? 1:2;
-							let AddData = "caction=muedt&type="+type+"&userLevel="+userLevel.value+"&nuser="+nuser.value+"&userSelect="+userSelect.options[userSelect.selectedIndex].value;
+							let AddData = "caction=muedt&type="+type+"&p="+npwd.value+"&userLevel="+userLevel.value+"&nuser="+nuser.value+"&userSelect="+userSelect.options[userSelect.selectedIndex].value;
 							xhrAdd.onreadystatechange = function () {
 								if(this.readyState == 4) {
 									if(this.status == 200) {
@@ -678,7 +689,7 @@ document.addEventListener("DOMContentLoaded", function() {
 				if (this.readyState == 4) {
 					if(this.status == 200) {
 						if(this.responseText == 1)
-							location.reload();
+							location.href = location.href;
 						else {
 							let message = "There was a problem adding the new folder.";
 							console.error(message);

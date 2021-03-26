@@ -1,8 +1,15 @@
 ChangeLog
 =========
+1.5.0 (2020-03-24)
+-------------------------
+- Added support for MySQL
+- Re-Added back optional manual password
+
+
 1.4.2 (2020-03-22)
 -------------------------
 - Changed feedback to client, when cant be registered
+- Filter IP address for logfile
 
 
 1.4.1 (2020-03-20)
