@@ -1,5 +1,11 @@
 <?php
-$database = __DIR__.'/database/syncmarks.db'; // Path to database
+$database = [
+    "type"	 => "sqlite",	// sqlite or mysql
+	"host"	 => null,		// SQLite: null, MySQL: IP or hostname
+	"dbname" => __DIR__."/database/syncmarks.db", // SQLite: Path to database | MySQL: database name
+	"user"	 => null,		// SQLite: null, MySQL: username
+	"pwd"	 => null,		// SQLite: null, MySQL: password
+];
 $logfile = '/var/log/syncmarks.log'; // Full path to logfile
 $realm = 'SyncMarks'; // Used for logging in
 $loglevel = 2; // 	9=debug; 8=notice; 4=parse; 2=warn; 1=error

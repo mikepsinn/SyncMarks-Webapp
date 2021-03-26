@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.4.2
+ * @version 1.5.0
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -164,7 +164,6 @@ if(isset($_POST['caction'])) {
 			$bookmark = json_decode(rawurldecode($_POST['bookmark']),true);
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$ctime = round(microtime(true) * 1000);
-			e_log(8,print_r($bookmark,true));
 			$index = (isset($bookmark['index'])) ? "AND `bmIndex` = ".$bookmark['index']:"";
 			e_log(8,"Try to identify bookmark");
 			if(isset($bookmark['url'])) {
@@ -271,14 +270,21 @@ if(isset($_POST['caction'])) {
 			$oOptionsA = json_decode($userData['uOptions'],true);
 			$oOptionsA[$option] = $value;
 			$query = "UPDATE `users` SET `uOptions`='".json_encode($oOptionsA)."' WHERE `userID`=".$userData['userID'].";";
-			$count = db_query($query);
-			($count === 1) ? e_log(8,"Option saved") : e_log(9,"Error, saving option");
-			echo $count;
+			//$count = db_query($query);
+			//($count === 1) ? e_log(8,"Option saved") : e_log(9,"Error, saving option");
+			//echo $count;
+			if(db_query($query) !== false) {
+				e_log(8,"Option saved");
+				die(json_encode(true));
+			} else {
+				e_log(9,"Error, saving option");
+				die(json_encode(false));
+			}
 			break;
 		case "getclients":
 			e_log(8,"Try to get list of clients");
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
-			$query = "SELECT `cid`, IFNULL(`cname`, `cid`) `cname`, `ctype`, `lastseen` FROM `clients` WHERE `uid` = ".$userData['userID']." AND NOT `cid` = '$client' ORDER BY 2 COLLATE NOCASE ASC;";
+			$query = "SELECT `cid`, IFNULL(`cname`, `cid`) `cname`, `ctype`, `lastseen` FROM `clients` WHERE `uid` = ".$userData['userID']." AND NOT `cid` = '$client' ORDER BY 2 COLLATE ASC;";
 			$clientList = db_query($query);
 			e_log(8,"Found ".count($clientList)." clients. Send list to requesting client.");
 
@@ -343,7 +349,7 @@ if(isset($_POST['caction'])) {
 			$title = filter_var($_POST['title'], FILTER_SANITIZE_STRING);
 			$id = filter_var($_POST['id'], FILTER_SANITIZE_STRING);
 			e_log(8,"Edit entry '$title'");
-			$url = strlen($_POST['url']) > 4 ? '\''.validate_url($_POST['url']).'\'' : 'NULL';
+			$url = (isset($_POST['url']) && strlen($_POST['url']) > 4) ? '\''.validate_url($_POST['url']).'\'' : 'NULL';
 			$query = "UPDATE `bookmarks` SET `bmTitle` = '$title', `bmURL` = $url, `bmAdded` = '".round(microtime(true) * 1000)."' WHERE `bmID` = '$id' AND `userID` = ".$userData['userID'].";";
 			$count = db_query($query);
 			($count > 0) ? die(true) : die(false);
@@ -394,21 +400,22 @@ if(isset($_POST['caction'])) {
 			$headers = "From: SyncMarks <$sender>";
 			$url = $_SERVER['REQUEST_SCHEME']."://".$_SERVER['HTTP_HOST'].$_SERVER['SCRIPT_NAME'];
 			$variant = filter_var($_POST['type'], FILTER_VALIDATE_INT);
-			$password = gpwd(16);
+			$password = (isset($_POST['p']) && $_POST['p'] != '') ? filter_var($_POST['p'], FILTER_SANITIZE_STRING):gpwd(16);
 			$userLevel = filter_var($_POST['userLevel'], FILTER_VALIDATE_INT);
 			$user = filter_var($_POST['nuser'], FILTER_SANITIZE_STRING);
+			$mail = filter_var($user, FILTER_VALIDATE_EMAIL) ? $user:null;
 
 			switch($variant) {
 				case 1:
 					$pwd = password_hash($password,PASSWORD_DEFAULT);
-					e_log(8,"Adding new user $user");
-					$query = "INSERT INTO `users` (`userName`,`userMail`,`userType`,`userHash`) VALUES ('$user', '$user', '$userLevel', '$pwd')";
+					e_log(8,"Try to add new user $user");
+					$query = "INSERT INTO `users` (`userName`,`userMail`,`userType`,`userHash`) VALUES ('$user', NULLIF('$mail',''), '$userLevel', '$pwd')";
 					$nuid = db_query($query);
 					if($nuid > 0) {
-						if(filter_var($user, FILTER_VALIDATE_EMAIL)) {
+						if(filter_var($mail, FILTER_VALIDATE_EMAIL)) {
 							$response = $nuid;
 							$message = "Hello,\r\na new account with the following credentials is created and stored encrypted on for SyncMarks:\r\nUsername: $user\r\nPassword: $password\r\n\r\nYou can login at $url";
-							if(!mail ($user, "Account created",$message,$headers)) {
+							if(!mail ($mail, "Account created",$message,$headers)) {
 								e_log(1,"Error sending data for created user account to user");
 								$response = "User created successful, E-Mail could not send";
 							}
@@ -641,12 +648,13 @@ if(isset($_POST['caction'])) {
 					e_log(8,"Exporting in JSON format");
 					$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 					$bookmarks = json_encode(getBookmarks($userData));
-					if($loglevel = 9 && $cexpjson == true) {
+					if($loglevel == 9 && $cexpjson == true) {
 						$filename = "export_".substr($client,0,8)."_".time().".json";
 						file_put_contents($filename,$bookmarks,true);
 						e_log(8,'Export file is saved to '.dirname(__FILE__).'/'.$filename);
 					}
-					e_log(8,"Send now ".count(json_decode($bookmarks))." bookmarks to the client");
+					$bcount = count(json_decode($bookmarks));
+					e_log(8,"Send now $bcount bookmarks to the client");
 					updateClient($client, $ctype, $userData, $ctime, true);
 					die($bookmarks);
 					break;
@@ -657,10 +665,10 @@ if(isset($_POST['caction'])) {
 			break;
 		case "checkdups":
 			e_log(8,"Checking for duplicated bookmarks by url");
-			$query = "SELECT `bmID`, `bmTitle`, `bmURL` FROM `bookmarks` WHERE `userID` = ".$userData['userID']." AND `bmAction` ISNULL OR `bmAction` = 2 GROUP BY `bmURL` HAVING COUNT(`bmURL`) > 1;";
+			$query = "SELECT `bmID`, `bmTitle`, `bmURL` FROM `bookmarks` WHERE `userID` = ".$userData['userID']." AND `bmAction` IS NULL OR `bmAction` = 2 GROUP BY `bmURL` HAVING COUNT(`bmURL`) > 1;";
 			$dubData = db_query($query);
 			foreach($dubData as $key => $dub) {
-				$query = "SELECT `bmID`, `bmParentID`, `bmTitle`, `bmAdded` FROM `bookmarks` WHERE `bmURL` = '".$dub['bmURL']."' AND `userID` = ".$userData['userID']." AND `bmAction` ISNULL OR `bmAction` = 2 ORDER BY `bmParentID`, `bmIndex`;";
+				$query = "SELECT `bmID`, `bmParentID`, `bmTitle`, `bmAdded` FROM `bookmarks` WHERE `bmURL` = '".$dub['bmURL']."' AND `userID` = ".$userData['userID']." AND `bmAction` IS NULL OR `bmAction` = 2 ORDER BY `bmParentID`, `bmIndex`;";
 				$subData = db_query($query);
 				foreach($subData as $index => $entry) {
 					$subData[$index]['fway'] = fWay($entry['bmParentID'], $userData['userID'],'');
@@ -809,10 +817,10 @@ function cfolder($ctime,$fname,$fbid,$ud) {
 		if(count($idata) == 1) {
 			e_log(8,"Add new folder to database");
 			$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', '$parentid', ".$idata[0]['nIndex'].", '$fname', 'folder', $ctime, ".$ud["userID"].")";
-			if(db_query($query) < 1)
+			if(db_query($query) === false)
 				$res = "Adding folder failed.";
 			else {
-				$res = 1;
+				$res = "1";
 			}
 		} else {
 			$res = "No index found, folder not added";
@@ -820,7 +828,6 @@ function cfolder($ctime,$fname,$fbid,$ud) {
 	} else {
 		$res = "Parent folder not found, folder not added";
 	}
-	
 	return $res;
 }
 
@@ -1060,7 +1067,7 @@ function addBookmark($ud, $bm) {
 		}
 	}
 	e_log(8,"Get folder for adding bookmark");
-	$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmID` = '".$bm["folder"]."' AND `userID` = ".$ud['userID']." UNION ALL SELECT 'unfiled_____' WHERE NOT EXISTS (SELECT 1 FROM `bookmarks` WHERE `bmID` = '".$bm["folder"]."');";
+	$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmID` = '".$bm["folder"]."' AND `userID` = ".$ud['userID']." UNION ALL (SELECT 'unfiled_____') LIMIT 1;";
 	$folderID = db_query($query)[0]['bmID'];
 
 	e_log(8,"Get new index for bookmark");
@@ -1070,7 +1077,7 @@ function addBookmark($ud, $bm) {
 	$title = htmlspecialchars($bm['title'],ENT_QUOTES,'UTF-8');
 	e_log(8,"Add bookmark '".$title."'");
 	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '$folderID', $nindex, '".$title."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].");";
-	if(db_query($query) < 1 ) {
+	if(db_query($query) === false ) {
 		$message = "Adding bookmark failed";
 		e_log(1,$message);
 		return $message;
@@ -1088,7 +1095,7 @@ function getChanges($cl, $ct, $ud, $time) {
 	if($clientData) {
 		$lastseen = $clientData["lastseen"];
 		e_log(8,"Get changed bookmarks for client $cl");
-		$query = "SELECT a.`bmParentID` as fdID, (SELECT `bmTitle` FROM `bookmarks` WHERE `bmID` = a.`bmParentID`) as fdName, (SELECT `bmIndex` FROM `bookmarks` WHERE `bmID` = a.`bmParentID`) as fdIndex, `bmID`, `bmIndex`, `bmTitle`, `bmType`, `bmURL`, `bmAdded`, `bmModified`, `bmAction` FROM `bookmarks` a WHERE (bmAdded >= $lastseen AND userID = $uid) OR (bmAction = 1 AND bmAdded >= $lastseen AND userID = $uid);";
+		$query = "SELECT a.`bmParentID` as fdID, (SELECT `bmTitle` FROM `bookmarks` WHERE `bmID` = a.`bmParentID` AND userID = $uid) as fdName, (SELECT `bmIndex` FROM `bookmarks` WHERE `bmID` = a.`bmParentID` AND userID = $uid) as fdIndex, `bmID`, `bmIndex`, `bmTitle`, `bmType`, `bmURL`, `bmAdded`, `bmModified`, `bmAction` FROM `bookmarks` a WHERE (bmAdded >= $lastseen AND userID = $uid) OR (bmAction = 1 AND bmAdded >= $lastseen AND userID = $uid);";
 		$bookmarkData = db_query($query);
 		foreach($bookmarkData as $key => $entry) {
 			$bookmarkData[$key]['bmTitle'] = html_entity_decode($entry['bmTitle'],ENT_QUOTES,'UTF-8'); 
@@ -1120,7 +1127,7 @@ function getChanges($cl, $ct, $ud, $time) {
 			e_log(8,"No bookmarks found to delete from the database");
 		}
 
-		if($cexpjson && $loglevel = 9) {
+		if($cexpjson && $loglevel == 9) {
 			$filename = "changes_".substr($cl,0,8)."_".time().".json";
 			file_put_contents($filename,json_encode($bookmarkData),true);
 			e_log(8,'Export file is saved to '.dirname(__FILE__).'/'.$filename);
@@ -1556,6 +1563,7 @@ function makeHTMLExport($arr) {
 					break;
 				case 'menu________':
 					$fclose = '';
+					$sfolder = '';
 					break;
 				default:
 					$sfolder = '';
@@ -1828,7 +1836,11 @@ function db_query($query, $data=null) {
 		PDO::ATTR_ORACLE_NULLS => PDO::NULL_EMPTY_STRING
 	];
 	try {
-		$db = new PDO('sqlite:'.$database, null, null, $options);
+		if($database['type'] == 'mysql') {
+			$db = new PDO($database['type'].':host='.$database['host'].';dbname='.$database['dbname'], $database['user'], $database['pwd'], $options);
+		} elseif($database['type'] == 'sqlite') {
+			$db = new PDO($database['type'].':'.$database['dbname'], null, null, $options);
+		}
 	} catch (PDOException $e) {
 		e_log(1,'DB connection failed: '.$e->getMessage());
 		return false;
@@ -1881,44 +1893,51 @@ function db_query($query, $data=null) {
 }
 
 function checkDB($database,$suser,$spwd) {
-	if(!file_exists($database)) {
-		if(!file_exists(dirname($database))) {
-			if(!mkdir(dirname($database),0777,true)) {
-				$message = "Directory for database couldn't created, please check privileges";
-				e_log(1,$message);
-				die($message);
-			} else {
-				e_log(8,"Directory for database created, initialize database now");
-			}
+	$vInfo = db_query("SELECT * FROM `system` ORDER BY `updated` DESC LIMIT 1;")[0];
+	$olddate = $vInfo['updated'];
+	$newdate = filemtime(__FILE__);
+
+	if($vInfo['db_version'] && $vInfo['db_version'] < 4) {
+		e_log(8,"Database update needed. Starting DB update...");
+		if($database['type'] == "sqlite") {
+			db_query(file_get_contents("./sql/sqlite_update_4.sql"));
+		} elseif($database['type'] == "mysql") {
+			e_log(8,"No update available");
 		}
-		e_log(8,"Initialise new database");
-		db_query(file_get_contents("./sql/db_init.sql"));
+		db_query("UPDATE `system` SET `updated` = '$newdate' WHERE `updated` = '$olddate';");
+	} elseif($vInfo['db_version'] && $vInfo['db_version'] >= 4) {
+		if($olddate <> $newdate) db_query("UPDATE `system` SET `updated` = '$newdate' WHERE `updated` = '$olddate';");
+	} else {
+		e_log(8,"Database not ready. Initialize database now");
+		if($database['type'] == "sqlite") {
+			if(!file_exists($database['dbname'])) {
+				if(!file_exists(dirname($database['dbname']))) {
+					if(!mkdir(dirname($database['dbname']),0777,true)) {
+						$message = "Directory for database (".dirname($database['dbname']).") couldn't created, please check privileges";
+						e_log(1,$message);
+						die($message);
+					} else {
+						e_log(8,"Directory for database created (".dirname($database['dbname'])."), initialize database now");
+						db_query(file_get_contents("./sql/sqlite_init.sql"));
+					}
+				}
+			} else {
+				e_log(8,"Initialise new SQLite database");
+				db_query(file_get_contents("./sql/sqlite_init.sql"));
+			}
+		} elseif($database['type'] == "mysql") {
+			e_log(8,"Initialise new MySQL database");
+			db_query(file_get_contents("./sql/mysql_init.sql"));
+		}
 
 		$bmAdded = round(microtime(true) * 1000);
 		$userPWD = password_hash($spwd,PASSWORD_DEFAULT);
+		$query = "INSERT INTO `users` (userName,userType,userHash) VALUES ('$suser',2,'$userPWD');";
+		db_query($query);
 		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('unfiled_____', 'root________', 0, 'Other Bookmarks', 'folder', NULL, ".$bmAdded.", 1)";
 		db_query($query);
 		$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".unique_code(12)."', 'unfiled_____', 0, 'GitHub Repository', 'bookmark', 'https://github.com/Offerel', ".$bmAdded.", 1)";
 		db_query($query);
-		$query = "INSERT INTO `users` (userName,userType,userHash) VALUES ('$suser',2,'$userPWD');";
-		db_query($query);
-		file_put_contents("state",$newdate,true);
-	} else {
-		$vInfo = db_query("SELECT * FROM `system` ORDER BY `updated` DESC LIMIT 1;")[0];
-		$olddate = $vInfo['updated'];
-		$newdate = filemtime(__FILE__);
-
-		if($olddate != $newdate) {
-			e_log(8,"SyncMarks update dedected. Check database version");
-			if($vInfo['db_version'] < 4) {
-				e_log(8,"Database update needed. Starting DB update...");
-				db_query(file_get_contents("./sql/db_update_4.sql"));
-			} else {
-				e_log(8,"Database up to date. Write new state to DB");
-			}
-			db_query("UPDATE `system` SET `updated` = '$newdate' WHERE `updated` = '$olddate';");
-		}
-		
 	}
 }
 ?>
