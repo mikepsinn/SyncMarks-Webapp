@@ -1,5 +1,10 @@
 ChangeLog
 =========
+1.5.1 (2020-03-27)
+-------------------------
+- Fix for listing clients
+
+
 1.5.0 (2020-03-24)
 -------------------------
 - Added support for MySQL
