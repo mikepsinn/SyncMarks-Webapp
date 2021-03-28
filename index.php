@@ -284,9 +284,13 @@ if(isset($_POST['caction'])) {
 		case "getclients":
 			e_log(8,"Try to get list of clients");
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
-			$query = "SELECT `cid`, IFNULL(`cname`, `cid`) `cname`, `ctype`, `lastseen` FROM `clients` WHERE `uid` = ".$userData['userID']." AND NOT `cid` = '$client' ORDER BY 2 ASC;";
+			$query = "SELECT `cid`, IFNULL(`cname`, `cid`) `cname`, `ctype`, `lastseen` FROM `clients` WHERE `uid` = ".$userData['userID']." AND NOT `cid` = '$client';";
 			$clientList = db_query($query);
 			e_log(8,"Found ".count($clientList)." clients. Send list to requesting client.");
+
+			uasort($clientList, function($a, $b) {
+				return strnatcasecmp($a['cname'], $b['cname']);
+			});
 
 			if (!empty($clientList)) {
 				foreach($clientList as $key => $client) {
@@ -295,14 +299,13 @@ if(isset($_POST['caction'])) {
 					$myObj[$key]['type'] = 	$client['ctype'];
 					$myObj[$key]['date'] = 	$client['lastseen'];
 				}
-				die(json_encode($myObj));
 			} else {
 				$myObj[0]['id'] =	'0';
 				$myObj[0]['name'] =	'All Clients';
 				$myObj[0]['type'] =	'';
 				$myObj[0]['date'] =	'';
-				die(json_encode($myObj));
 			}
+			die(json_encode($myObj));
 			break;
 		case "tl":
 			e_log(8,"Get testrequest from addon options page");
