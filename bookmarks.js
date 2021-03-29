@@ -121,18 +121,20 @@ document.addEventListener("DOMContentLoaded", function() {
 			let url = encodeURIComponent(document.getElementById('url').value);
 			var xhr = new XMLHttpRequest();
 			var data = "caction=madd&folder=" + folder + "&url=" + url;
-			xhr.onreadystatechange = function () {
-				if (this.readyState == 4 && this.status == 200) {
+
+			xhr.onload = function() {
+				if(xhr.status == 200) {
 					document.getElementById('bookmarks').innerHTML = this.responseText;
-					console.info("Bookmark added successfully.");
 					document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
 					document.querySelectorAll('.folder').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
+					console.info("Bookmark added successfully.");
 				} else {
 					let message = "Error adding bookmark, please check server log.";
 					show_noti({title:"Syncmarks - Error", url:message, key:""}, false);
 					console.error(message);
 				}
 			};
+
 			xhr.open("POST", document.location.href, true);
 			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 			xhr.send(data);
