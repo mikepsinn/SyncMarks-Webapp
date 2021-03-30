@@ -717,31 +717,31 @@ if(isset($_POST['caction'])) {
 
 if(isset($_GET['link'])) {
 	$url = validate_url($_GET["link"]);
-	e_log(9,"Bookmarklet URL: " . $url);
-
-	if(!empty($_GET["title"])) {
-		$title = $_GET["title"];
-	} else {
-		$title = getSiteTitle($url);
-	}
+	e_log(9,"URL add request: " . $url);
+	
+	$title = (!isset($_GET["title"])) ? filter_var($_GET["title"], FILTER_SANITIZE_STRING):getSiteTitle($url);
+	$push = (!isset($_GET["push"])) ? false:filter_var($_GET["push"], FILTER_VALIDATE_BOOLEAN);
+	$client = (isset($_GET["client"])) ? filter_var($_GET["client"], FILTER_SANITIZE_STRING):false;
 
 	$bookmark['url'] = $url;
-	$bookmark['nfolder'] = 'unfiled_____';
+	$bookmark['folder'] = 'unfiled_____';
 	$bookmark['title'] = $title;
 	$bookmark['id'] = unique_code(12);
 	$bookmark['type'] = 'bookmark';
 	$bookmark['added'] = round(microtime(true) * 1000);
-	
-	$options = json_decode($userData['uOptions'],true);
-	if(strlen($options['pAPI']) > 1 && strlen($options['pDevice']) > 1 && $options['pbEnable'] == "1") {
-		pushlink($title,$url,$userData);
-	} else {
-		e_log(9,"Cant send push, missing data. Please check options");
+
+	if($push != false) {
+		$options = json_decode($userData['uOptions'],true);
+		if(strlen($options['pAPI']) > 1 && strlen($options['pDevice']) > 1 && $options['pbEnable'] == "1") {
+			pushlink($title,$url,$userData);
+		} else {
+			e_log(9,"Can't send push, missing data. Please check push options");
+		}
 	}
 	
 	$res = addBookmark($userData, $bookmark);
 	if($res == 1) {
-		if(isset($_GET['client']) && $_GET['client'] == 'Android') {
+		if($client == 'Android') {
 			echo("URL is added successfully.");
 		} else {
 			echo "<script>window.onload = function() { window.close();}</script>";
@@ -1052,7 +1052,7 @@ function addFolder($ud, $bm) {
 
 function addBookmark($ud, $bm) { 
 	e_log(8,"Check if bookmark already exists for user.");
-	$query = "SELECT `bmID`, COUNT(*) AS `bmcount`, MAX(`bmAction`) AS `bmaction` FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' AND `bmParentID` = '".$bm["nfolder"]."' AND `userID` = ".$ud["userID"].";";
+	$query = "SELECT `bmID`, COUNT(*) AS `bmcount`, MAX(`bmAction`) AS `bmaction` FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' AND `bmParentID` = '".$bm["folder"]."' AND `userID` = ".$ud["userID"].";";
 	$bmExistData = db_query($query);
 	if($bmExistData[0]["bmcount"] > 0) {
 		if($bmExistData[0]["bmaction"] == 1) {
@@ -1070,7 +1070,7 @@ function addBookmark($ud, $bm) {
 		}
 	}
 	e_log(8,"Get folder for adding bookmark");
-	$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmID` = '".$bm["folder"]."' AND `userID` = ".$ud['userID']." UNION ALL (SELECT 'unfiled_____') LIMIT 1;";
+	$query = "SELECT COALESCE(MAX(`bmID`), 'unfiled_____') `bmID` FROM `bookmarks` WHERE `bmID` = '".$bm["folder"]."' AND `userID` = ".$ud['userID'].";";
 	$folderID = db_query($query)[0]['bmID'];
 
 	e_log(8,"Get new index for bookmark");
@@ -1189,7 +1189,7 @@ function getIndex($folder) {
 }
 
 function getSiteTitle($url) {
-	e_log(8,"Get titel from site ".$url);
+	e_log(8,"Get titel for site ".$url);
 	$src = file_get_contents($url);
 	if(strlen($src) > 0) {
 		preg_match("/\<title\>(.*)\<\/title\>/i",$src,$title_arr);
@@ -1212,7 +1212,7 @@ function getUserdata() {
 }
 
 function unique_code($limit) {
-	e_log(8,"Building bookmark id");
+	e_log(8,"Building new unique bookmark id");
 	return substr(base_convert(sha1(uniqid(mt_rand())), 16, 36), 0, $limit);
 }
 
