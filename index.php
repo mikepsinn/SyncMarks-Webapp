@@ -1517,13 +1517,12 @@ function notiList($uid, $loop) {
 	$aNotitData = db_query($query);
 	$notiList = "";
 	foreach($aNotitData as $key => $aNoti) {
-		if($aNoti['client'] == "0")
-			$cl = "All";
-		else
-			$cl = $aNoti['client'];
+		$cl = ($aNoti['client'] == "0") ? "All":$aNoti['client'];
+		$title = html_entity_decode($aNoti['title'],ENT_QUOTES,'UTF-8');
+
 		$notiList.= "<div class='NotiTableRow'>
 					<div class='NotiTableCell'>
-						<span><a class='link' title='".$aNoti['title']."' href='".$aNoti['message']."'>".$aNoti['title']."</a></span>
+						<span><a class='link' title='$title' href='".$aNoti['message']."'>$title</a></span>
 						<span class='nlink'>".$aNoti['message']."</span>
 						<span class='ndate'>".date("d.m.Y H:i",$aNoti['publish_date'])." | $cl</span>
 					</div>

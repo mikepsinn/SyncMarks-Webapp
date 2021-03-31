@@ -1,9 +1,10 @@
 ChangeLog
 =========
-1.5.1 (2020-03-27)
+1.5.1 (2020-03-31)
 -------------------------
 - Fix for listing clients
 - Fix for add bookmark response
+- Fix encoding site title
 
 
 1.5.0 (2020-03-24)
