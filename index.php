@@ -1313,13 +1313,14 @@ function htmlForms($userData) {
 	$logform = ($userData['userType'] == 2) ? "<div id=\"logfile\"><div id=\"close\"><button id='mclear'>clear</button> <button id='mclose'>&times;</button></div><div id='lfiletext'></div></div>":"";
 
 	$uOptions = json_decode($userData['uOptions'],true);
+	file_put_contents("/tmp/options.txt",print_r($uOptions,true));
 	$oswitch = ($uOptions['notifications'] == 1) ? " checked":"";
 	$oswitch =  "<label class='switch' title='Enable/Disable Notifications'><input id='cnoti' type='checkbox'$oswitch><span class='slider round'></span></label>";
 
-	$pbswitch = ($uOptions['pbEnable'] == 1) ? " checked":"";
+	$pbswitch = (isset($uOptions['pbEnable']) && $uOptions['pbEnable'] == 1) ? " checked":"";
 	$pbswitch = "<label class='switch' title='Enable/Disable Pushbullet'><input id='pbe' name='pbe' value='1' type='checkbox'$pbswitch><span class='slider round'></span></label>";
-	$pAPI = edcrpt('de',json_decode($userData['uOptions'],true)['pAPI']);
-	$pDevice = edcrpt('de',json_decode($userData['uOptions'],true)['pDevice']);
+	$pAPI = (isset($uOptions['pAPI'])) ? edcrpt('de',$uOptions['pAPI']):'';	//edcrpt('de',json_decode($userData['uOptions'],true)['pAPI']);
+	$pDevice = (isset($uOptions['pDevice'])) ? edcrpt('de',$uOptions['pDevice']):'';	//edcrpt('de',json_decode($userData['uOptions'],true)['pDevice']);
 
 	$mngsettingsform = "
 	<div id='mngsform' class='mmenu'><h6>SyncMarks Settings</h6>
