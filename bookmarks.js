@@ -105,9 +105,7 @@ document.addEventListener("DOMContentLoaded", function() {
 		if(sessionStorage.getItem('gNoti') != 1) getNotifications();
 
 		document.addEventListener('keydown', e => {
-			if (e.keyCode === 27) {
-				hideMenu();
-			}
+			if (e.key === 'Escape') hideMenu();
 		});
 
 		if(document.querySelector("#mngcform input[type='text']")) document.querySelector("#mngcform input[type='text']").addEventListener('focus', function() {
@@ -1078,15 +1076,13 @@ function getNotifications() {
 	let data = 'caction=gurls';
 
 	xhr.onreadystatechange = function () {
-		if (this.readyState == 4) {
-			if(this.status == 200) {
-				if(this.responseText) {
-					let notifications = JSON.parse(this.responseText);
-					if(notifications[0]['nOption'] == 1) {
-						notifications.forEach(function(notification){
-							show_noti(notification);
-						});
-					}
+		if (this.readyState == 4 && this.status == 200) {
+			if(this.responseText) {
+				let notifications = JSON.parse(this.responseText);
+				if(notifications[0]['nOption'] == 1) {
+					notifications.forEach(function(notification){
+						show_noti(notification);
+					});
 				}
 			}
 		}

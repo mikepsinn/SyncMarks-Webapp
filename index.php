@@ -331,11 +331,12 @@ if(isset($_POST['caction'])) {
 			if (!empty($notificationData)) {
 				e_log(8,"Found ".count($notificationData)." links. Will push them to the client.");
 				foreach($notificationData as $key => $notification) {
-					$myObj[$key]['title'] = html_entity_decode($notification['title'],ENT_QUOTES,'UTF-8');
+					$myObj[$key]['title'] = html_entity_decode(html_entity_decode($notification['title'],ENT_QUOTES,'UTF-8'));
 					$myObj[$key]['url'] = $notification['message'];
 					$myObj[$key]['nkey'] = $notification['id'];
 					$myObj[$key]['nOption'] = $uOptions['notifications'];
 				}
+				file_put_contents("/tmp/notification.txt",print_r($myObj, true));
 				die(json_encode($myObj));
 			} else {
 				e_log(8,"No pushed sites found");
