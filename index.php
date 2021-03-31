@@ -336,7 +336,6 @@ if(isset($_POST['caction'])) {
 					$myObj[$key]['nkey'] = $notification['id'];
 					$myObj[$key]['nOption'] = $uOptions['notifications'];
 				}
-				file_put_contents("/tmp/notification.txt",print_r($myObj, true));
 				die(json_encode($myObj));
 			} else {
 				e_log(8,"No pushed sites found");
