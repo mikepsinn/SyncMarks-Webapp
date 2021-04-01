@@ -1,7 +1,7 @@
 /**
  * SyncMarks
  *
- * @version 1.5.0
+ * @version 1.5.1
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -105,9 +105,7 @@ document.addEventListener("DOMContentLoaded", function() {
 		if(sessionStorage.getItem('gNoti') != 1) getNotifications();
 
 		document.addEventListener('keydown', e => {
-			if (e.keyCode === 27) {
-				hideMenu();
-			}
+			if (e.key === 'Escape') hideMenu();
 		});
 
 		if(document.querySelector("#mngcform input[type='text']")) document.querySelector("#mngcform input[type='text']").addEventListener('focus', function() {
@@ -121,18 +119,20 @@ document.addEventListener("DOMContentLoaded", function() {
 			let url = encodeURIComponent(document.getElementById('url').value);
 			var xhr = new XMLHttpRequest();
 			var data = "caction=madd&folder=" + folder + "&url=" + url;
-			xhr.onreadystatechange = function () {
-				if (this.readyState == 4 && this.status == 200) {
+
+			xhr.onload = function() {
+				if(xhr.status == 200) {
 					document.getElementById('bookmarks').innerHTML = this.responseText;
-					console.info("Bookmark added successfully.");
 					document.querySelectorAll('.file').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
 					document.querySelectorAll('.folder').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
+					console.info("Bookmark added successfully.");
 				} else {
 					let message = "Error adding bookmark, please check server log.";
 					show_noti({title:"Syncmarks - Error", url:message, key:""}, false);
 					console.error(message);
 				}
 			};
+
 			xhr.open("POST", document.location.href, true);
 			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 			xhr.send(data);
@@ -1076,15 +1076,13 @@ function getNotifications() {
 	let data = 'caction=gurls';
 
 	xhr.onreadystatechange = function () {
-		if (this.readyState == 4) {
-			if(this.status == 200) {
-				if(this.responseText) {
-					let notifications = JSON.parse(this.responseText);
-					if(notifications[0]['nOption'] == 1) {
-						notifications.forEach(function(notification){
-							show_noti(notification);
-						});
-					}
+		if (this.readyState == 4 && this.status == 200) {
+			if(this.responseText) {
+				let notifications = JSON.parse(this.responseText);
+				if(notifications[0]['nOption'] == 1) {
+					notifications.forEach(function(notification){
+						show_noti(notification);
+					});
 				}
 			}
 		}

@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.5.0
+ * @version 1.5.1
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -284,9 +284,13 @@ if(isset($_POST['caction'])) {
 		case "getclients":
 			e_log(8,"Try to get list of clients");
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
-			$query = "SELECT `cid`, IFNULL(`cname`, `cid`) `cname`, `ctype`, `lastseen` FROM `clients` WHERE `uid` = ".$userData['userID']." AND NOT `cid` = '$client' ORDER BY 2 COLLATE ASC;";
+			$query = "SELECT `cid`, IFNULL(`cname`, `cid`) `cname`, `ctype`, `lastseen` FROM `clients` WHERE `uid` = ".$userData['userID']." AND NOT `cid` = '$client';";
 			$clientList = db_query($query);
 			e_log(8,"Found ".count($clientList)." clients. Send list to requesting client.");
+
+			uasort($clientList, function($a, $b) {
+				return strnatcasecmp($a['cname'], $b['cname']);
+			});
 
 			if (!empty($clientList)) {
 				foreach($clientList as $key => $client) {
@@ -295,14 +299,13 @@ if(isset($_POST['caction'])) {
 					$myObj[$key]['type'] = 	$client['ctype'];
 					$myObj[$key]['date'] = 	$client['lastseen'];
 				}
-				die(json_encode($myObj));
 			} else {
 				$myObj[0]['id'] =	'0';
 				$myObj[0]['name'] =	'All Clients';
 				$myObj[0]['type'] =	'';
 				$myObj[0]['date'] =	'';
-				die(json_encode($myObj));
 			}
+			die(json_encode($myObj));
 			break;
 		case "tl":
 			e_log(8,"Get testrequest from addon options page");
@@ -328,7 +331,7 @@ if(isset($_POST['caction'])) {
 			if (!empty($notificationData)) {
 				e_log(8,"Found ".count($notificationData)." links. Will push them to the client.");
 				foreach($notificationData as $key => $notification) {
-					$myObj[$key]['title'] = html_entity_decode($notification['title'],ENT_QUOTES,'UTF-8');
+					$myObj[$key]['title'] = html_entity_decode(html_entity_decode($notification['title'],ENT_QUOTES,'UTF-8'));
 					$myObj[$key]['url'] = $notification['message'];
 					$myObj[$key]['nkey'] = $notification['id'];
 					$myObj[$key]['nOption'] = $uOptions['notifications'];
@@ -714,31 +717,45 @@ if(isset($_POST['caction'])) {
 
 if(isset($_GET['link'])) {
 	$url = validate_url($_GET["link"]);
-	e_log(9,"Bookmarklet URL: " . $url);
-
-	if(!empty($_GET["title"])) {
-		$title = $_GET["title"];
-	} else {
-		$title = getSiteTitle($url);
-	}
-
+	e_log(9,"URL add request: " . $url);
+	
+	$title = (isset($_GET["title"])) ? filter_var($_GET["title"], FILTER_SANITIZE_STRING):getSiteTitle($url);
+	$push = (!isset($_GET["push"])) ? false:filter_var($_GET["push"], FILTER_VALIDATE_BOOLEAN);
+	$client = (isset($_GET["client"])) ? filter_var($_GET["client"], FILTER_SANITIZE_STRING):false;
+	
 	$bookmark['url'] = $url;
-	$bookmark['nfolder'] = 'unfiled_____';
+	$bookmark['folder'] = 'unfiled_____';
 	$bookmark['title'] = $title;
 	$bookmark['id'] = unique_code(12);
 	$bookmark['type'] = 'bookmark';
 	$bookmark['added'] = round(microtime(true) * 1000);
-	
-	$options = json_decode($userData['uOptions'],true);
-	if(strlen($options['pAPI']) > 1 && strlen($options['pDevice']) > 1 && $options['pbEnable'] == "1") {
-		pushlink($title,$url,$userData);
-	} else {
-		e_log(9,"Cant send push, missing data. Please check options");
+
+	if($push) {
+		$options = json_decode($userData['uOptions'],true);
+		if(strlen($options['pAPI']) > 1 && strlen($options['pDevice']) > 1 && $options['pbEnable'] == "1") {
+			pushlink($title,$url,$userData);
+		} else {
+			e_log(9,"Can't send push, missing data. Please check push options");
+		}
+	}
+
+	$uas = array(
+		"HttpShortcuts",
+		"Irix"
+	);
+
+	$so = false;
+
+	foreach($uas as $ua) {
+		if(strpos($_SERVER['HTTP_USER_AGENT'], $ua) !== false) {
+			$so = true;
+			break;
+		}
 	}
 	
 	$res = addBookmark($userData, $bookmark);
 	if($res == 1) {
-		if(isset($_GET['client']) && $_GET['client'] == 'Android') {
+		if ($so) {
 			echo("URL is added successfully.");
 		} else {
 			echo "<script>window.onload = function() { window.close();}</script>";
@@ -1049,7 +1066,7 @@ function addFolder($ud, $bm) {
 
 function addBookmark($ud, $bm) { 
 	e_log(8,"Check if bookmark already exists for user.");
-	$query = "SELECT `bmID`, COUNT(*) AS `bmcount`, MAX(`bmAction`) AS `bmaction` FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' AND `bmParentID` = '".$bm["nfolder"]."' AND `userID` = ".$ud["userID"].";";
+	$query = "SELECT `bmID`, COUNT(*) AS `bmcount`, MAX(`bmAction`) AS `bmaction` FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' AND `bmParentID` = '".$bm["folder"]."' AND `userID` = ".$ud["userID"].";";
 	$bmExistData = db_query($query);
 	if($bmExistData[0]["bmcount"] > 0) {
 		if($bmExistData[0]["bmaction"] == 1) {
@@ -1067,7 +1084,7 @@ function addBookmark($ud, $bm) {
 		}
 	}
 	e_log(8,"Get folder for adding bookmark");
-	$query = "SELECT `bmID` FROM `bookmarks` WHERE `bmID` = '".$bm["folder"]."' AND `userID` = ".$ud['userID']." UNION ALL (SELECT 'unfiled_____') LIMIT 1;";
+	$query = "SELECT COALESCE(MAX(`bmID`), 'unfiled_____') `bmID` FROM `bookmarks` WHERE `bmID` = '".$bm["folder"]."' AND `userID` = ".$ud['userID'].";";
 	$folderID = db_query($query)[0]['bmID'];
 
 	e_log(8,"Get new index for bookmark");
@@ -1186,7 +1203,7 @@ function getIndex($folder) {
 }
 
 function getSiteTitle($url) {
-	e_log(8,"Get titel from site ".$url);
+	e_log(8,"Get titel for site ".$url);
 	$src = file_get_contents($url);
 	if(strlen($src) > 0) {
 		preg_match("/\<title\>(.*)\<\/title\>/i",$src,$title_arr);
@@ -1209,7 +1226,7 @@ function getUserdata() {
 }
 
 function unique_code($limit) {
-	e_log(8,"Building bookmark id");
+	e_log(8,"Building new unique bookmark id");
 	return substr(base_convert(sha1(uniqid(mt_rand())), 16, 36), 0, $limit);
 }
 
@@ -1310,13 +1327,14 @@ function htmlForms($userData) {
 	$logform = ($userData['userType'] == 2) ? "<div id=\"logfile\"><div id=\"close\"><button id='mclear'>clear</button> <button id='mclose'>&times;</button></div><div id='lfiletext'></div></div>":"";
 
 	$uOptions = json_decode($userData['uOptions'],true);
+	file_put_contents("/tmp/options.txt",print_r($uOptions,true));
 	$oswitch = ($uOptions['notifications'] == 1) ? " checked":"";
 	$oswitch =  "<label class='switch' title='Enable/Disable Notifications'><input id='cnoti' type='checkbox'$oswitch><span class='slider round'></span></label>";
 
-	$pbswitch = ($uOptions['pbEnable'] == 1) ? " checked":"";
+	$pbswitch = (isset($uOptions['pbEnable']) && $uOptions['pbEnable'] == 1) ? " checked":"";
 	$pbswitch = "<label class='switch' title='Enable/Disable Pushbullet'><input id='pbe' name='pbe' value='1' type='checkbox'$pbswitch><span class='slider round'></span></label>";
-	$pAPI = edcrpt('de',json_decode($userData['uOptions'],true)['pAPI']);
-	$pDevice = edcrpt('de',json_decode($userData['uOptions'],true)['pDevice']);
+	$pAPI = (isset($uOptions['pAPI'])) ? edcrpt('de',$uOptions['pAPI']):'';
+	$pDevice = (isset($uOptions['pDevice'])) ? edcrpt('de',$uOptions['pDevice']):'';
 
 	$mngsettingsform = "
 	<div id='mngsform' class='mmenu'><h6>SyncMarks Settings</h6>
@@ -1514,13 +1532,12 @@ function notiList($uid, $loop) {
 	$aNotitData = db_query($query);
 	$notiList = "";
 	foreach($aNotitData as $key => $aNoti) {
-		if($aNoti['client'] == "0")
-			$cl = "All";
-		else
-			$cl = $aNoti['client'];
+		$cl = ($aNoti['client'] == "0") ? "All":$aNoti['client'];
+		$title = html_entity_decode($aNoti['title'],ENT_QUOTES,'UTF-8');
+
 		$notiList.= "<div class='NotiTableRow'>
 					<div class='NotiTableCell'>
-						<span><a class='link' title='".$aNoti['title']."' href='".$aNoti['message']."'>".$aNoti['title']."</a></span>
+						<span><a class='link' title='$title' href='".$aNoti['message']."'>$title</a></span>
 						<span class='nlink'>".$aNoti['message']."</span>
 						<span class='ndate'>".date("d.m.Y H:i",$aNoti['publish_date'])." | $cl</span>
 					</div>
