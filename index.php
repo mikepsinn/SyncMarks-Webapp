@@ -719,10 +719,10 @@ if(isset($_GET['link'])) {
 	$url = validate_url($_GET["link"]);
 	e_log(9,"URL add request: " . $url);
 	
-	$title = (!isset($_GET["title"])) ? filter_var($_GET["title"], FILTER_SANITIZE_STRING):getSiteTitle($url);
+	$title = (isset($_GET["title"])) ? filter_var($_GET["title"], FILTER_SANITIZE_STRING):getSiteTitle($url);
 	$push = (!isset($_GET["push"])) ? false:filter_var($_GET["push"], FILTER_VALIDATE_BOOLEAN);
 	$client = (isset($_GET["client"])) ? filter_var($_GET["client"], FILTER_SANITIZE_STRING):false;
-
+	
 	$bookmark['url'] = $url;
 	$bookmark['folder'] = 'unfiled_____';
 	$bookmark['title'] = $title;
@@ -730,7 +730,7 @@ if(isset($_GET['link'])) {
 	$bookmark['type'] = 'bookmark';
 	$bookmark['added'] = round(microtime(true) * 1000);
 
-	if($push != false) {
+	if($push) {
 		$options = json_decode($userData['uOptions'],true);
 		if(strlen($options['pAPI']) > 1 && strlen($options['pDevice']) > 1 && $options['pbEnable'] == "1") {
 			pushlink($title,$url,$userData);
@@ -738,10 +738,24 @@ if(isset($_GET['link'])) {
 			e_log(9,"Can't send push, missing data. Please check push options");
 		}
 	}
+
+	$uas = array(
+		"HttpShortcuts",
+		"Irix"
+	);
+
+	$so = false;
+
+	foreach($uas as $ua) {
+		if(strpos($_SERVER['HTTP_USER_AGENT'], $ua) !== false) {
+			$so = true;
+			break;
+		}
+	}
 	
 	$res = addBookmark($userData, $bookmark);
 	if($res == 1) {
-		if($client == 'Android') {
+		if ($so) {
 			echo("URL is added successfully.");
 		} else {
 			echo "<script>window.onload = function() { window.close();}</script>";
@@ -1319,8 +1333,8 @@ function htmlForms($userData) {
 
 	$pbswitch = (isset($uOptions['pbEnable']) && $uOptions['pbEnable'] == 1) ? " checked":"";
 	$pbswitch = "<label class='switch' title='Enable/Disable Pushbullet'><input id='pbe' name='pbe' value='1' type='checkbox'$pbswitch><span class='slider round'></span></label>";
-	$pAPI = (isset($uOptions['pAPI'])) ? edcrpt('de',$uOptions['pAPI']):'';	//edcrpt('de',json_decode($userData['uOptions'],true)['pAPI']);
-	$pDevice = (isset($uOptions['pDevice'])) ? edcrpt('de',$uOptions['pDevice']):'';	//edcrpt('de',json_decode($userData['uOptions'],true)['pDevice']);
+	$pAPI = (isset($uOptions['pAPI'])) ? edcrpt('de',$uOptions['pAPI']):'';
+	$pDevice = (isset($uOptions['pDevice'])) ? edcrpt('de',$uOptions['pDevice']):'';
 
 	$mngsettingsform = "
 	<div id='mngsform' class='mmenu'><h6>SyncMarks Settings</h6>

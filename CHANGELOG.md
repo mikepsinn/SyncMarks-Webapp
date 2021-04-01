@@ -3,7 +3,7 @@ ChangeLog
 1.5.1 (2020-03-31)
 -------------------------
 - Fix for listing clients
-- Fix for add bookmark response
+- Fix for bookmark add response
 - Fix encoding site title
 - Fix get personal options
 
