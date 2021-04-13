@@ -1,5 +1,10 @@
 ChangeLog
 =========
+1.5.2 (2020-04-13)
+-------------------------
+- Write clientlist to disk, for debugging
+
+
 1.5.1 (2020-03-31)
 -------------------------
 - Fix for listing clients

@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.5.1
+ * @version 1.5.2
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -293,17 +293,22 @@ if(isset($_POST['caction'])) {
 			});
 
 			if (!empty($clientList)) {
-				foreach($clientList as $key => $client) {
-					$myObj[$key]['id'] =	$client['cid'];
-					$myObj[$key]['name'] = 	$client['cname'];
-					$myObj[$key]['type'] = 	$client['ctype'];
-					$myObj[$key]['date'] = 	$client['lastseen'];
+				foreach($clientList as $key => $clients) {
+					$myObj[$key]['id'] =	$clients['cid'];
+					$myObj[$key]['name'] = 	$clients['cname'];
+					$myObj[$key]['type'] = 	$clients['ctype'];
+					$myObj[$key]['date'] = 	$clients['lastseen'];
 				}
 			} else {
 				$myObj[0]['id'] =	'0';
 				$myObj[0]['name'] =	'All Clients';
 				$myObj[0]['type'] =	'';
 				$myObj[0]['date'] =	'';
+			}
+			if($cexpjson == true && $loglevel == 9) {
+				$filename = "clist_".substr($client,0,8)."_".time().".json";
+				e_log(8,"Write clientlist to $filename");
+				file_put_contents($filename,json_encode($myObj),true);
 			}
 			die(json_encode($myObj));
 			break;
