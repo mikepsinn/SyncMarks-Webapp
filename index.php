@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.5.2
+ * @version 1.5.3
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -224,6 +224,8 @@ if(isset($_POST['caction'])) {
 			if(strlen($jerrmsg) > 0) {
 				e_log(1,"JSON error: ".$jerrmsg);
 				$filename = "import_".substr($client,0,8)."_".time().".json";
+				if(is_dir($logfile)) $filename = $logfile.'/'.$filename;
+				e_log(8,"JSON file written as $filename");
 				file_put_contents($filename,urldecode($_POST['bookmark']),true);
 				die(json_encode($jerrmsg));
 			}
@@ -299,6 +301,8 @@ if(isset($_POST['caction'])) {
 					$myObj[$key]['type'] = 	$clients['ctype'];
 					$myObj[$key]['date'] = 	$clients['lastseen'];
 				}
+				$all = array('id'=>'0', 'name'=>'All Clients', 'type'=>'', 'date'=>'');
+				array_unshift($myObj, $all);
 			} else {
 				$myObj[0]['id'] =	'0';
 				$myObj[0]['name'] =	'All Clients';
@@ -307,6 +311,7 @@ if(isset($_POST['caction'])) {
 			}
 			if($cexpjson == true && $loglevel == 9) {
 				$filename = "clist_".substr($client,0,8)."_".time().".json";
+				if(is_dir($logfile)) $filename = $logfile."/$filename";	
 				e_log(8,"Write clientlist to $filename");
 				file_put_contents($filename,json_encode($myObj),true);
 			}
@@ -492,7 +497,11 @@ if(isset($_POST['caction'])) {
 			break;
 		case "mclear":
 			e_log(8,"Clear logfile");
-			if($userData['userType'] > 1) file_put_contents($logfile,"");
+			if($userData['userType'] > 1) {
+				$lfile = is_dir($logfile) ? $logfile.'/syncmarks.log':$logfile;
+				file_put_contents($lfile,"");
+			}
+				
 			die();
 			break;
 		case "madd":
@@ -658,8 +667,9 @@ if(isset($_POST['caction'])) {
 					$bookmarks = json_encode(getBookmarks($userData));
 					if($loglevel == 9 && $cexpjson == true) {
 						$filename = "export_".substr($client,0,8)."_".time().".json";
+						if(is_dir($logfile)) $filename = $logfile.'/'.$filename;
 						file_put_contents($filename,$bookmarks,true);
-						e_log(8,'Export file is saved to '.dirname(__FILE__).'/'.$filename);
+						e_log(8,"Export file is saved to $filename");
 					}
 					$bcount = count(json_decode($bookmarks));
 					e_log(8,"Send now $bcount bookmarks to the client");
@@ -1151,8 +1161,9 @@ function getChanges($cl, $ct, $ud, $time) {
 
 		if($cexpjson && $loglevel == 9) {
 			$filename = "changes_".substr($cl,0,8)."_".time().".json";
+			if(is_dir($logfile)) $filename = $logfile."/$filename";
 			file_put_contents($filename,json_encode($bookmarkData),true);
-			e_log(8,'Export file is saved to '.dirname(__FILE__).'/'.$filename);
+			e_log(8,'Export file is saved to '.$filename);
 		}
 
 		e_log(8,"Found ".count($bookmarkData)." changes. Sending them to the client");
@@ -1263,7 +1274,8 @@ function e_log($level,$message,$errfile="",$errline="",$output=0) {
 	$line = "[".date("d-M-Y H:i:s")."] [$mode] ".filterIP($_SERVER['REMOTE_ADDR'])." $user- $message\n";
 
 	if($level <= $loglevel) {
-		file_put_contents($logfile, $line, FILE_APPEND);
+		$lfile = is_dir($logfile) ? $logfile.'/syncmarks.log':$logfile;
+		file_put_contents($lfile, $line, FILE_APPEND);
 	}
 }
 
@@ -1332,7 +1344,6 @@ function htmlForms($userData) {
 	$logform = ($userData['userType'] == 2) ? "<div id=\"logfile\"><div id=\"close\"><button id='mclear'>clear</button> <button id='mclose'>&times;</button></div><div id='lfiletext'></div></div>":"";
 
 	$uOptions = json_decode($userData['uOptions'],true);
-	file_put_contents("/tmp/options.txt",print_r($uOptions,true));
 	$oswitch = ($uOptions['notifications'] == 1) ? " checked":"";
 	$oswitch =  "<label class='switch' title='Enable/Disable Notifications'><input id='cnoti' type='checkbox'$oswitch><span class='slider round'></span></label>";
 
