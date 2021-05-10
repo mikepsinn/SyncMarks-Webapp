@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.5.3
+ * @version 1.5.2
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -186,7 +186,16 @@ if(isset($_POST['caction'])) {
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$ctype = getClientType($_SERVER['HTTP_USER_AGENT']);
 			$ctime = round(microtime(true) * 1000);
-			die(json_encode(getChanges($client, $ctype, $userData, $ctime),JSON_UNESCAPED_SLASHES));
+			$changes = getChanges($client, $ctype, $userData, $ctime);
+
+			if($cexpjson == true && $loglevel == 9) {
+				$filename = "startup_".substr($client,0,8)."_".time().".json";
+				if(is_dir($logfile)) $filename = $logfile."/$filename";	
+				e_log(8,"Write startup json to $filename");
+				file_put_contents($filename,json_encode($changes),true);
+			}
+
+			die(json_encode($changes,JSON_UNESCAPED_SLASHES));
 			break;
 		case "cfolder":
 			$ctime = round(microtime(true) * 1000);
@@ -272,9 +281,6 @@ if(isset($_POST['caction'])) {
 			$oOptionsA = json_decode($userData['uOptions'],true);
 			$oOptionsA[$option] = $value;
 			$query = "UPDATE `users` SET `uOptions`='".json_encode($oOptionsA)."' WHERE `userID`=".$userData['userID'].";";
-			//$count = db_query($query);
-			//($count === 1) ? e_log(8,"Option saved") : e_log(9,"Error, saving option");
-			//echo $count;
 			if(db_query($query) !== false) {
 				e_log(8,"Option saved");
 				die(json_encode(true));
@@ -737,7 +743,7 @@ if(isset($_GET['link'])) {
 	$title = (isset($_GET["title"])) ? filter_var($_GET["title"], FILTER_SANITIZE_STRING):getSiteTitle($url);
 	$push = (!isset($_GET["push"])) ? false:filter_var($_GET["push"], FILTER_VALIDATE_BOOLEAN);
 	$client = (isset($_GET["client"])) ? filter_var($_GET["client"], FILTER_SANITIZE_STRING):false;
-	
+
 	$bookmark['url'] = $url;
 	$bookmark['folder'] = 'unfiled_____';
 	$bookmark['title'] = $title;
@@ -1106,9 +1112,9 @@ function addBookmark($ud, $bm) {
 	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex` FROM `bookmarks` WHERE `userID` = ".$ud['userID']." AND `bmParentID` = '$folderID';";
 	$nindex = db_query($query)[0]['nindex'];
 	
-	$title = htmlspecialchars($bm['title'],ENT_QUOTES,'UTF-8');
+	//$title = htmlspecialchars($bm['title'],ENT_QUOTES,'UTF-8');
 	e_log(8,"Add bookmark '".$title."'");
-	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '$folderID', $nindex, '".$title."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].");";
+	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '$folderID', $nindex, '".$bm['title']."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].");";
 	if(db_query($query) === false ) {
 		$message = "Adding bookmark failed";
 		e_log(1,$message);

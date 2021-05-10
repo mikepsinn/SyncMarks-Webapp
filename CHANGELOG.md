@@ -1,13 +1,11 @@
 ChangeLog
 =========
-1.5.3 (2020-04-22)
--------------------------
-- Rebuilding clientlist serverside
-- relocating log and debug files
-
-1.5.2 (2020-04-13)
+1.5.2 (2020-05-10)
 -------------------------
 - Write clientlist to disk, for debugging
+- Rebuilding clientlist serverside
+- Relocating log and debug files
+- Fixed encoding issue
 
 
 1.5.1 (2020-03-31)
