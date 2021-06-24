@@ -1,5 +1,11 @@
 ChangeLog
 =========
+1.6.0 (2020-06-22)
+-------------------------
+- Added option to stay logged in
+- Fix not showing moved bookmarks
+
+
 1.5.2 (2020-05-10)
 -------------------------
 - Write clientlist to disk, for debugging

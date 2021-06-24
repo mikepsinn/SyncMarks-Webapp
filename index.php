@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.5.2
+ * @version 1.6.0
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -257,7 +257,7 @@ if(isset($_POST['caction'])) {
 			$uidd = $userData['userID'];
 			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`client`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, '$target', 1, $ctime, $uidd)";
 			$erg = db_query($query);
-			if($erg !== 0) echo("URL successfully pushed.");
+			if($erg !== 0) die("URL successfully pushed.");
 			break;
 		case "lsnc":
 			e_log(8,"Get clients lastseen date.");
@@ -471,7 +471,7 @@ if(isset($_POST['caction'])) {
 				case 3:
 					e_log(8,"Delete user $user");
 					$uID = filter_var($_POST['userSelect'], FILTER_VALIDATE_INT);
-					$query = "DELETE FROM users WHERE userID = $uID;";
+					$query = "DELETE FROM `users` WHERE `userID` = $uID;";
 					if(db_query($query) == 1) {
 						if(filter_var($user, FILTER_VALIDATE_EMAIL)) {
 							$response = "User deleted, Try to send E-Mail to user";
@@ -494,7 +494,8 @@ if(isset($_POST['caction'])) {
 		case "mlog":
 			e_log(8,"Try to show logfile");
 			if($userData['userType'] > 1) {
-				die(file_get_contents($logfile));
+			    $lfile = is_dir($logfile) ? $logfile.'/syncmarks.log':$logfile;
+				die(file_get_contents($lfile));
 			} else {
 				$message = "Not allowed to read server logfile.";
 				e_log(2,$message);
@@ -615,7 +616,7 @@ if(isset($_POST['caction'])) {
 				$query = "UPDATE `users` SET `uOptions`='".json_encode($oOptionsA)."' WHERE `userID`=".$userData['userID'].";";
 				$count = db_query($query);
 				($count === 1) ? e_log(8,"Option saved") : e_log(9,"Error, saving option");
-				header("location:".$_SERVER['PHP_SELF']);
+				header("location: ?");
 				die();
 			}
 			else {
@@ -704,6 +705,7 @@ if(isset($_POST['caction'])) {
 		case "logout":
 			e_log(8,"Logout user ".$_SESSION['sauth']);
 			unset($_SESSION['sauth']);
+			clearAuthCookie();
 			$_SESSION['fauth'] = true;
 			e_log(8,"User logged out");
 			echo htmlHeader();
@@ -741,7 +743,6 @@ if(isset($_GET['link'])) {
 	e_log(9,"URL add request: " . $url);
 	
 	$title = (isset($_GET["title"])) ? filter_var($_GET["title"], FILTER_SANITIZE_STRING):getSiteTitle($url);
-	$push = (!isset($_GET["push"])) ? false:filter_var($_GET["push"], FILTER_VALIDATE_BOOLEAN);
 	$client = (isset($_GET["client"])) ? filter_var($_GET["client"], FILTER_SANITIZE_STRING):false;
 
 	$bookmark['url'] = $url;
@@ -750,15 +751,6 @@ if(isset($_GET['link'])) {
 	$bookmark['id'] = unique_code(12);
 	$bookmark['type'] = 'bookmark';
 	$bookmark['added'] = round(microtime(true) * 1000);
-
-	if($push) {
-		$options = json_decode($userData['uOptions'],true);
-		if(strlen($options['pAPI']) > 1 && strlen($options['pDevice']) > 1 && $options['pbEnable'] == "1") {
-			pushlink($title,$url,$userData);
-		} else {
-			e_log(9,"Can't send push, missing data. Please check push options");
-		}
-	}
 
 	$uas = array(
 		"HttpShortcuts",
@@ -785,6 +777,27 @@ if(isset($_GET['link'])) {
 		echo $res;
 	}
 	die();
+}
+
+if(isset($_GET['push'])) {
+    $url = validate_url($_GET['push']);
+	$target = (isset($_GET['tg'])) ? filter_var($_GET['tg'], FILTER_SANITIZE_STRING) : '0';
+	$ctime = time();
+	$title = getSiteTitle($url);
+	e_log(8,"Received new pushed URL from bookmarklet: ".$url);
+	$uidd = $userData['userID'];
+	$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`client`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, '$target', 1, $ctime, $uidd)";
+	$erg = db_query($query);
+	
+	$options = json_decode($userData['uOptions'],true);
+
+	if(strlen($options['pAPI']) > 1 && strlen($options['pDevice']) > 1 && $options['pbEnable'] == "1") {
+		pushlink($title,$url,$userData);
+	} else {
+		e_log(9,"Can't send push, missing data. Please check push options");
+	}
+	
+	if($erg !== 0) die("Bookmarklet URL successfully pushed.");
 }
 
 echo htmlHeader();
@@ -893,7 +906,7 @@ function pushlink($title,$url,$userdata) {
 	$pddata = json_decode($userdata['uOptions'],true);
 	$token = edcrpt('de', $pddata['pAPI']);
 	$device = edcrpt('de', $pddata['pDevice']);
-	e_log(8,"Send Push Notification to device. Token: $token, Device: $device");
+	e_log(8,"Send Push Notification to device: $device");
 	$data = json_encode(array(
 		'type' => 'link',
 		'title' => $title,
@@ -1112,7 +1125,6 @@ function addBookmark($ud, $bm) {
 	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex` FROM `bookmarks` WHERE `userID` = ".$ud['userID']." AND `bmParentID` = '$folderID';";
 	$nindex = db_query($query)[0]['nindex'];
 	
-	//$title = htmlspecialchars($bm['title'],ENT_QUOTES,'UTF-8');
 	e_log(8,"Add bookmark '".$title."'");
 	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '$folderID', $nindex, '".$bm['title']."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].");";
 	if(db_query($query) === false ) {
@@ -1248,7 +1260,7 @@ function getUserdata() {
 }
 
 function unique_code($limit) {
-	e_log(8,"Building new unique bookmark id");
+	e_log(8,"Building unique id ($limit)");
 	return substr(base_convert(sha1(uniqid(mt_rand())), 16, 36), 0, $limit);
 }
 
@@ -1277,7 +1289,7 @@ function e_log($level,$message,$errfile="",$errline="",$output=0) {
 	if($errfile != "") $message = $message." in ".$errfile." on line ".$errline;
 	$user = '';
 	if(isset($_SESSION['sauth'])) $user = "- ".$_SESSION['sauth']." ";
-	$line = "[".date("d-M-Y H:i:s")."] [$mode] ".filterIP($_SERVER['REMOTE_ADDR'])." $user- $message\n";
+	$line = "[".date("d-M-Y H:i:s")."] [$mode] $user- $message\n";
 
 	if($level <= $loglevel) {
 		$lfile = is_dir($logfile) ? $logfile.'/syncmarks.log':$logfile;
@@ -1315,7 +1327,6 @@ function htmlHeader() {
 				<meta name='viewport' content='width=device-width, initial-scale=1'>
 				<script src='".minfile("bookmarks.js")."'></script>
 				<link type='text/css' rel='stylesheet' href='".minfile("bookmarks.css")."'>
-				<!-- <link type='text/css' rel='stylesheet' href='font-awesome/css/font-awesome.min.css'> -->
 				<link rel='shortcut icon' type='image/x-icon' href='./images/bookmarks.ico'>
 				<link rel='manifest' href='manifest.json'>
 				<meta name='theme-color' content='#0879D9'>
@@ -1711,7 +1722,7 @@ function parseJSON($arr) {
 }
 
 function getBookmarks($userData) {
-	$query = "SELECT * FROM `bookmarks` WHERE `bmAction` IS NULL AND `userID` = ".$userData['userID'].";";
+	$query = "SELECT * FROM `bookmarks` WHERE `bmAction` IS NOT 1 AND `userID` = ".$userData['userID'].";";
 	e_log(8,"Get bookmarks");
 	$userMarks = db_query($query);
 	foreach($userMarks as &$element) {
@@ -1752,8 +1763,99 @@ function prepare_url($url) {
     );
 }
 
+function clearAuthCookie() {
+    e_log(8,'Reset Cookie');
+    
+    if(isset($_COOKIE['syncmarks'])) {
+        $cookieStr = $_COOKIE['syncmarks'];
+        $cookieArr = json_decode($cookieStr, true);
+        
+        $query = "SELECT * FROM `auth_token` WHERE userName = '".$cookieArr['user']."';";
+	    $tkdata = db_query($query);
+	    
+	    foreach($tkdata as $key => $token) {
+	        if(password_verify($cookieArr['rpwd'], $token['pHash']) && password_verify($cookieArr['rtkn'], $token['tHash'])) {
+	            $query = "DELETE FROM `auth_token` WHERE tID = ".$token['tID'];
+	            $tkdata = db_query($query);
+	            break;
+	        }
+	    }
+	    
+	    $cOptions = array (
+            'expires' => 0,
+            'path' => null,
+            'domain' => null,
+            'secure' => true,
+            'httponly' => true,
+            'samesite' => 'Strict'
+        );
+        
+        setcookie("syncmarks", "", $cOptions);
+    }
+}
+
 function checkLogin($realm) {
-	e_log(8,"Check login");
+	e_log(8,"Check login...");
+	$tVerified = false;
+	$cookieStr = (!isset($_COOKIE['syncmarks'])) ? '':$_COOKIE['syncmarks'];
+	$cookieArr = json_decode($cookieStr, true);
+	
+	$aTime = time();
+	
+	if(strlen($cookieArr['user']) > 0 && strlen($cookieArr['rpwd']) > 0 && strlen($cookieArr['rtkn']) > 0) {
+	    e_log(8,"Cookie found. Try to login via authToken...");
+	    
+        $query = "SELECT t.*, u.userlastLogin, u.sessionID FROM `auth_token` t INNER JOIN `users` u ON u.userName = t.userName WHERE t.userName = '".$cookieArr['user']."';";
+	    $tkdata = db_query($query);
+	    
+	    foreach($tkdata as $key => $token) {
+	        if(password_verify($cookieArr['rpwd'], $token['pHash']) && password_verify($cookieArr['rtkn'], $token['tHash']) && $token['exDate'] >= $aTime) {
+	            $tVerified = $token['tID'];
+	        }
+	    }
+	    
+	    if($tVerified) {
+	        e_log(8,"Cookie Login successfull. Set new login cookie");
+            $seid = session_id();
+			$oTime = $tkdata[0]['userLastLogin'];
+			$_SESSION['sauth'] = $tkdata[0]['userName'];
+			unset($_SESSION['fauth']);
+			
+			e_log(8,$oTime);
+			e_log(8,$tkdata[0]['userLastLogin']);
+			e_log(8,$tkdata[0]['userName']);
+			
+            $expireTime = time()+60*60*24*30;
+            $rpwd = unique_code(16);
+            $rtkn = unique_code(32);
+            
+            $cOptions = array (
+                'expires' => time() + 60*60*24*7,
+                'path' => null,
+                'domain' => null,
+                'secure' => true,
+                'httponly' => true,
+                'samesite' => 'Strict'
+            );
+            
+            setcookie('syncmarks', json_encode(array('user' => $tkdata[0]['userName'], 'rpwd' => $rpwd, 'rtkn' => $rtkn)), $cOptions);
+            
+            $rpwdh = password_hash($rpwd, PASSWORD_DEFAULT);
+            $rtknh = password_hash($rtkn, PASSWORD_DEFAULT);
+            
+            $query = "UPDATE `auth_token` SET `pHash` = '$rpwdh', `tHash` = '$rtknh', `exDate` = '$expireTime' WHERE `tID` = $tVerified;";
+            $erg = db_query($query);
+            
+			$query = "UPDATE `users` SET `userLastLogin` = '$aTime', `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userName` = '".$cookieArr['user']."';";
+		 	$erg = db_query($query);
+
+            header("location: ?");
+            die();
+	    } else {
+	        e_log(8,"Cookie not valid, using standard login now");
+	    }
+	}
+	
 	if(count($_GET) != 0 || count($_POST) != 0) {
 		unset($_SESSION['cr']);
 		if(isset($_POST['login']) && isset($_POST['username']) && isset($_POST['password'])) {
@@ -1793,12 +1895,41 @@ function checkLogin($realm) {
 				if(count($udata) == 1) {
 					if(password_verify($pw, $udata[0]['userHash'])) {
 						$seid = session_id();
-						$aTime = time();
 						$oTime = $udata[0]['userLastLogin'];
 						$uid = $udata[0]['userID'];
 						$_SESSION['sauth'] = $udata[0]['userName'];
 						unset($_SESSION['fauth']);
 						e_log(8,"Login successfully");
+						
+						if(isset($_POST['remember']) && $_POST['remember'] == true) {
+						    e_log(8,'Set login Cookie');
+                            $expireTime = time()+60*60*24*30;
+                            
+                            $rpwd = unique_code(16);
+                            $rtkn = unique_code(32);
+                            
+                            $cOptions = array (
+                                'expires' => time() + 60*60*24*7,
+                                'path' => null,
+                                'domain' => null,
+                                'secure' => true,
+                                'httponly' => true,
+                                'samesite' => 'Strict'
+                            );
+                            
+                            setcookie('syncmarks', json_encode(array('user' => $udata[0]['userName'], 'rpwd' => $rpwd, 'rtkn' => $rtkn)), $cOptions);
+                            
+                            $rpwdh = password_hash($rpwd, PASSWORD_DEFAULT);
+                            $rtknh = password_hash($rtkn, PASSWORD_DEFAULT);
+                            
+                            $query = "INSERT INTO `auth_token` (`userName`,`pHash`,`tHash`,`exDate`) VALUES ('".$udata[0]['userName']."', '$rpwdh', '$rtknh', '$expireTime');";
+			                $erg = db_query($query);
+						} else {
+						    e_log(8,'Login cookie not set');
+						    clearAuthCookie();
+						}
+						
+						
 						if($seid != $udata[0]['sessionID']) {
 							e_log(8,"Save session to database.");
 							$query = "UPDATE `users` SET `userLastLogin` = $aTime, `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userID` = $uid;";
@@ -1855,6 +1986,8 @@ function checkLogin($realm) {
 				<div id='loginformb'>
 					<input type='text' id='uf' name='username' placeholder='Username'>
 					<input type='password' name='password' placeholder='Password'>
+					
+					<label for='remember'><input type='checkbox' id='remember' name='remember'>Stay logged in</label>
 					<button name='login' value='login'>Login</button>
 				</div>
 			</div>
@@ -1933,18 +2066,22 @@ function db_query($query, $data=null) {
 
 function checkDB($database,$suser,$spwd) {
 	$vInfo = db_query("SELECT * FROM `system` ORDER BY `updated` DESC LIMIT 1;")[0];
+	
 	$olddate = $vInfo['updated'];
 	$newdate = filemtime(__FILE__);
+	$dbv = 5;
 
-	if($vInfo['db_version'] && $vInfo['db_version'] < 4) {
+	if($vInfo['db_version'] && $vInfo['db_version'] < $dbv) {
 		e_log(8,"Database update needed. Starting DB update...");
 		if($database['type'] == "sqlite") {
-			db_query(file_get_contents("./sql/sqlite_update_4.sql"));
+			db_query(file_get_contents("./sql/sqlite_update_$dbv.sql"));
 		} elseif($database['type'] == "mysql") {
-			e_log(8,"No update available");
+			db_query(file_get_contents("./sql/mysql_update_$dbv.sql"));
 		}
-		db_query("UPDATE `system` SET `updated` = '$newdate' WHERE `updated` = '$olddate';");
-	} elseif($vInfo['db_version'] && $vInfo['db_version'] >= 4) {
+		$aversion = explode ("\n", file_get_contents('./CHANGELOG.md',NULL,NULL,0,30))[2];
+	    $aversion = substr($aversion,0,strpos($aversion, " "));
+		db_query("INSERT INTO `system`(`app_version`,`db_version`,`updated`) VALUES ('$aversion','$dbv','$newdate');");
+	} elseif($vInfo['db_version'] && $vInfo['db_version'] >= $dbv) {
 		if($olddate <> $newdate) db_query("UPDATE `system` SET `updated` = '$newdate' WHERE `updated` = '$olddate';");
 	} else {
 		e_log(8,"Database not ready. Initialize database now");
