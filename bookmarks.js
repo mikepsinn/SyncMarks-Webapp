@@ -435,12 +435,84 @@ document.addEventListener("DOMContentLoaded", function() {
 
 		document.getElementById('nmessages').addEventListener('click', function() {
 			hideMenu();
+
+			let xhr = new XMLHttpRequest();
+			let data = 'caction=rmessage&lp=aNoti';
+			xhr.onreadystatechange = function () {
+				if (xhr.readyState == 4 && xhr.status == 200) {
+					const response =  new DOMParser().parseFromString(xhr.responseText, "text/html");
+					let div = document.querySelector('#aNoti .NotiTable .NotiTableBody');
+					Array.from(response.body.children).forEach((node) => {
+						node.children[1].children[0].addEventListener('click',delMessage, false);
+						div.appendChild(node); 
+					})
+				}
+			}
+
+			xhr.open("POST", document.location.href, true);
+			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+			xhr.send(data);
+
 			document.getElementById('nmessagesform').style.display = 'block';
 			document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
 		});
 
 		document.getElementById('clientedt').addEventListener('click', function() {
 			hideMenu();
+			var clientListForm = document.getElementById('mngcform');
+			if(clientListForm.childNodes.length) clientListForm.removeChild(clientListForm.firstChild);
+			let xhr = new XMLHttpRequest();
+			let data = 'caction=getclients&client='+0;
+			xhr.onreadystatechange = function () {
+				if (xhr.readyState == 4 && xhr.status == 200) {
+					let cList = JSON.parse(xhr.responseText);
+					var ulClients = document.createElement('ul');
+					cList.forEach(function(client, key){
+						if(client.id != '0') {
+							let liEl = document.createElement('li');
+							liEl.title = client.id;
+							liEl.dataset.type = client.type.toLowerCase();
+							liEl.id = client.id;
+							liEl.classList = 'client';
+							let cename = document.createElement('div');
+							cename.classList = 'clientname';
+							cename.appendChild(document.createTextNode(client.name));
+							liEl.appendChild(cename);
+							let ceinput = document.createElement('input');
+							ceinput.type = 'text';
+							ceinput.name = 'cname';
+							ceinput.value = client.name;
+							cename.appendChild(ceinput);
+							let cels = document.createElement('div');
+							cels.classList = 'lastseen';
+							cels.innerText = new Date(parseInt(client.date)).toLocaleString(
+								navigator.language, 
+								{
+									year: "numeric",
+									month: "2-digit",
+									day: "2-digit",
+									hour: '2-digit',
+									minute: '2-digit'
+								});
+							cename.appendChild(cels);
+							let cedit = document.createElement('div');
+							cedit.classList = 'fa-edit rename';
+							cedit.addEventListener('click', mvClient, false);
+							liEl.appendChild(cedit);
+							let cerm = document.createElement('div');
+							cerm.classList = 'fa-trash remove';
+							cerm.addEventListener('click', delClient, false);
+							liEl.appendChild(cerm);
+							ulClients.appendChild(liEl);
+						}
+					});
+					clientListForm.appendChild(ulClients);
+				}
+			};
+			
+			xhr.open("POST", document.location.href, true);
+			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+			xhr.send(data);
 			document.getElementById('mngcform').style.display = 'block';
 			document.querySelector('#bookmarks').addEventListener('click',hideMenu, false);
 		});
@@ -648,9 +720,6 @@ document.addEventListener("DOMContentLoaded", function() {
 				this.children[0].style.display = 'block';
 			})
 		});
-
-		document.querySelectorAll("#mngcform li div.rename").forEach(function(element) {element.addEventListener('click', mvClient, false)});
-		document.querySelectorAll("#mngcform li div.remove").forEach(function(element) {element.addEventListener('click', delClient, false)});
 
 		document.querySelectorAll("#mngcform li div.clientname input").forEach(function(element) {
 			element.addEventListener('mouseleave', function() {
@@ -953,6 +1022,27 @@ function openMessages(element) {
 	for (i = 0; i < tabcontent.length; i++) {
 		tabcontent[i].style.display = "none";
 	}
+
+	let div = document.querySelector('#'+element.target.dataset.val+' .NotiTable .NotiTableBody');
+	while (div.firstChild) {
+		div.removeChild(div.lastChild);
+	}
+
+	let xhr = new XMLHttpRequest();
+	let data = 'caction=rmessage&lp='+element.target.dataset.val;
+	xhr.onreadystatechange = function () {
+		if (xhr.readyState == 4 && xhr.status == 200) {
+			const response =  new DOMParser().parseFromString(xhr.responseText, "text/html");
+
+			Array.from(response.body.children).forEach((node) => {
+				node.children[1].children[0].addEventListener('click',delMessage, false);
+				div.appendChild(node);
+			})
+		}
+	}
+	xhr.open("POST", document.location.href, true);
+	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	xhr.send(data);
 	
 	tablinks = document.getElementsByClassName("tablinks");
 	for (i = 0; i < tablinks.length; i++) {

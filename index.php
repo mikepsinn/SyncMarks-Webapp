@@ -12,7 +12,9 @@ include_once "config.inc.php.dist";
 include_once "config.inc.php";
 set_error_handler("e_log");
 
-checkDB($database,$suser,$spwd);
+e_log(9,$_SERVER['REQUEST_METHOD'].' '.var_export($_REQUEST,true));
+
+if(!isset($_SESSION['sauth'])) checkDB($database,$suser,$spwd);
 
 if(isset($_GET['reset'])){
 	$reset = filter_var($_GET['reset'], FILTER_SANITIZE_STRING);
@@ -266,12 +268,16 @@ if(isset($_POST['caction'])) {
 			die($lastSeen);
 			break;
 		case "rmessage":
-			$message = filter_var($_POST['message'], FILTER_VALIDATE_INT);
+			$message = isset($_POST['message']) ? filter_var($_POST['message'], FILTER_VALIDATE_INT):0;
 			$loop = filter_var($_POST['lp'], FILTER_SANITIZE_STRING) == 'aNoti' ? 1 : 0;
-			e_log(8,"Try to delete notification $message");
-			$query = "DELETE FROM `notifications` WHERE `userID` = ".$userData['userID']." AND `id` = $message;";
-			$count = db_query($query);
-			($count === 1) ? e_log(8,"Notification successfully removed") : e_log(9,"Error, removing notification");
+
+			if($message > 0) {
+				e_log(8,"Try to delete notification $message");
+				$query = "DELETE FROM `notifications` WHERE `userID` = ".$userData['userID']." AND `id` = $message;";
+				$count = db_query($query);
+				($count === 1) ? e_log(8,"Notification successfully removed") : e_log(9,"Error, removing notification");
+			}
+			
 			die(notiList($userData['userID'], $loop));
 			break;
 		case "soption":
@@ -652,7 +658,7 @@ if(isset($_POST['caction'])) {
 			echo "<div id='loginbody'>
 				<div id='loginform'>
 					<div id='loginformh'>Logout successful</div>
-					<div id='loginformt'>User logged out. <a href='".$_SERVER['PHP_SELF']."'>Login</a> again</div>
+					<div id='loginformt'>User logged out. <a href=''>Login</a> again</div>
 				</div>
 			</div>";
 			echo htmlFooter();
@@ -705,17 +711,20 @@ if(isset($_POST['caction'])) {
 		case "logout":
 			e_log(8,"Logout user ".$_SESSION['sauth']);
 			unset($_SESSION['sauth']);
+			unset($_SESSION['cr']);
 			clearAuthCookie();
 			$_SESSION['fauth'] = true;
 			e_log(8,"User logged out");
-			echo htmlHeader();
-			echo "<div id='loginbody'>
-				<div id='loginform'>
-					<div id='loginformh'>Logout successful</div>
-					<div id='loginformt'>User logged out. <a href='".$_SERVER['PHP_SELF']."'>Login</a> again</div>
-				</div>
-			</div>";
-			echo htmlFooter();
+			if(!isset($_POST['client'])) {
+				echo htmlHeader();
+				echo "<div id='loginbody'>
+					<div id='loginform'>
+						<div id='loginformh'>Logout successful</div>
+						<div id='loginformt'>User logged out. <a href=''>Login</a> again</div>
+					</div>
+				</div>";
+				echo htmlFooter();
+			}
 			exit;
 			break;
 		case "maddon":
@@ -780,7 +789,7 @@ if(isset($_GET['link'])) {
 }
 
 if(isset($_GET['push'])) {
-    $url = validate_url($_GET['push']);
+	$url = validate_url($_GET['push']);
 	$target = (isset($_GET['tg'])) ? filter_var($_GET['tg'], FILTER_SANITIZE_STRING) : '0';
 	$ctime = time();
 	$title = getSiteTitle($url);
@@ -794,7 +803,7 @@ if(isset($_GET['push'])) {
 	if(strlen($options['pAPI']) > 1 && strlen($options['pDevice']) > 1 && $options['pbEnable'] == "1") {
 		pushlink($title,$url,$userData);
 	} else {
-		e_log(9,"Can't send push, missing data. Please check push options");
+		e_log(9,"Can't send to Pushbullet, missing data. Please check options");
 	}
 	
 	if($erg !== 0) die("Bookmarklet URL successfully pushed.");
@@ -884,12 +893,12 @@ function cfolder($ctime,$fname,$fbid,$ud) {
 
 function getClientType($uas) {
 	if(strpos($uas,"Firefox")) return "Firefox";
-    elseif(strpos($uas, "Edg")) return "Edge";
-    elseif(strpos($uas, "OPR")) return "Opera";
-    elseif(strpos($uas, "Vivaldi")) return "Vivaldi";
-    elseif(strpos($uas, "Brave")) return "Brave";
-    elseif(strpos($uas, "SamsungBrowser")) return "SamsungBrowser";
-    elseif(strpos($uas, "Chrome")) return "Chrome";
+	elseif(strpos($uas, "Edg")) return "Edge";
+	elseif(strpos($uas, "OPR")) return "Opera";
+	elseif(strpos($uas, "Vivaldi")) return "Vivaldi";
+	elseif(strpos($uas, "Brave")) return "Brave";
+	elseif(strpos($uas, "SamsungBrowser")) return "SamsungBrowser";
+	elseif(strpos($uas, "Chrome")) return "Chrome";
 }
 
 function validate_url($url) {
@@ -928,18 +937,18 @@ function pushlink($title,$url,$userdata) {
 
 function edcrpt($action, $text) {
 	global $enckey, $enchash;
-    $output = false;
-    $encrypt_method = "AES-256-CBC";
-    $key = hash('sha256', $enckey);
-    $iv = substr(hash('sha256', $enchash), 0, 16);
+	$output = false;
+	$encrypt_method = "AES-256-CBC";
+	$key = hash('sha256', $enckey);
+	$iv = substr(hash('sha256', $enchash), 0, 16);
 
-    if ( $action == 'en' ) {
-        $output = openssl_encrypt($text, $encrypt_method, $key, 0, $iv);
-        $output = base64_encode($output);
-    } else if( $action == 'de' ) {
-        $output = openssl_decrypt(base64_decode($text), $encrypt_method, $key, 0, $iv);
-    }
-    return $output;
+	if ( $action == 'en' ) {
+		$output = openssl_encrypt($text, $encrypt_method, $key, 0, $iv);
+		$output = base64_encode($output);
+	} else if( $action == 'de' ) {
+		$output = openssl_decrypt(base64_decode($text), $encrypt_method, $key, 0, $iv);
+	}
+	return $output;
 }
 
 function cfolderMatching($bookmark) {
@@ -1260,7 +1269,6 @@ function getUserdata() {
 }
 
 function unique_code($limit) {
-	e_log(8,"Building unique id ($limit)");
 	return substr(base_convert(sha1(uniqid(mt_rand())), 16, 36), 0, $limit);
 }
 
@@ -1388,7 +1396,7 @@ function htmlForms($userData) {
 		<div id='bmlet'><a href=\"$bookmarklet\">Bookmarklet</a></div>
 	</div>";
 
-	$mngclientform = "<div id='mngcform' class='mmenu'>".bClientlist($userID)."</div>";
+	$mngclientform = "<div id='mngcform' class='mmenu'></div>";
 
 	$nmessagesform = "
 	<div id='nmessagesform' class='mmenu'>
@@ -1400,14 +1408,12 @@ function htmlForms($userData) {
 		<div id='aNoti' class='tabcontent'style='display: block'>
 		<div class='NotiTable'>
 			<div class='NotiTableBody'>
-			".notiList($userID, 1)."
 			</div>
 		</div>
 		</div>
 		<div id='oNoti' class='tabcontent' style='display: none'>
 		<div class='NotiTable'>
 			<div class='NotiTableBody'>
-			".notiList($userID, 0)."
 			</div>
 		</div>
 		</div>
@@ -1417,7 +1423,7 @@ function htmlForms($userData) {
 	<div id='pbulletform' class='mbmdialog'>
 		<h6>Pushbullet</h6>
 		<div class='dialogdescr'>Maintain your API Token and Device ID.</div>
-		<form action='".$_SERVER['PHP_SELF']."' method='POST'>$pbswitch
+		<form action='' method='POST'>$pbswitch
 			<input placeholder='API Token' type='text' id='ptoken' name='ptoken' value='$pAPI' />
 			<input placeholder='Device ID' type='text' id='pdevice' name='pdevice' value='$pDevice' autocomplete='device-token' />
 			<input required placeholder='Password' type='password' id='password' name='password' autocomplete='current-password' value='' />
@@ -1429,7 +1435,7 @@ function htmlForms($userData) {
 	<div id='passwordform' class='mbmdialog'>
 		<h6>Change Password</h6>
 		<div class='dialogdescr'>Enter your current password and a new password and confirm the new password.</div>
-		<form action='".$_SERVER['PHP_SELF']."' method='POST'>					
+		<form action='' method='POST'>					
 			<input required placeholder='Current password' type='password' id='opassword' name='opassword' autocomplete='current-password' value='' />
 			<input required placeholder='New password' type='password' id='npassword' name='npassword' autocomplete='new-password' value='' />
 			<input required placeholder='Confirm new password' type='password' id='cpassword' name='cpassword' autocomplete='new-password' value='' />
@@ -1441,7 +1447,7 @@ function htmlForms($userData) {
 	<div id='userform' class='mbmdialog'>
 		<h6>Change Username</h6>
 		<div class='dialogdescr'>Here you can change your username. Type in your new username and your current password and click on save to change it.</div>
-		<form action='".$_SERVER['PHP_SELF']."' method='POST'>
+		<form action='' method='POST'>
 			<input placeholder='Username' required type='text' name='username' id='username' autocomplete='username' value='$userName'>
 			<input placeholder='Password' required type='password' id='oopassword' name='opassword' autocomplete='current-password' value='' />
 			<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='uupdate'>Save</button></div>
@@ -1742,118 +1748,115 @@ function prepare_url($url) {
 		$parsed['query'] = http_build_query($query);
 	}
 
-    $pass      = $parsed['pass'] ?? null;
-    $user      = $parsed['user'] ?? null;
-    $userinfo  = $pass !== null ? "$user:$pass" : $user;
-    $port      = $parsed['port'] ?? 0;
-    $scheme    = $parsed['scheme'] ?? "";
-    $query     = $parsed['query'] ?? "";
-    $fragment  = $parsed['fragment'] ?? "";
-    $authority = (
-        ($userinfo !== null ? "$userinfo@" : "") .
-        ($parsed['host'] ?? "") .
-        ($port ? ":$port" : "")
-    );
-    return (
-        (strlen($scheme) > 0 ? "$scheme:" : "") .
-        (strlen($authority) > 0 ? "//$authority" : "") .
-        ($parsed['path'] ?? "") .
-        (strlen($query) > 0 ? "?$query" : "") .
-        (strlen($fragment) > 0 ? "#$fragment" : "")
-    );
+	$pass      = $parsed['pass'] ?? null;
+	$user      = $parsed['user'] ?? null;
+	$userinfo  = $pass !== null ? "$user:$pass" : $user;
+	$port      = $parsed['port'] ?? 0;
+	$scheme    = $parsed['scheme'] ?? "";
+	$query     = $parsed['query'] ?? "";
+	$fragment  = $parsed['fragment'] ?? "";
+	$authority = (
+		($userinfo !== null ? "$userinfo@" : "") .
+		($parsed['host'] ?? "") .
+		($port ? ":$port" : "")
+	);
+	return (
+		(strlen($scheme) > 0 ? "$scheme:" : "") .
+		(strlen($authority) > 0 ? "//$authority" : "") .
+		($parsed['path'] ?? "") .
+		(strlen($query) > 0 ? "?$query" : "") .
+		(strlen($fragment) > 0 ? "#$fragment" : "")
+	);
 }
 
 function clearAuthCookie() {
-    e_log(8,'Reset Cookie');
-    
-    if(isset($_COOKIE['syncmarks'])) {
-        $cookieStr = $_COOKIE['syncmarks'];
-        $cookieArr = json_decode($cookieStr, true);
-        
-        $query = "SELECT * FROM `auth_token` WHERE userName = '".$cookieArr['user']."';";
-	    $tkdata = db_query($query);
-	    
-	    foreach($tkdata as $key => $token) {
-	        if(password_verify($cookieArr['rpwd'], $token['pHash']) && password_verify($cookieArr['rtkn'], $token['tHash'])) {
-	            $query = "DELETE FROM `auth_token` WHERE tID = ".$token['tID'];
-	            $tkdata = db_query($query);
-	            break;
-	        }
-	    }
-	    
-	    $cOptions = array (
-            'expires' => 0,
-            'path' => null,
-            'domain' => null,
-            'secure' => true,
-            'httponly' => true,
-            'samesite' => 'Strict'
-        );
-        
-        setcookie("syncmarks", "", $cOptions);
-    }
-}
+	e_log(8,'Reset Cookie');
+
+	if(isset($_COOKIE['syncmarks'])) {
+		$cookieStr = $_COOKIE['syncmarks'];
+		$cookieArr = json_decode($cookieStr, true);
+		
+		$query = "SELECT * FROM `auth_token` WHERE userName = '".$cookieArr['user']."';";
+		$tkdata = db_query($query);
+		
+		foreach($tkdata as $key => $token) {
+			if(password_verify($cookieArr['rpwd'], $token['pHash']) && password_verify($cookieArr['rtkn'], $token['tHash'])) {
+				$query = "DELETE FROM `auth_token` WHERE tID = ".$token['tID'];
+				$tkdata = db_query($query);
+				break;
+			}
+		}
+		
+		$cOptions = array (
+			'expires' => 0,
+			'path' => null,
+			'domain' => null,
+			'secure' => true,
+			'httponly' => true,
+			'samesite' => 'Strict'
+		);
+		
+		setcookie("syncmarks", "", $cOptions);
+	}
+	}
 
 function checkLogin($realm) {
 	e_log(8,"Check login...");
 	$tVerified = false;
 	$cookieStr = (!isset($_COOKIE['syncmarks'])) ? '':$_COOKIE['syncmarks'];
 	$cookieArr = json_decode($cookieStr, true);
-	
+
 	$aTime = time();
-	
-	if(strlen($cookieArr['user']) > 0 && strlen($cookieArr['rpwd']) > 0 && strlen($cookieArr['rtkn']) > 0) {
-	    e_log(8,"Cookie found. Try to login via authToken...");
-	    
-        $query = "SELECT t.*, u.userlastLogin, u.sessionID FROM `auth_token` t INNER JOIN `users` u ON u.userName = t.userName WHERE t.userName = '".$cookieArr['user']."';";
-	    $tkdata = db_query($query);
-	    
-	    foreach($tkdata as $key => $token) {
-	        if(password_verify($cookieArr['rpwd'], $token['pHash']) && password_verify($cookieArr['rtkn'], $token['tHash']) && $token['exDate'] >= $aTime) {
-	            $tVerified = $token['tID'];
-	        }
-	    }
-	    
-	    if($tVerified) {
-	        e_log(8,"Cookie Login successfull. Set new login cookie");
-            $seid = session_id();
+
+	if(strlen($cookieArr['user']) > 0 && strlen($cookieArr['rpwd']) > 0 && strlen($cookieArr['rtkn']) > 0 && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+		e_log(8,"Cookie found. Try to login via authToken...");
+		
+		$query = "SELECT t.*, u.userlastLogin, u.sessionID FROM `auth_token` t INNER JOIN `users` u ON u.userName = t.userName WHERE t.userName = '".$cookieArr['user']."';";
+		$tkdata = db_query($query);
+		
+		foreach($tkdata as $key => $token) {
+			if(password_verify($cookieArr['rpwd'], $token['pHash']) && password_verify($cookieArr['rtkn'], $token['tHash']) && $token['exDate'] >= $aTime) {
+				$tVerified = $token['tID'];
+			}
+		}
+		
+		if($tVerified) {
+			e_log(8,"Cookie Login successfull. Renew cookie");
+			$seid = session_id();
 			$oTime = $tkdata[0]['userLastLogin'];
 			$_SESSION['sauth'] = $tkdata[0]['userName'];
 			unset($_SESSION['fauth']);
 			
-			e_log(8,$oTime);
-			e_log(8,$tkdata[0]['userLastLogin']);
-			e_log(8,$tkdata[0]['userName']);
+			$expireTime = time()+60*60*24*30;
+			$rpwd = unique_code(16);
+			$rtkn = unique_code(32);
 			
-            $expireTime = time()+60*60*24*30;
-            $rpwd = unique_code(16);
-            $rtkn = unique_code(32);
-            
-            $cOptions = array (
-                'expires' => time() + 60*60*24*7,
-                'path' => null,
-                'domain' => null,
-                'secure' => true,
-                'httponly' => true,
-                'samesite' => 'Strict'
-            );
-            
-            setcookie('syncmarks', json_encode(array('user' => $tkdata[0]['userName'], 'rpwd' => $rpwd, 'rtkn' => $rtkn)), $cOptions);
-            
-            $rpwdh = password_hash($rpwd, PASSWORD_DEFAULT);
-            $rtknh = password_hash($rtkn, PASSWORD_DEFAULT);
-            
-            $query = "UPDATE `auth_token` SET `pHash` = '$rpwdh', `tHash` = '$rtknh', `exDate` = '$expireTime' WHERE `tID` = $tVerified;";
-            $erg = db_query($query);
-            
+			$cOptions = array (
+				'expires' => time() + 60*60*24*7,
+				'path' => null,
+				'domain' => null,
+				'secure' => true,
+				'httponly' => true,
+				'samesite' => 'Strict'
+			);
+			
+			setcookie('syncmarks', json_encode(array('user' => $tkdata[0]['userName'], 'rpwd' => $rpwd, 'rtkn' => $rtkn)), $cOptions);
+			
+			$rpwdh = password_hash($rpwd, PASSWORD_DEFAULT);
+			$rtknh = password_hash($rtkn, PASSWORD_DEFAULT);
+			
+			$query = "UPDATE `auth_token` SET `pHash` = '$rpwdh', `tHash` = '$rtknh', `exDate` = '$expireTime' WHERE `tID` = $tVerified;";
+			$erg = db_query($query);
+			
 			$query = "UPDATE `users` SET `userLastLogin` = '$aTime', `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userName` = '".$cookieArr['user']."';";
-		 	$erg = db_query($query);
+			$erg = db_query($query);
 
-            header("location: ?");
-            die();
+			header("location: ?");
+			die();
 	    } else {
 	        e_log(8,"Cookie not valid, using standard login now");
 	    }
+		
 	}
 	
 	if(count($_GET) != 0 || count($_POST) != 0) {
@@ -1862,9 +1865,7 @@ function checkLogin($realm) {
 			$user = $_POST['username'];
 			$pw = $_POST['password'];
 			$_SESSION['cr'] = true;
-		}
-
-		if(isset($_SERVER['PHP_AUTH_USER']) && isset($_SERVER['PHP_AUTH_PW'])) {
+		} else if(isset($_SERVER['PHP_AUTH_USER']) && isset($_SERVER['PHP_AUTH_PW'])) {
 			$user = $_SERVER['PHP_AUTH_USER'];
 			$pw = $_SERVER['PHP_AUTH_PW'];
 			$_SESSION['cr'] = true;
@@ -1876,14 +1877,14 @@ function checkLogin($realm) {
 			header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 			header("Cache-Control: post-check=0, pre-check=0", false);
 			header("Pragma: no-cache");
-			header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-			http_response_code(401);
+			if(!isset($_POST['client'])) header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+			if(!isset($_POST['client'])) http_response_code(401);
 			unset($_SESSION['fauth']);
 			echo htmlHeader();
 			echo "<div id='loginbody'>
 				<div id='loginform'>
 					<div id='loginformh'>Access denied</div>
-					<div id='loginformt'>Access denied. You must <a href='".$_SERVER['PHP_SELF']."'>login</a> to use this tool.</div>
+					<div id='loginformt'>Access denied. You must <a href=''>login</a> to use this tool.</div>
 				</div>
 			</div>";
 			echo htmlFooter();
@@ -1902,31 +1903,28 @@ function checkLogin($realm) {
 						e_log(8,"Login successfully");
 						
 						if(isset($_POST['remember']) && $_POST['remember'] == true) {
-						    e_log(8,'Set login Cookie');
-                            $expireTime = time()+60*60*24*30;
-                            
-                            $rpwd = unique_code(16);
-                            $rtkn = unique_code(32);
-                            
-                            $cOptions = array (
-                                'expires' => time() + 60*60*24*7,
-                                'path' => null,
-                                'domain' => null,
-                                'secure' => true,
-                                'httponly' => true,
-                                'samesite' => 'Strict'
-                            );
-                            
-                            setcookie('syncmarks', json_encode(array('user' => $udata[0]['userName'], 'rpwd' => $rpwd, 'rtkn' => $rtkn)), $cOptions);
-                            
-                            $rpwdh = password_hash($rpwd, PASSWORD_DEFAULT);
-                            $rtknh = password_hash($rtkn, PASSWORD_DEFAULT);
-                            
-                            $query = "INSERT INTO `auth_token` (`userName`,`pHash`,`tHash`,`exDate`) VALUES ('".$udata[0]['userName']."', '$rpwdh', '$rtknh', '$expireTime');";
-			                $erg = db_query($query);
-						} else {
-						    e_log(8,'Login cookie not set');
-						    clearAuthCookie();
+							e_log(8,'Set login Cookie');
+							$expireTime = time()+60*60*24*30;
+							
+							$rpwd = unique_code(16);
+							$rtkn = unique_code(32);
+							
+							$cOptions = array (
+								'expires' => time() + 60*60*24*7,
+								'path' => null,
+								'domain' => null,
+								'secure' => true,
+								'httponly' => true,
+								'samesite' => 'Strict'
+							);
+							
+							setcookie('syncmarks', json_encode(array('user' => $udata[0]['userName'], 'rpwd' => $rpwd, 'rtkn' => $rtkn)), $cOptions);
+							
+							$rpwdh = password_hash($rpwd, PASSWORD_DEFAULT);
+							$rtknh = password_hash($rtkn, PASSWORD_DEFAULT);
+							
+							$query = "INSERT INTO `auth_token` (`userName`,`pHash`,`tHash`,`exDate`) VALUES ('".$udata[0]['userName']."', '$rpwdh', '$rtknh', '$expireTime');";
+							$erg = db_query($query);
 						}
 						
 						
@@ -1939,15 +1937,17 @@ function checkLogin($realm) {
 						session_destroy();
 						unset($_SESSION['sauth']);
 						$_SESSION['fauth'] = true;
-						header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-						http_response_code(401);
+						if(!isset($_POST['login']) || !isset($_POST['client']) ) {
+							header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+							http_response_code(401);
+						}
 						e_log(8,"Login failed. Password missmatch");
 						echo htmlHeader();
 						$lform = "<div id='loginbody'>
 							<div id='loginform'>
 								<div id='loginformh'>Login failed</div>
-								<div id='loginformt'>You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.";
-								if(filter_var($udata[0]['userMail'], FILTER_VALIDATE_EMAIL)) $lform.= "<br />Forgot your password? You can try to <a data-reset='$user' id='preset' href='#'>reset</a> it.";
+								<div id='loginformt'>You must <a href=''>authenticate</a> to use this tool.";
+						$lform.= (filter_var($udata[0]['userMail'], FILTER_VALIDATE_EMAIL)) ? "<br /><br />Forgot your password? You can try to <a data-reset='$user' id='preset' href=''>reset</a> it.":"<br /><br />Forgot your password? Please contact the admin.";
 						$lform.= "</div></div>
 						</div>";
 						echo $lform;
@@ -1958,15 +1958,16 @@ function checkLogin($realm) {
 					unset($_SESSION['sauth']);
 					$_SESSION['fauth'] = true;
 					session_destroy();
-					if(!isset($_POST['login'])) {
+					
+					if(!isset($_POST['login']) || !isset($_POST['client'])) {
 						header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-						http_response_code(401);
+						if(!isset($_POST['client'])) http_response_code(401);
 					} else {
 						echo htmlHeader();
 						echo "<div id='loginbody'>
 								<div id='loginform'>
 									<div id='loginformh'>Login failed</div>
-									<div id='loginformt'>You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.</div>
+									<div id='loginformt'>You must <a href=''>authenticate</a> to use this tool.</div>
 								</div>
 							</div>";
 						echo htmlFooter();

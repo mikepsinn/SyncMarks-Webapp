@@ -421,7 +421,6 @@
 }
 .rename {
 	top: 4px;
-	pointer-events: none;
 	color: darkgray;
 }
 .renamea {
