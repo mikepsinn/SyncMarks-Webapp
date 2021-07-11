@@ -7,6 +7,9 @@ ChangeLog
 - Added Load on demand for notifications
 - Fix not showing moved bookmarks
 - Fix rewrites
+- Fix encoding Push titles
+- Fix empty notification list
+- Fix mobile rename
 
 
 1.5.2 (2020-05-10)

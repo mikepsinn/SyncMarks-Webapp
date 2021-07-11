@@ -353,7 +353,7 @@ if(isset($_POST['caction'])) {
 			if (!empty($notificationData)) {
 				e_log(8,"Found ".count($notificationData)." links. Will push them to the client.");
 				foreach($notificationData as $key => $notification) {
-					$myObj[$key]['title'] = html_entity_decode(html_entity_decode($notification['title'],ENT_QUOTES,'UTF-8'));
+					$myObj[$key]['title'] = html_entity_decode(html_entity_decode($notification['title'], ENT_QUOTES | ENT_XML1, 'UTF-8'), ENT_QUOTES | ENT_XML1, 'UTF-8');
 					$myObj[$key]['url'] = $notification['message'];
 					$myObj[$key]['nkey'] = $notification['id'];
 					$myObj[$key]['nOption'] = $uOptions['notifications'];
@@ -778,7 +778,7 @@ if(isset($_GET['link'])) {
 	$res = addBookmark($userData, $bookmark);
 	if($res == 1) {
 		if ($so) {
-			echo("URL is added successfully.");
+			echo("URL added.");
 		} else {
 			echo "<script>window.onload = function() { window.close();}</script>";
 		}
@@ -797,6 +797,7 @@ if(isset($_GET['push'])) {
 	$uidd = $userData['userID'];
 	$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`client`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, '$target', 1, $ctime, $uidd)";
 	$erg = db_query($query);
+	e_log(8, "incoming:".$title);
 	
 	$options = json_decode($userData['uOptions'],true);
 
@@ -806,7 +807,7 @@ if(isset($_GET['push'])) {
 		e_log(9,"Can't send to Pushbullet, missing data. Please check options");
 	}
 	
-	if($erg !== 0) die("Bookmarklet URL successfully pushed.");
+	if($erg !== 0) die('Pushed');
 }
 
 echo htmlHeader();
@@ -911,14 +912,16 @@ function validate_url($url) {
 	}
 }
 
-function pushlink($title,$url,$userdata) {
+function pushlink ($title,$url,$userdata) {
 	$pddata = json_decode($userdata['uOptions'],true);
 	$token = edcrpt('de', $pddata['pAPI']);
 	$device = edcrpt('de', $pddata['pDevice']);
 	e_log(8,"Send Push Notification to device: $device");
+	$encTitle = html_entity_decode((html_entity_decode($title)), ENT_QUOTES | ENT_XML1, 'UTF-8');
+	
 	$data = json_encode(array(
 		'type' => 'link',
-		'title' => $title,
+		'title' => $encTitle,
 		'url'	=> $url,
 		'device_iden' => $device
 	));
@@ -1407,14 +1410,12 @@ function htmlForms($userData) {
 		</div>
 		<div id='aNoti' class='tabcontent'style='display: block'>
 		<div class='NotiTable'>
-			<div class='NotiTableBody'>
-			</div>
+			<div class='NotiTableBody'></div>
 		</div>
 		</div>
 		<div id='oNoti' class='tabcontent' style='display: none'>
 		<div class='NotiTable'>
-			<div class='NotiTableBody'>
-			</div>
+			<div class='NotiTableBody'></div>
 		</div>
 		</div>
 	</div>";
@@ -1553,7 +1554,6 @@ function showBookmarks($userData, $mode) {
 function bClientlist($uid) {
 	$query = "SELECT * FROM `clients` WHERE `uid` = $uid ORDER BY `lastseen` DESC;";
 	$clientData = db_query($query);
-	
 	$clientList = "<ul>";
 	foreach($clientData as $key => $client) {
 		$cname = $client['cid'];
@@ -1771,21 +1771,12 @@ function prepare_url($url) {
 
 function clearAuthCookie() {
 	e_log(8,'Reset Cookie');
-
 	if(isset($_COOKIE['syncmarks'])) {
 		$cookieStr = $_COOKIE['syncmarks'];
 		$cookieArr = json_decode($cookieStr, true);
-		
-		$query = "SELECT * FROM `auth_token` WHERE userName = '".$cookieArr['user']."';";
-		$tkdata = db_query($query);
-		
-		foreach($tkdata as $key => $token) {
-			if(password_verify($cookieArr['rpwd'], $token['pHash']) && password_verify($cookieArr['rtkn'], $token['tHash'])) {
-				$query = "DELETE FROM `auth_token` WHERE tID = ".$token['tID'];
-				$tkdata = db_query($query);
-				break;
-			}
-		}
+
+		$query = "DELETE FROM `auth_token` WHERE `userName` = '".$cookieArr['user']."' AND `pHash` = '".$cookieArr['token']."'";
+		db_query($query);
 		
 		$cOptions = array (
 			'expires' => 0,
@@ -1808,15 +1799,16 @@ function checkLogin($realm) {
 
 	$aTime = time();
 
-	if(strlen($cookieArr['user']) > 0 && strlen($cookieArr['rpwd']) > 0 && strlen($cookieArr['rtkn']) > 0 && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+	if(strlen($cookieArr['user']) > 0 && strlen($cookieArr['rtkn']) > 0 && $_SERVER['REQUEST_METHOD'] !== 'POST') {
 		e_log(8,"Cookie found. Try to login via authToken...");
 		
-		$query = "SELECT t.*, u.userlastLogin, u.sessionID FROM `auth_token` t INNER JOIN `users` u ON u.userName = t.userName WHERE t.userName = '".$cookieArr['user']."';";
+		$query = "SELECT t.*, u.userlastLogin, u.sessionID FROM `auth_token` t INNER JOIN `users` u ON u.userName = t.userName WHERE t.userName = '".$cookieArr['user']."' ORDER BY t.exDate DESC;";
 		$tkdata = db_query($query);
-		
+
 		foreach($tkdata as $key => $token) {
-			if(password_verify($cookieArr['rpwd'], $token['pHash']) && password_verify($cookieArr['rtkn'], $token['tHash']) && $token['exDate'] >= $aTime) {
+			if(password_verify($cookieArr['rtkn'], $token['tHash'])) {
 				$tVerified = $token['tID'];
+				break;
 			}
 		}
 		
@@ -1828,7 +1820,6 @@ function checkLogin($realm) {
 			unset($_SESSION['fauth']);
 			
 			$expireTime = time()+60*60*24*30;
-			$rpwd = unique_code(16);
 			$rtkn = unique_code(32);
 			
 			$cOptions = array (
@@ -1839,13 +1830,14 @@ function checkLogin($realm) {
 				'httponly' => true,
 				'samesite' => 'Strict'
 			);
+
+			//$dtoken = bin2hex(openssl_random_pseudo_bytes(16));
+			//setcookie('syncmarks', json_encode(array('token' => $dtoken, 'user' => $tkdata[0]['userName'], 'rtkn' => $rtkn)), $cOptions);
+			setcookie('syncmarks', json_encode(array('user' => $tkdata[0]['userName'], 'rtkn' => $rtkn, 'token' => $cookieArr['rtkn'])), $cOptions);
 			
-			setcookie('syncmarks', json_encode(array('user' => $tkdata[0]['userName'], 'rpwd' => $rpwd, 'rtkn' => $rtkn)), $cOptions);
-			
-			$rpwdh = password_hash($rpwd, PASSWORD_DEFAULT);
 			$rtknh = password_hash($rtkn, PASSWORD_DEFAULT);
 			
-			$query = "UPDATE `auth_token` SET `pHash` = '$rpwdh', `tHash` = '$rtknh', `exDate` = '$expireTime' WHERE `tID` = $tVerified;";
+			$query = "UPDATE `auth_token` SET `tHash` = '$rtknh', `exDate` = '$expireTime' WHERE `tID` = $tVerified;";
 			$erg = db_query($query);
 			
 			$query = "UPDATE `users` SET `userLastLogin` = '$aTime', `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userName` = '".$cookieArr['user']."';";
@@ -1855,6 +1847,7 @@ function checkLogin($realm) {
 			die();
 	    } else {
 	        e_log(8,"Cookie not valid, using standard login now");
+			clearAuthCookie();
 	    }
 		
 	}
@@ -1906,7 +1899,6 @@ function checkLogin($realm) {
 							e_log(8,'Set login Cookie');
 							$expireTime = time()+60*60*24*30;
 							
-							$rpwd = unique_code(16);
 							$rtkn = unique_code(32);
 							
 							$cOptions = array (
@@ -1918,12 +1910,12 @@ function checkLogin($realm) {
 								'samesite' => 'Strict'
 							);
 							
-							setcookie('syncmarks', json_encode(array('user' => $udata[0]['userName'], 'rpwd' => $rpwd, 'rtkn' => $rtkn)), $cOptions);
+							$dtoken = bin2hex(openssl_random_pseudo_bytes(16));
+							setcookie('syncmarks', json_encode(array('user' => $udata[0]['userName'], 'rtkn' => $rtkn, 'token' => $dtoken)), $cOptions);
 							
-							$rpwdh = password_hash($rpwd, PASSWORD_DEFAULT);
 							$rtknh = password_hash($rtkn, PASSWORD_DEFAULT);
 							
-							$query = "INSERT INTO `auth_token` (`userName`,`pHash`,`tHash`,`exDate`) VALUES ('".$udata[0]['userName']."', '$rpwdh', '$rtknh', '$expireTime');";
+							$query = "INSERT INTO `auth_token` (`userName`,`pHash`, `tHash`,`exDate`) VALUES ('".$udata[0]['userName']."', '$dtoken', '$rtknh', '$expireTime');";
 							$erg = db_query($query);
 						}
 						

@@ -476,7 +476,7 @@ document.addEventListener("DOMContentLoaded", function() {
 							liEl.classList = 'client';
 							let cename = document.createElement('div');
 							cename.classList = 'clientname';
-							cename.appendChild(document.createTextNode(client.name));
+							cename.appendChild(document.createTextNode(client.name ? client.name:client.id));
 							liEl.appendChild(cename);
 							let ceinput = document.createElement('input');
 							ceinput.type = 'text';
@@ -858,6 +858,11 @@ function delClient(element) {
 }
 
 function mvClient(element) {
+	let loader = document.createElement('div');
+	loader.classList.add('db-spinner');
+	loader.id = 'db-spinner';
+	document.querySelector('body').appendChild(loader);
+	
 	let xhr = new XMLHttpRequest();
 	let data = 'caction=arename&cido=' + element.target.parentElement.id + '&nname=' + element.target.parentElement.children[0].children['cname'].value;
 	xhr.onreadystatechange = function () {
@@ -865,6 +870,7 @@ function mvClient(element) {
 			document.getElementById('mngcform').innerHTML = xhr.responseText;
 			document.querySelectorAll("#mngcform li div.remove").forEach(function(element) {element.addEventListener('click', delClient, false)});
 			document.querySelectorAll("#mngcform li div.rename").forEach(function(element) {element.addEventListener('click', mvClient, false)});
+			loader.remove();
 		}
 	};
 	xhr.open("POST", document.location.href, true);
