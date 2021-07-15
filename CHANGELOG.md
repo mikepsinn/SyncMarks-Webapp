@@ -1,15 +1,16 @@
 ChangeLog
 =========
-1.6.0 (2020-06-22)
+1.6.0 (2020-07-13)
 -------------------------
 - Added option to stay logged in
 - Added Load on demand for clients
 - Added Load on demand for notifications
 - Fix not showing moved bookmarks
 - Fix rewrites
-- Fix encoding Push titles
+- Fix encoding some titles
 - Fix empty notification list
 - Fix mobile rename
+- Fix delete notifications
 
 
 1.5.2 (2020-05-10)

@@ -1079,13 +1079,16 @@ span.rdesc {
 	font-weight: bold;
 	color: gainsboro;
 	z-index: -1;
+	top: 50px;
 }
 .NotiTableRow {
 	display: block;
 	width: 100%;
+	background-color: white;
+	height: 55px;
 }
 .NotiTableRow:hover {
-	background: ghostwhite;
+	background-color: #f8f8ff;
 }
 .tabcontent h3 {
 	padding: 0 12px;
@@ -1101,7 +1104,6 @@ span.rdesc {
 	display: block;
 	padding: 0 0 0 10px;
 	float: left;
-	background-color: white;
 }
 .NotiTableCell:first-child {
 	width: calc(100% - 60px);
@@ -1129,9 +1131,9 @@ span.rdesc {
 .NotiTableRow:hover .fa {
 	display: block;
 	position: relative;
-	top: -20px;
+	top: -10px;
 	left: 520px;
-	margin-top: -24px;
+	margin-top: -35px;
 }
 .NotiTableCell .fa::before {
 	position: absolute;

@@ -250,16 +250,11 @@ if(isset($_POST['caction'])) {
 			die(json_encode(importMarks($armarks,$userData['userID'])));
 			break;
 		case "getpurl":
-			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$url = validate_url($_POST['url']);
-			$target = (isset($_POST['tg'])) ? filter_var($_POST['tg'], FILTER_SANITIZE_STRING) : '0';
-			$ctime = time();
-			$title = getSiteTitle($url);
 			e_log(8,"Received new pushed URL: ".$url);
-			$uidd = $userData['userID'];
-			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`client`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, '$target', 1, $ctime, $uidd)";
-			$erg = db_query($query);
-			if($erg !== 0) die("URL successfully pushed.");
+			$target = (isset($_POST['tg'])) ? filter_var($_POST['tg'], FILTER_SANITIZE_STRING) : '0';
+			
+			if(newNotification($url, $target) !== 0) die("URL successfully pushed.");
 			break;
 		case "lsnc":
 			e_log(8,"Get clients lastseen date.");
@@ -353,7 +348,7 @@ if(isset($_POST['caction'])) {
 			if (!empty($notificationData)) {
 				e_log(8,"Found ".count($notificationData)." links. Will push them to the client.");
 				foreach($notificationData as $key => $notification) {
-					$myObj[$key]['title'] = html_entity_decode(html_entity_decode($notification['title'], ENT_QUOTES | ENT_XML1, 'UTF-8'), ENT_QUOTES | ENT_XML1, 'UTF-8');
+					$myObj[$key]['title'] = html_entity_decode($notification['title'], ENT_QUOTES | ENT_XML1, 'UTF-8');
 					$myObj[$key]['url'] = $notification['message'];
 					$myObj[$key]['nkey'] = $notification['id'];
 					$myObj[$key]['nOption'] = $uOptions['notifications'];
@@ -790,30 +785,38 @@ if(isset($_GET['link'])) {
 
 if(isset($_GET['push'])) {
 	$url = validate_url($_GET['push']);
-	$target = (isset($_GET['tg'])) ? filter_var($_GET['tg'], FILTER_SANITIZE_STRING) : '0';
-	$ctime = time();
-	$title = getSiteTitle($url);
 	e_log(8,"Received new pushed URL from bookmarklet: ".$url);
-	$uidd = $userData['userID'];
-	$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`client`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, '$target', 1, $ctime, $uidd)";
-	$erg = db_query($query);
-	e_log(8, "incoming:".$title);
+	$target = (isset($_GET['tg'])) ? filter_var($_GET['tg'], FILTER_SANITIZE_STRING) : '0';
 	
-	$options = json_decode($userData['uOptions'],true);
-
-	if(strlen($options['pAPI']) > 1 && strlen($options['pDevice']) > 1 && $options['pbEnable'] == "1") {
-		pushlink($title,$url,$userData);
-	} else {
-		e_log(9,"Can't send to Pushbullet, missing data. Please check options");
-	}
-	
-	if($erg !== 0) die('Pushed');
+	if(newNotification($url, $target) !== 0) die('Pushed');
 }
 
 echo htmlHeader();
 echo htmlForms($userData);
 echo showBookmarks($userData, 2);
 echo htmlFooter();
+
+function newNotification($url, $target) {
+	global $userData;
+	$erg = 0;
+	$title = getSiteTitle($url);
+	e_log(8, $title);
+	$ctime = time();
+	$uidd = $userData['userID'];
+
+	$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`client`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, '$target', 1, $ctime, $uidd);";
+	$erg = db_query($query);
+	
+	$options = json_decode($userData['uOptions'],true);
+	
+	if(strlen($options['pAPI']) > 1 && strlen($options['pDevice']) > 1 && $options['pbEnable'] == "1") {
+		pushlink($title,$url,$userData);
+	} else {
+		e_log(2,"Can't send to Pushbullet, missing data. Please check options");
+	}
+	
+	return $erg;
+}
 
 function gpwd($length = 12){
 	$allowedC =  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-=~!#$^&*()_+,./<>:[]{}|';
@@ -917,7 +920,7 @@ function pushlink ($title,$url,$userdata) {
 	$token = edcrpt('de', $pddata['pAPI']);
 	$device = edcrpt('de', $pddata['pDevice']);
 	e_log(8,"Send Push Notification to device: $device");
-	$encTitle = html_entity_decode((html_entity_decode($title)), ENT_QUOTES | ENT_XML1, 'UTF-8');
+	$encTitle = html_entity_decode($title, ENT_QUOTES | ENT_XML1, 'UTF-8');
 	
 	$data = json_encode(array(
 		'type' => 'link',
@@ -1137,8 +1140,9 @@ function addBookmark($ud, $bm) {
 	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex` FROM `bookmarks` WHERE `userID` = ".$ud['userID']." AND `bmParentID` = '$folderID';";
 	$nindex = db_query($query)[0]['nindex'];
 	
-	e_log(8,"Add bookmark '".$title."'");
-	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '$folderID', $nindex, '".$bm['title']."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].");";
+	$title = htmlentities($bm['title'], ENT_QUOTES);
+	e_log(8,"Add bookmark '$title'");
+	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '$folderID', $nindex, '$title', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].");";
 	if(db_query($query) === false ) {
 		$message = "Adding bookmark failed";
 		e_log(1,$message);
@@ -1160,7 +1164,7 @@ function getChanges($cl, $ct, $ud, $time) {
 		$query = "SELECT a.`bmParentID` as fdID, (SELECT `bmTitle` FROM `bookmarks` WHERE `bmID` = a.`bmParentID` AND userID = $uid) as fdName, (SELECT `bmIndex` FROM `bookmarks` WHERE `bmID` = a.`bmParentID` AND userID = $uid) as fdIndex, `bmID`, `bmIndex`, `bmTitle`, `bmType`, `bmURL`, `bmAdded`, `bmModified`, `bmAction` FROM `bookmarks` a WHERE (bmAdded >= $lastseen AND userID = $uid) OR (bmAction = 1 AND bmAdded >= $lastseen AND userID = $uid);";
 		$bookmarkData = db_query($query);
 		foreach($bookmarkData as $key => $entry) {
-			$bookmarkData[$key]['bmTitle'] = html_entity_decode($entry['bmTitle'],ENT_QUOTES,'UTF-8'); 
+			$bookmarkData[$key]['bmTitle'] = html_entity_decode($entry['bmTitle'], ENT_QUOTES, 'UTF-8'); 
 		}
 	}
 	else {
@@ -1255,10 +1259,12 @@ function getSiteTitle($url) {
 		preg_match("/\<title\>(.*)\<\/title\>/i",$src,$title_arr);
 		$title = (strlen($title_arr[1]) > 0) ? strval($title_arr[1]) : 'unknown';
 		e_log(8,"Titel for site is '$title'");
-		return  htmlspecialchars(mb_convert_encoding($title,"UTF-8"),ENT_QUOTES,'UTF-8');
+		$convTitle = htmlspecialchars(mb_convert_encoding($title,"UTF-8"),ENT_QUOTES,'UTF-8', false);
 	} else {
-		return "unknown";
+		$convTitle = "unknown";
 	}
+	
+	return $convTitle;
 }
 
 function getUserdata() {

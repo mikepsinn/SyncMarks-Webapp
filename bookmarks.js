@@ -669,7 +669,7 @@ document.addEventListener("DOMContentLoaded", function() {
 				xhr.onreadystatechange = function () {
 					if (this.readyState == 4) {
 						if(this.status == 200) {
-							document.getElementById('lfiletext').innerHTML = this.responseText;
+							document.getElementById('lfiletext').innerText = this.responseText;
 							moveEnd();
 						} else {
 							let message = "Error loading logfile, please check server log.";
@@ -1060,6 +1060,11 @@ function openMessages(element) {
 }
 
 function delMessage(message) {
+	let loader = document.createElement('div');
+	loader.classList.add('db-spinner');
+	loader.id = 'db-spinner';
+	document.querySelector('body').appendChild(loader);
+		
 	let loop = message.target.parentElement.parentElement.parentElement.parentElement.parentElement.id;
 	let xhr = new XMLHttpRequest();
 	let data = 'caction=rmessage&lp=' + loop + '&message=' + message.target.dataset['message'];
@@ -1068,6 +1073,7 @@ function delMessage(message) {
 			if(this.status == 200) {
 				document.querySelector('#'+loop+' .NotiTable .NotiTableBody').innerHTML = this.responseText;
 				document.querySelectorAll('.NotiTableCell .fa-trash').forEach(function(element) {element.addEventListener('click', delMessage, false)});
+				loader.remove();
 			}
 		}
 	};
