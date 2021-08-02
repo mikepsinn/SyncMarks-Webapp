@@ -1827,7 +1827,7 @@ function checkLogin($realm) {
 				'samesite' => 'Strict'
 			);
 			
-			$cookieData = cryptCookie(json_encode(array('user' => $tkdata[0]['userName'], 'rtkn' => $rtkn, 'token' => $cookieArr['rtkn'])), 1);
+			$cookieData = cryptCookie(json_encode(array('rtkn' => $rtkn, 'user' => $tkdata[0]['userName'], 'token' => $cookieArr['rtkn'])), 1);
 
 			setcookie('syncmarks', $cookieData, $cOptions);
 			
@@ -1893,7 +1893,7 @@ function checkLogin($realm) {
 						);
 						
 						$dtoken = bin2hex(openssl_random_pseudo_bytes(16));
-						$cookieData = cryptCookie(json_encode(array('user' => $udata[0]['userName'], 'rtkn' => $rtkn, 'token' => $dtoken)), 1);
+						$cookieData = cryptCookie(json_encode(array('rtkn' => $rtkn, 'user' => $udata[0]['userName'], 'token' => $dtoken)), 1);
 
 						setcookie('syncmarks', $cookieData, $cOptions);
 						
