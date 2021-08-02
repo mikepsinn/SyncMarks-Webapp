@@ -14,7 +14,7 @@ set_error_handler("e_log");
 
 e_log(9,$_SERVER['REQUEST_METHOD'].' '.var_export($_REQUEST,true));
 
-if(!isset($_SESSION['sauth'])) checkDB($database,$suser,$spwd);
+//if(!isset($_SESSION['sauth'])) checkDB($database,$suser,$spwd);
 
 if(isset($_GET['reset'])){
 	$reset = filter_var($_GET['reset'], FILTER_SANITIZE_STRING);
@@ -122,7 +122,8 @@ if(isset($_GET['reset'])){
 	die();
 }
 
-if(!isset($_SESSION['sauth']) || isset($_SESSION['fauth'])) checkLogin($realm);
+//if(!isset($_SESSION['sauth']) || isset($_SESSION['fauth'])) checkLogin($realm);
+if(!isset($_SESSION['sauth'])) checkLogin($realm);
 
 if(!isset($userData)) $userData = getUserdata();
 
@@ -584,7 +585,6 @@ if(isset($_POST['caction'])) {
 			}
 
 			unset($_SESSION['sauth']);
-			$_SESSION['fauth'] = true;
 			e_log(8,"User logged out");
 			echo htmlHeader();
 			echo "<div id='loginbody'>
@@ -647,13 +647,12 @@ if(isset($_POST['caction'])) {
 				e_log(2,"Userchange: Data missing");
 			}
 			unset($_SESSION['sauth']);
-			$_SESSION['fauth'] = true;
 			e_log(8,"User logged out");
 			echo htmlHeader();
 			echo "<div id='loginbody'>
 				<div id='loginform'>
 					<div id='loginformh'>Logout successful</div>
-					<div id='loginformt'>User logged out. <a href=''>Login</a> again</div>
+					<div id='loginformt'>User logged out. <a href='?'>Login</a> again</div>
 				</div>
 			</div>";
 			echo htmlFooter();
@@ -706,16 +705,14 @@ if(isset($_POST['caction'])) {
 		case "logout":
 			e_log(8,"Logout user ".$_SESSION['sauth']);
 			unset($_SESSION['sauth']);
-			unset($_SESSION['cr']);
 			clearAuthCookie();
-			$_SESSION['fauth'] = true;
 			e_log(8,"User logged out");
 			if(!isset($_POST['client'])) {
 				echo htmlHeader();
 				echo "<div id='loginbody'>
 					<div id='loginform'>
 						<div id='loginformh'>Logout successful</div>
-						<div id='loginformt'>User logged out. <a href=''>Login</a> again</div>
+						<div id='loginformt'>User logged out. <a href='?'>Login</a> again</div>
 					</div>
 				</div>";
 				echo htmlFooter();
@@ -1273,7 +1270,7 @@ function getUserdata() {
 	if (!empty($userData)) {
 		return $userData[0];
 	} else {
-		unset($_SESSION['fauth']);
+		unset($_SESSION['sauth']);
 	}
 }
 
@@ -1329,22 +1326,14 @@ function delUsermarks($uid) {
 	db_query($query);
 }
 
-function minFile($infile) {
-	$outfile = $infile;
-	$infile = pathinfo($infile);
-	$minfile = $infile['filename'].'.min.'.$infile['extension'];
-	$outfile = (file_exists($minfile)) ? $minfile : $outfile;
-	return $outfile;
-}
-
 function htmlHeader() {
 	$htmlHeader = "<!DOCTYPE html>
 		<html lang='en'>
 			<head>
 				<meta name='viewport' content='width=device-width, initial-scale=1'>
-				<script src='".minfile("bookmarks.js")."'></script>
-				<link type='text/css' rel='stylesheet' href='".minfile("bookmarks.css")."'>
-				<link rel='shortcut icon' type='image/x-icon' href='./images/bookmarks.ico'>
+				<script src='js/bookmarks.min.js'></script>
+				<link type='text/css' rel='stylesheet' href='css/bookmarks.min.css'>
+				<link rel='shortcut icon' type='image/x-icon' href='images/bookmarks.ico'>
 				<link rel='manifest' href='manifest.json'>
 				<meta name='theme-color' content='#0879D9'>
 				<title>SyncMarks</title>
@@ -1369,7 +1358,7 @@ function htmlForms($userData) {
 	$version = explode ("\n", file_get_contents('./CHANGELOG.md',NULL,NULL,0,30))[2];
 	$version = substr($version,0,strpos($version, " "));
 	$clink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-	$bookmarklet = "javascript:void function(){window.open('$clink?title='+document.title+'&link='+encodeURIComponent(document.location.href),'bWindow','width=480,height=245',replace=!0)}();";
+	$bookmarklet = "javascript:void function(){window.open('$clink?title='+encodeURIComponent(document.title)+'&link='+encodeURIComponent(document.location.href),'bWindow','width=480,height=245',replace=!0)}();";
 	$userName = $userData['userName'];
 	$userMail = $userData['userMail'];
 	$userID = $userData['userID'];
@@ -1593,7 +1582,7 @@ function notiList($uid, $loop) {
 }
 
 function htmlFooter() {
-	$htmlFooter = "<script src='bookmarksf.js'></script></body></html>";
+	$htmlFooter = "<script src='js/bookmarksf.min.js'></script></body></html>";
 	return $htmlFooter;
 }
 
@@ -1778,7 +1767,8 @@ function prepare_url($url) {
 function clearAuthCookie() {
 	e_log(8,'Reset Cookie');
 	if(isset($_COOKIE['syncmarks'])) {
-		$cookieStr = $_COOKIE['syncmarks'];
+		$cookieStr = cryptCookie($_COOKIE['syncmarks'], 2);
+
 		$cookieArr = json_decode($cookieStr, true);
 
 		$query = "DELETE FROM `auth_token` WHERE `userName` = '".$cookieArr['user']."' AND `pHash` = '".$cookieArr['token']."'";
@@ -1795,12 +1785,13 @@ function clearAuthCookie() {
 		
 		setcookie("syncmarks", "", $cOptions);
 	}
-	}
+}
 
 function checkLogin($realm) {
 	e_log(8,"Check login...");
 	$tVerified = false;
-	$cookieStr = (!isset($_COOKIE['syncmarks'])) ? '':$_COOKIE['syncmarks'];
+	$cookieStr = (!isset($_COOKIE['syncmarks'])) ? '':cryptCookie($_COOKIE['syncmarks'], 2);
+
 	$cookieArr = json_decode($cookieStr, true);
 
 	$aTime = time();
@@ -1823,23 +1814,22 @@ function checkLogin($realm) {
 			$seid = session_id();
 			$oTime = $tkdata[0]['userLastLogin'];
 			$_SESSION['sauth'] = $tkdata[0]['userName'];
-			unset($_SESSION['fauth']);
 			
-			$expireTime = time()+60*60*24*30;
+			$expireTime = time()+60*60*24*7;
 			$rtkn = unique_code(32);
 			
 			$cOptions = array (
-				'expires' => time() + 60*60*24*7,
+				'expires' => $expireTime,
 				'path' => null,
 				'domain' => null,
 				'secure' => true,
 				'httponly' => true,
 				'samesite' => 'Strict'
 			);
+			
+			$cookieData = cryptCookie(json_encode(array('user' => $tkdata[0]['userName'], 'rtkn' => $rtkn, 'token' => $cookieArr['rtkn'])), 1);
 
-			//$dtoken = bin2hex(openssl_random_pseudo_bytes(16));
-			//setcookie('syncmarks', json_encode(array('token' => $dtoken, 'user' => $tkdata[0]['userName'], 'rtkn' => $rtkn)), $cOptions);
-			setcookie('syncmarks', json_encode(array('user' => $tkdata[0]['userName'], 'rtkn' => $rtkn, 'token' => $cookieArr['rtkn'])), $cOptions);
+			setcookie('syncmarks', $cookieData, $cOptions);
 			
 			$rtknh = password_hash($rtkn, PASSWORD_DEFAULT);
 			
@@ -1848,29 +1838,19 @@ function checkLogin($realm) {
 			
 			$query = "UPDATE `users` SET `userLastLogin` = '$aTime', `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userName` = '".$cookieArr['user']."';";
 			$erg = db_query($query);
-
 			header("location: ?");
 			die();
 	    } else {
 	        e_log(8,"Cookie not valid, using standard login now");
 			clearAuthCookie();
 	    }
-		
 	}
 	
 	if(count($_GET) != 0 || count($_POST) != 0) {
-		unset($_SESSION['cr']);
-		if(isset($_POST['login']) && isset($_POST['username']) && isset($_POST['password'])) {
-			$user = $_POST['username'];
-			$pw = $_POST['password'];
-			$_SESSION['cr'] = true;
-		} else if(isset($_SERVER['PHP_AUTH_USER']) && isset($_SERVER['PHP_AUTH_PW'])) {
-			$user = $_SERVER['PHP_AUTH_USER'];
-			$pw = $_SERVER['PHP_AUTH_PW'];
-			$_SESSION['cr'] = true;
-		}
+		$user = (isset($_POST['username'])) ? filter_var($_POST['username'], FILTER_SANITIZE_STRING):$_SERVER['PHP_AUTH_USER'];
+		$pw = (isset($_POST['password'])) ? filter_var($_POST['password'], FILTER_SANITIZE_STRING):$_SERVER['PHP_AUTH_PW'];
 
-		if (!isset($_SESSION['cr'])) {
+		if(!$user || !$pw) {
 			header("Expires: Sat, 01 Jan 2000 00:00:00 GMT");
 			header("Last-Modified: ".gmdate("D, d M Y H:i:s")." GMT");
 			header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
@@ -1878,101 +1858,95 @@ function checkLogin($realm) {
 			header("Pragma: no-cache");
 			if(!isset($_POST['client'])) header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
 			if(!isset($_POST['client'])) http_response_code(401);
-			unset($_SESSION['fauth']);
 			echo htmlHeader();
 			echo "<div id='loginbody'>
 				<div id='loginform'>
 					<div id='loginformh'>Access denied</div>
-					<div id='loginformt'>Access denied. You must <a href=''>login</a> to use this tool.</div>
+					<div id='loginformt'>Access denied. You must <a href='?'>login</a> to use this tool.</div>
 				</div>
 			</div>";
 			echo htmlFooter();
 			exit;
 		} else {
-			if(isset($_SESSION['cr'])) {
-				$query = "SELECT * FROM `users` WHERE `userName`= '$user';";
-				$udata = db_query($query);
-				if(count($udata) == 1) {
-					if(password_verify($pw, $udata[0]['userHash'])) {
-						$seid = session_id();
-						$oTime = $udata[0]['userLastLogin'];
-						$uid = $udata[0]['userID'];
-						$_SESSION['sauth'] = $udata[0]['userName'];
-						unset($_SESSION['fauth']);
-						e_log(8,"Login successfully");
+			$query = "SELECT * FROM `users` WHERE `userName`= '$user';";
+			$udata = db_query($query);
+			if(count($udata) == 1) {
+				if(password_verify($pw, $udata[0]['userHash'])) {
+					$seid = session_id();
+					$oTime = $udata[0]['userLastLogin'];
+					$uid = $udata[0]['userID'];
+					$_SESSION['sauth'] = $udata[0]['userName'];
+					e_log(8,"Login successfully");
+					
+					if(isset($_POST['remember']) && $_POST['remember'] == true) {
+						e_log(8,'Set login Cookie');
+						$expireTime = time()+60*60*24*7;
+						$rtkn = unique_code(32);
 						
-						if(isset($_POST['remember']) && $_POST['remember'] == true) {
-							e_log(8,'Set login Cookie');
-							$expireTime = time()+60*60*24*30;
-							
-							$rtkn = unique_code(32);
-							
-							$cOptions = array (
-								'expires' => time() + 60*60*24*7,
-								'path' => null,
-								'domain' => null,
-								'secure' => true,
-								'httponly' => true,
-								'samesite' => 'Strict'
-							);
-							
-							$dtoken = bin2hex(openssl_random_pseudo_bytes(16));
-							setcookie('syncmarks', json_encode(array('user' => $udata[0]['userName'], 'rtkn' => $rtkn, 'token' => $dtoken)), $cOptions);
-							
-							$rtknh = password_hash($rtkn, PASSWORD_DEFAULT);
-							
-							$query = "INSERT INTO `auth_token` (`userName`,`pHash`, `tHash`,`exDate`) VALUES ('".$udata[0]['userName']."', '$dtoken', '$rtknh', '$expireTime');";
-							$erg = db_query($query);
-						}
+						$cOptions = array (
+							'expires' => $expireTime,
+							'path' => null,
+							'domain' => null,
+							'secure' => true,
+							'httponly' => true,
+							'samesite' => 'Strict'
+						);
 						
+						$dtoken = bin2hex(openssl_random_pseudo_bytes(16));
+						$cookieData = cryptCookie(json_encode(array('user' => $udata[0]['userName'], 'rtkn' => $rtkn, 'token' => $dtoken)), 1);
+
+						setcookie('syncmarks', $cookieData, $cOptions);
 						
-						if($seid != $udata[0]['sessionID']) {
-							e_log(8,"Save session to database.");
-							$query = "UPDATE `users` SET `userLastLogin` = $aTime, `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userID` = $uid;";
-							db_query($query);
-						}
-					} else {
-						session_destroy();
-						unset($_SESSION['sauth']);
-						$_SESSION['fauth'] = true;
-						if(!isset($_POST['login']) || !isset($_POST['client']) ) {
-							header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-							http_response_code(401);
-						}
-						e_log(8,"Login failed. Password missmatch");
-						echo htmlHeader();
-						$lform = "<div id='loginbody'>
-							<div id='loginform'>
-								<div id='loginformh'>Login failed</div>
-								<div id='loginformt'>You must <a href=''>authenticate</a> to use this tool.";
-						$lform.= (filter_var($udata[0]['userMail'], FILTER_VALIDATE_EMAIL)) ? "<br /><br />Forgot your password? You can try to <a data-reset='$user' id='preset' href=''>reset</a> it.":"<br /><br />Forgot your password? Please contact the admin.";
-						$lform.= "</div></div>
-						</div>";
-						echo $lform;
-						echo htmlFooter();
-						exit;
+						$rtknh = password_hash($rtkn, PASSWORD_DEFAULT);
+						
+						$query = "INSERT INTO `auth_token` (`userName`,`pHash`, `tHash`,`exDate`) VALUES ('".$udata[0]['userName']."', '$dtoken', '$rtknh', '$expireTime');";
+						$erg = db_query($query);
+					}
+					
+					if($seid != $udata[0]['sessionID']) {
+						e_log(8,"Save session to database.");
+						$query = "UPDATE `users` SET `userLastLogin` = $aTime, `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userID` = $uid;";
+						db_query($query);
 					}
 				} else {
 					unset($_SESSION['sauth']);
-					$_SESSION['fauth'] = true;
 					session_destroy();
-					
-					if(!isset($_POST['login']) || !isset($_POST['client'])) {
+					if(!isset($_POST['login']) || !isset($_POST['client']) ) {
 						header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-						if(!isset($_POST['client'])) http_response_code(401);
-					} else {
-						echo htmlHeader();
-						echo "<div id='loginbody'>
-								<div id='loginform'>
-									<div id='loginformh'>Login failed</div>
-									<div id='loginformt'>You must <a href=''>authenticate</a> to use this tool.</div>
-								</div>
-							</div>";
-						echo htmlFooter();
+						http_response_code(401);
 					}
-					e_log(8,"Login failed. Credential missmatch");
+					e_log(8,"Login failed. Password missmatch");
+					echo htmlHeader();
+					$lform = "<div id='loginbody'>
+						<div id='loginform'>
+							<div id='loginformh'>Login failed</div>
+							<div id='loginformt'>You must <a href='?'>authenticate</a> to use this tool.";
+					$lform.= (filter_var($udata[0]['userMail'], FILTER_VALIDATE_EMAIL)) ? "<br /><br />Forgot your password? You can try to <a data-reset='$user' id='preset' href=''>reset</a> it.":"<br /><br />Forgot your password? Please contact the admin.";
+					$lform.= "</div></div>
+					</div>";
+					echo $lform;
+					echo htmlFooter();
 					exit;
 				}
+			} else {
+				unset($_SESSION['sauth']);
+				session_destroy();
+				
+				if(!isset($_POST['login']) || !isset($_POST['client'])) {
+					header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+					if(!isset($_POST['client'])) http_response_code(401);
+				} else {
+					echo htmlHeader();
+					echo "<div id='loginbody'>
+							<div id='loginform'>
+								<div id='loginformh'>Login failed</div>
+								<div id='loginformt'>You must <a href='?'>authenticate</a> to use this tool.</div>
+							</div>
+						</div>";
+					echo htmlFooter();
+				}
+				e_log(8,"Login failed. Credential missmatch");
+				exit;
 			}
 		}
 	} else {
@@ -1995,7 +1969,16 @@ function checkLogin($realm) {
 		echo htmlFooter();
 		exit;
 	}
+}
 
+function cryptCookie($data, $crypt) {
+	global $enckey, $enchash;
+	$method = 'aes-256-cbc';
+	$iv = substr(hash('sha256', $enchash), 0, 16);
+	$opts   = defined('OPENSSL_RAW_DATA') ? OPENSSL_RAW_DATA : true;
+	$key = hash('sha256', $enckey);
+	$str = ($crypt == 1) ? base64_encode(openssl_encrypt($data, $method, $key, $opts, $iv)):openssl_decrypt(base64_decode($data), $method, $key, $opts, $iv);
+	return $str;
 }
 
 function db_query($query, $data=null) {

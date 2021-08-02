@@ -1,6 +1,6 @@
 ChangeLog
 =========
-1.6.0 (2020-07-13)
+1.6.0 (2020-07-29)
 -------------------------
 - Added option to stay logged in
 - Added Load on demand for clients
@@ -11,6 +11,8 @@ ChangeLog
 - Fix empty notification list
 - Fix mobile rename
 - Fix delete notifications
+- Removed unused session vars
+- Moved assets
 
 
 1.5.2 (2020-05-10)
