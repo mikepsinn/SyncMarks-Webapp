@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.5.1
+ * @version 1.6.0
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -12,7 +12,9 @@ include_once "config.inc.php.dist";
 include_once "config.inc.php";
 set_error_handler("e_log");
 
-checkDB($database,$suser,$spwd);
+e_log(9,$_SERVER['REQUEST_METHOD'].' '.var_export($_REQUEST,true));
+
+//if(!isset($_SESSION['sauth'])) checkDB($database,$suser,$spwd);
 
 if(isset($_GET['reset'])){
 	$reset = filter_var($_GET['reset'], FILTER_SANITIZE_STRING);
@@ -120,7 +122,8 @@ if(isset($_GET['reset'])){
 	die();
 }
 
-if(!isset($_SESSION['sauth']) || isset($_SESSION['fauth'])) checkLogin($realm);
+//if(!isset($_SESSION['sauth']) || isset($_SESSION['fauth'])) checkLogin($realm);
+if(!isset($_SESSION['sauth'])) checkLogin($realm);
 
 if(!isset($userData)) $userData = getUserdata();
 
@@ -186,7 +189,16 @@ if(isset($_POST['caction'])) {
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$ctype = getClientType($_SERVER['HTTP_USER_AGENT']);
 			$ctime = round(microtime(true) * 1000);
-			die(json_encode(getChanges($client, $ctype, $userData, $ctime),JSON_UNESCAPED_SLASHES));
+			$changes = getChanges($client, $ctype, $userData, $ctime);
+
+			if($cexpjson == true && $loglevel == 9) {
+				$filename = "startup_".substr($client,0,8)."_".time().".json";
+				if(is_dir($logfile)) $filename = $logfile."/$filename";	
+				e_log(8,"Write startup json to $filename");
+				file_put_contents($filename,json_encode($changes),true);
+			}
+
+			die(json_encode($changes,JSON_UNESCAPED_SLASHES));
 			break;
 		case "cfolder":
 			$ctime = round(microtime(true) * 1000);
@@ -224,6 +236,8 @@ if(isset($_POST['caction'])) {
 			if(strlen($jerrmsg) > 0) {
 				e_log(1,"JSON error: ".$jerrmsg);
 				$filename = "import_".substr($client,0,8)."_".time().".json";
+				if(is_dir($logfile)) $filename = $logfile.'/'.$filename;
+				e_log(8,"JSON file written as $filename");
 				file_put_contents($filename,urldecode($_POST['bookmark']),true);
 				die(json_encode($jerrmsg));
 			}
@@ -237,16 +251,11 @@ if(isset($_POST['caction'])) {
 			die(json_encode(importMarks($armarks,$userData['userID'])));
 			break;
 		case "getpurl":
-			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$url = validate_url($_POST['url']);
-			$target = (isset($_POST['tg'])) ? filter_var($_POST['tg'], FILTER_SANITIZE_STRING) : '0';
-			$ctime = time();
-			$title = getSiteTitle($url);
 			e_log(8,"Received new pushed URL: ".$url);
-			$uidd = $userData['userID'];
-			$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`client`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, '$target', 1, $ctime, $uidd)";
-			$erg = db_query($query);
-			if($erg !== 0) echo("URL successfully pushed.");
+			$target = (isset($_POST['tg'])) ? filter_var($_POST['tg'], FILTER_SANITIZE_STRING) : '0';
+			
+			if(newNotification($url, $target) !== 0) die("URL successfully pushed.");
 			break;
 		case "lsnc":
 			e_log(8,"Get clients lastseen date.");
@@ -255,12 +264,16 @@ if(isset($_POST['caction'])) {
 			die($lastSeen);
 			break;
 		case "rmessage":
-			$message = filter_var($_POST['message'], FILTER_VALIDATE_INT);
+			$message = isset($_POST['message']) ? filter_var($_POST['message'], FILTER_VALIDATE_INT):0;
 			$loop = filter_var($_POST['lp'], FILTER_SANITIZE_STRING) == 'aNoti' ? 1 : 0;
-			e_log(8,"Try to delete notification $message");
-			$query = "DELETE FROM `notifications` WHERE `userID` = ".$userData['userID']." AND `id` = $message;";
-			$count = db_query($query);
-			($count === 1) ? e_log(8,"Notification successfully removed") : e_log(9,"Error, removing notification");
+
+			if($message > 0) {
+				e_log(8,"Try to delete notification $message");
+				$query = "DELETE FROM `notifications` WHERE `userID` = ".$userData['userID']." AND `id` = $message;";
+				$count = db_query($query);
+				($count === 1) ? e_log(8,"Notification successfully removed") : e_log(9,"Error, removing notification");
+			}
+			
 			die(notiList($userData['userID'], $loop));
 			break;
 		case "soption":
@@ -270,9 +283,6 @@ if(isset($_POST['caction'])) {
 			$oOptionsA = json_decode($userData['uOptions'],true);
 			$oOptionsA[$option] = $value;
 			$query = "UPDATE `users` SET `uOptions`='".json_encode($oOptionsA)."' WHERE `userID`=".$userData['userID'].";";
-			//$count = db_query($query);
-			//($count === 1) ? e_log(8,"Option saved") : e_log(9,"Error, saving option");
-			//echo $count;
 			if(db_query($query) !== false) {
 				e_log(8,"Option saved");
 				die(json_encode(true));
@@ -293,17 +303,25 @@ if(isset($_POST['caction'])) {
 			});
 
 			if (!empty($clientList)) {
-				foreach($clientList as $key => $client) {
-					$myObj[$key]['id'] =	$client['cid'];
-					$myObj[$key]['name'] = 	$client['cname'];
-					$myObj[$key]['type'] = 	$client['ctype'];
-					$myObj[$key]['date'] = 	$client['lastseen'];
+				foreach($clientList as $key => $clients) {
+					$myObj[$key]['id'] =	$clients['cid'];
+					$myObj[$key]['name'] = 	$clients['cname'];
+					$myObj[$key]['type'] = 	$clients['ctype'];
+					$myObj[$key]['date'] = 	$clients['lastseen'];
 				}
+				$all = array('id'=>'0', 'name'=>'All Clients', 'type'=>'', 'date'=>'');
+				array_unshift($myObj, $all);
 			} else {
 				$myObj[0]['id'] =	'0';
 				$myObj[0]['name'] =	'All Clients';
 				$myObj[0]['type'] =	'';
 				$myObj[0]['date'] =	'';
+			}
+			if($cexpjson == true && $loglevel == 9) {
+				$filename = "clist_".substr($client,0,8)."_".time().".json";
+				if(is_dir($logfile)) $filename = $logfile."/$filename";	
+				e_log(8,"Write clientlist to $filename");
+				file_put_contents($filename,json_encode($myObj),true);
 			}
 			die(json_encode($myObj));
 			break;
@@ -331,7 +349,7 @@ if(isset($_POST['caction'])) {
 			if (!empty($notificationData)) {
 				e_log(8,"Found ".count($notificationData)." links. Will push them to the client.");
 				foreach($notificationData as $key => $notification) {
-					$myObj[$key]['title'] = html_entity_decode(html_entity_decode($notification['title'],ENT_QUOTES,'UTF-8'));
+					$myObj[$key]['title'] = html_entity_decode($notification['title'], ENT_QUOTES | ENT_XML1, 'UTF-8');
 					$myObj[$key]['url'] = $notification['message'];
 					$myObj[$key]['nkey'] = $notification['id'];
 					$myObj[$key]['nOption'] = $uOptions['notifications'];
@@ -455,7 +473,7 @@ if(isset($_POST['caction'])) {
 				case 3:
 					e_log(8,"Delete user $user");
 					$uID = filter_var($_POST['userSelect'], FILTER_VALIDATE_INT);
-					$query = "DELETE FROM users WHERE userID = $uID;";
+					$query = "DELETE FROM `users` WHERE `userID` = $uID;";
 					if(db_query($query) == 1) {
 						if(filter_var($user, FILTER_VALIDATE_EMAIL)) {
 							$response = "User deleted, Try to send E-Mail to user";
@@ -478,7 +496,8 @@ if(isset($_POST['caction'])) {
 		case "mlog":
 			e_log(8,"Try to show logfile");
 			if($userData['userType'] > 1) {
-				die(file_get_contents($logfile));
+			    $lfile = is_dir($logfile) ? $logfile.'/syncmarks.log':$logfile;
+				die(file_get_contents($lfile));
 			} else {
 				$message = "Not allowed to read server logfile.";
 				e_log(2,$message);
@@ -487,7 +506,11 @@ if(isset($_POST['caction'])) {
 			break;
 		case "mclear":
 			e_log(8,"Clear logfile");
-			if($userData['userType'] > 1) file_put_contents($logfile,"");
+			if($userData['userType'] > 1) {
+				$lfile = is_dir($logfile) ? $logfile.'/syncmarks.log':$logfile;
+				file_put_contents($lfile,"");
+			}
+				
 			die();
 			break;
 		case "madd":
@@ -562,7 +585,6 @@ if(isset($_POST['caction'])) {
 			}
 
 			unset($_SESSION['sauth']);
-			$_SESSION['fauth'] = true;
 			e_log(8,"User logged out");
 			echo htmlHeader();
 			echo "<div id='loginbody'>
@@ -595,7 +617,7 @@ if(isset($_POST['caction'])) {
 				$query = "UPDATE `users` SET `uOptions`='".json_encode($oOptionsA)."' WHERE `userID`=".$userData['userID'].";";
 				$count = db_query($query);
 				($count === 1) ? e_log(8,"Option saved") : e_log(9,"Error, saving option");
-				header("location:".$_SERVER['PHP_SELF']);
+				header("location: ?");
 				die();
 			}
 			else {
@@ -625,13 +647,12 @@ if(isset($_POST['caction'])) {
 				e_log(2,"Userchange: Data missing");
 			}
 			unset($_SESSION['sauth']);
-			$_SESSION['fauth'] = true;
 			e_log(8,"User logged out");
 			echo htmlHeader();
 			echo "<div id='loginbody'>
 				<div id='loginform'>
 					<div id='loginformh'>Logout successful</div>
-					<div id='loginformt'>User logged out. <a href='".$_SERVER['PHP_SELF']."'>Login</a> again</div>
+					<div id='loginformt'>User logged out. <a href='?'>Login</a> again</div>
 				</div>
 			</div>";
 			echo htmlFooter();
@@ -653,8 +674,9 @@ if(isset($_POST['caction'])) {
 					$bookmarks = json_encode(getBookmarks($userData));
 					if($loglevel == 9 && $cexpjson == true) {
 						$filename = "export_".substr($client,0,8)."_".time().".json";
+						if(is_dir($logfile)) $filename = $logfile.'/'.$filename;
 						file_put_contents($filename,$bookmarks,true);
-						e_log(8,'Export file is saved to '.dirname(__FILE__).'/'.$filename);
+						e_log(8,"Export file is saved to $filename");
 					}
 					$bcount = count(json_decode($bookmarks));
 					e_log(8,"Send now $bcount bookmarks to the client");
@@ -683,16 +705,18 @@ if(isset($_POST['caction'])) {
 		case "logout":
 			e_log(8,"Logout user ".$_SESSION['sauth']);
 			unset($_SESSION['sauth']);
-			$_SESSION['fauth'] = true;
+			clearAuthCookie();
 			e_log(8,"User logged out");
-			echo htmlHeader();
-			echo "<div id='loginbody'>
-				<div id='loginform'>
-					<div id='loginformh'>Logout successful</div>
-					<div id='loginformt'>User logged out. <a href='".$_SERVER['PHP_SELF']."'>Login</a> again</div>
-				</div>
-			</div>";
-			echo htmlFooter();
+			if(!isset($_POST['client'])) {
+				echo htmlHeader();
+				echo "<div id='loginbody'>
+					<div id='loginform'>
+						<div id='loginformh'>Logout successful</div>
+						<div id='loginformt'>User logged out. <a href='?'>Login</a> again</div>
+					</div>
+				</div>";
+				echo htmlFooter();
+			}
 			exit;
 			break;
 		case "maddon":
@@ -720,24 +744,14 @@ if(isset($_GET['link'])) {
 	e_log(9,"URL add request: " . $url);
 	
 	$title = (isset($_GET["title"])) ? filter_var($_GET["title"], FILTER_SANITIZE_STRING):getSiteTitle($url);
-	$push = (!isset($_GET["push"])) ? false:filter_var($_GET["push"], FILTER_VALIDATE_BOOLEAN);
 	$client = (isset($_GET["client"])) ? filter_var($_GET["client"], FILTER_SANITIZE_STRING):false;
-	
+
 	$bookmark['url'] = $url;
 	$bookmark['folder'] = 'unfiled_____';
 	$bookmark['title'] = $title;
 	$bookmark['id'] = unique_code(12);
 	$bookmark['type'] = 'bookmark';
 	$bookmark['added'] = round(microtime(true) * 1000);
-
-	if($push) {
-		$options = json_decode($userData['uOptions'],true);
-		if(strlen($options['pAPI']) > 1 && strlen($options['pDevice']) > 1 && $options['pbEnable'] == "1") {
-			pushlink($title,$url,$userData);
-		} else {
-			e_log(9,"Can't send push, missing data. Please check push options");
-		}
-	}
 
 	$uas = array(
 		"HttpShortcuts",
@@ -756,7 +770,7 @@ if(isset($_GET['link'])) {
 	$res = addBookmark($userData, $bookmark);
 	if($res == 1) {
 		if ($so) {
-			echo("URL is added successfully.");
+			echo("URL added.");
 		} else {
 			echo "<script>window.onload = function() { window.close();}</script>";
 		}
@@ -766,10 +780,40 @@ if(isset($_GET['link'])) {
 	die();
 }
 
+if(isset($_GET['push'])) {
+	$url = validate_url($_GET['push']);
+	e_log(8,"Received new pushed URL from bookmarklet: ".$url);
+	$target = (isset($_GET['tg'])) ? filter_var($_GET['tg'], FILTER_SANITIZE_STRING) : '0';
+	
+	if(newNotification($url, $target) !== 0) die('Pushed');
+}
+
 echo htmlHeader();
 echo htmlForms($userData);
 echo showBookmarks($userData, 2);
 echo htmlFooter();
+
+function newNotification($url, $target) {
+	global $userData;
+	$erg = 0;
+	$title = getSiteTitle($url);
+	e_log(8, $title);
+	$ctime = time();
+	$uidd = $userData['userID'];
+
+	$query = "INSERT INTO `notifications` (`title`,`message`,`ntime`,`client`,`nloop`,`publish_date`,`userID`) VALUES ('$title', '$url', $ctime, '$target', 1, $ctime, $uidd);";
+	$erg = db_query($query);
+	
+	$options = json_decode($userData['uOptions'],true);
+	
+	if(strlen($options['pAPI']) > 1 && strlen($options['pDevice']) > 1 && $options['pbEnable'] == "1") {
+		pushlink($title,$url,$userData);
+	} else {
+		e_log(2,"Can't send to Pushbullet, missing data. Please check options");
+	}
+	
+	return $erg;
+}
 
 function gpwd($length = 12){
 	$allowedC =  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-=~!#$^&*()_+,./<>:[]{}|';
@@ -850,12 +894,12 @@ function cfolder($ctime,$fname,$fbid,$ud) {
 
 function getClientType($uas) {
 	if(strpos($uas,"Firefox")) return "Firefox";
-    elseif(strpos($uas, "Edg")) return "Edge";
-    elseif(strpos($uas, "OPR")) return "Opera";
-    elseif(strpos($uas, "Vivaldi")) return "Vivaldi";
-    elseif(strpos($uas, "Brave")) return "Brave";
-    elseif(strpos($uas, "SamsungBrowser")) return "SamsungBrowser";
-    elseif(strpos($uas, "Chrome")) return "Chrome";
+	elseif(strpos($uas, "Edg")) return "Edge";
+	elseif(strpos($uas, "OPR")) return "Opera";
+	elseif(strpos($uas, "Vivaldi")) return "Vivaldi";
+	elseif(strpos($uas, "Brave")) return "Brave";
+	elseif(strpos($uas, "SamsungBrowser")) return "SamsungBrowser";
+	elseif(strpos($uas, "Chrome")) return "Chrome";
 }
 
 function validate_url($url) {
@@ -868,14 +912,16 @@ function validate_url($url) {
 	}
 }
 
-function pushlink($title,$url,$userdata) {
+function pushlink ($title,$url,$userdata) {
 	$pddata = json_decode($userdata['uOptions'],true);
 	$token = edcrpt('de', $pddata['pAPI']);
 	$device = edcrpt('de', $pddata['pDevice']);
-	e_log(8,"Send Push Notification to device. Token: $token, Device: $device");
+	e_log(8,"Send Push Notification to device: $device");
+	$encTitle = html_entity_decode($title, ENT_QUOTES | ENT_XML1, 'UTF-8');
+	
 	$data = json_encode(array(
 		'type' => 'link',
-		'title' => $title,
+		'title' => $encTitle,
 		'url'	=> $url,
 		'device_iden' => $device
 	));
@@ -894,18 +940,18 @@ function pushlink($title,$url,$userdata) {
 
 function edcrpt($action, $text) {
 	global $enckey, $enchash;
-    $output = false;
-    $encrypt_method = "AES-256-CBC";
-    $key = hash('sha256', $enckey);
-    $iv = substr(hash('sha256', $enchash), 0, 16);
+	$output = false;
+	$encrypt_method = "AES-256-CBC";
+	$key = hash('sha256', $enckey);
+	$iv = substr(hash('sha256', $enchash), 0, 16);
 
-    if ( $action == 'en' ) {
-        $output = openssl_encrypt($text, $encrypt_method, $key, 0, $iv);
-        $output = base64_encode($output);
-    } else if( $action == 'de' ) {
-        $output = openssl_decrypt(base64_decode($text), $encrypt_method, $key, 0, $iv);
-    }
-    return $output;
+	if ( $action == 'en' ) {
+		$output = openssl_encrypt($text, $encrypt_method, $key, 0, $iv);
+		$output = base64_encode($output);
+	} else if( $action == 'de' ) {
+		$output = openssl_decrypt(base64_decode($text), $encrypt_method, $key, 0, $iv);
+	}
+	return $output;
 }
 
 function cfolderMatching($bookmark) {
@@ -1091,9 +1137,9 @@ function addBookmark($ud, $bm) {
 	$query = "SELECT IFNULL(MAX(`bmIndex`),-1) + 1 AS `nindex` FROM `bookmarks` WHERE `userID` = ".$ud['userID']." AND `bmParentID` = '$folderID';";
 	$nindex = db_query($query)[0]['nindex'];
 	
-	$title = htmlspecialchars($bm['title'],ENT_QUOTES,'UTF-8');
-	e_log(8,"Add bookmark '".$title."'");
-	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '$folderID', $nindex, '".$title."', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].");";
+	$title = htmlentities($bm['title'], ENT_QUOTES);
+	e_log(8,"Add bookmark '$title'");
+	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bm['id']."', '$folderID', $nindex, '$title', '".$bm['type']."', '".$bm['url']."', ".$bm['added'].", ".$ud["userID"].");";
 	if(db_query($query) === false ) {
 		$message = "Adding bookmark failed";
 		e_log(1,$message);
@@ -1115,7 +1161,7 @@ function getChanges($cl, $ct, $ud, $time) {
 		$query = "SELECT a.`bmParentID` as fdID, (SELECT `bmTitle` FROM `bookmarks` WHERE `bmID` = a.`bmParentID` AND userID = $uid) as fdName, (SELECT `bmIndex` FROM `bookmarks` WHERE `bmID` = a.`bmParentID` AND userID = $uid) as fdIndex, `bmID`, `bmIndex`, `bmTitle`, `bmType`, `bmURL`, `bmAdded`, `bmModified`, `bmAction` FROM `bookmarks` a WHERE (bmAdded >= $lastseen AND userID = $uid) OR (bmAction = 1 AND bmAdded >= $lastseen AND userID = $uid);";
 		$bookmarkData = db_query($query);
 		foreach($bookmarkData as $key => $entry) {
-			$bookmarkData[$key]['bmTitle'] = html_entity_decode($entry['bmTitle'],ENT_QUOTES,'UTF-8'); 
+			$bookmarkData[$key]['bmTitle'] = html_entity_decode($entry['bmTitle'], ENT_QUOTES, 'UTF-8'); 
 		}
 	}
 	else {
@@ -1146,8 +1192,9 @@ function getChanges($cl, $ct, $ud, $time) {
 
 		if($cexpjson && $loglevel == 9) {
 			$filename = "changes_".substr($cl,0,8)."_".time().".json";
+			if(is_dir($logfile)) $filename = $logfile."/$filename";
 			file_put_contents($filename,json_encode($bookmarkData),true);
-			e_log(8,'Export file is saved to '.dirname(__FILE__).'/'.$filename);
+			e_log(8,'Export file is saved to '.$filename);
 		}
 
 		e_log(8,"Found ".count($bookmarkData)." changes. Sending them to the client");
@@ -1209,10 +1256,12 @@ function getSiteTitle($url) {
 		preg_match("/\<title\>(.*)\<\/title\>/i",$src,$title_arr);
 		$title = (strlen($title_arr[1]) > 0) ? strval($title_arr[1]) : 'unknown';
 		e_log(8,"Titel for site is '$title'");
-		return  htmlspecialchars(mb_convert_encoding($title,"UTF-8"),ENT_QUOTES,'UTF-8');
+		$convTitle = htmlspecialchars(mb_convert_encoding($title,"UTF-8"),ENT_QUOTES,'UTF-8', false);
 	} else {
-		return "unknown";
+		$convTitle = "unknown";
 	}
+	
+	return $convTitle;
 }
 
 function getUserdata() {
@@ -1221,12 +1270,11 @@ function getUserdata() {
 	if (!empty($userData)) {
 		return $userData[0];
 	} else {
-		unset($_SESSION['fauth']);
+		unset($_SESSION['sauth']);
 	}
 }
 
 function unique_code($limit) {
-	e_log(8,"Building new unique bookmark id");
 	return substr(base_convert(sha1(uniqid(mt_rand())), 16, 36), 0, $limit);
 }
 
@@ -1255,10 +1303,11 @@ function e_log($level,$message,$errfile="",$errline="",$output=0) {
 	if($errfile != "") $message = $message." in ".$errfile." on line ".$errline;
 	$user = '';
 	if(isset($_SESSION['sauth'])) $user = "- ".$_SESSION['sauth']." ";
-	$line = "[".date("d-M-Y H:i:s")."] [$mode] ".filterIP($_SERVER['REMOTE_ADDR'])." $user- $message\n";
+	$line = "[".date("d-M-Y H:i:s")."] [$mode] $user- $message\n";
 
 	if($level <= $loglevel) {
-		file_put_contents($logfile, $line, FILE_APPEND);
+		$lfile = is_dir($logfile) ? $logfile.'/syncmarks.log':$logfile;
+		file_put_contents($lfile, $line, FILE_APPEND);
 	}
 }
 
@@ -1277,23 +1326,14 @@ function delUsermarks($uid) {
 	db_query($query);
 }
 
-function minFile($infile) {
-	$outfile = $infile;
-	$infile = pathinfo($infile);
-	$minfile = $infile['filename'].'.min.'.$infile['extension'];
-	$outfile = (file_exists($minfile)) ? $minfile : $outfile;
-	return $outfile;
-}
-
 function htmlHeader() {
 	$htmlHeader = "<!DOCTYPE html>
 		<html lang='en'>
 			<head>
 				<meta name='viewport' content='width=device-width, initial-scale=1'>
-				<script src='".minfile("bookmarks.js")."'></script>
-				<link type='text/css' rel='stylesheet' href='".minfile("bookmarks.css")."'>
-				<!-- <link type='text/css' rel='stylesheet' href='font-awesome/css/font-awesome.min.css'> -->
-				<link rel='shortcut icon' type='image/x-icon' href='./images/bookmarks.ico'>
+				<script src='js/bookmarks.min.js'></script>
+				<link type='text/css' rel='stylesheet' href='css/bookmarks.min.css'>
+				<link rel='shortcut icon' type='image/x-icon' href='images/bookmarks.ico'>
 				<link rel='manifest' href='manifest.json'>
 				<meta name='theme-color' content='#0879D9'>
 				<title>SyncMarks</title>
@@ -1318,7 +1358,7 @@ function htmlForms($userData) {
 	$version = explode ("\n", file_get_contents('./CHANGELOG.md',NULL,NULL,0,30))[2];
 	$version = substr($version,0,strpos($version, " "));
 	$clink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-	$bookmarklet = "javascript:void function(){window.open('$clink?title='+document.title+'&link='+encodeURIComponent(document.location.href),'bWindow','width=480,height=245',replace=!0)}();";
+	$bookmarklet = "javascript:void function(){window.open('$clink?title='+encodeURIComponent(document.title)+'&link='+encodeURIComponent(document.location.href),'bWindow','width=480,height=245',replace=!0)}();";
 	$userName = $userData['userName'];
 	$userMail = $userData['userMail'];
 	$userID = $userData['userID'];
@@ -1327,7 +1367,6 @@ function htmlForms($userData) {
 	$logform = ($userData['userType'] == 2) ? "<div id=\"logfile\"><div id=\"close\"><button id='mclear'>clear</button> <button id='mclose'>&times;</button></div><div id='lfiletext'></div></div>":"";
 
 	$uOptions = json_decode($userData['uOptions'],true);
-	file_put_contents("/tmp/options.txt",print_r($uOptions,true));
 	$oswitch = ($uOptions['notifications'] == 1) ? " checked":"";
 	$oswitch =  "<label class='switch' title='Enable/Disable Notifications'><input id='cnoti' type='checkbox'$oswitch><span class='slider round'></span></label>";
 
@@ -1355,7 +1394,7 @@ function htmlForms($userData) {
 		<div id='bmlet'><a href=\"$bookmarklet\">Bookmarklet</a></div>
 	</div>";
 
-	$mngclientform = "<div id='mngcform' class='mmenu'>".bClientlist($userID)."</div>";
+	$mngclientform = "<div id='mngcform' class='mmenu'></div>";
 
 	$nmessagesform = "
 	<div id='nmessagesform' class='mmenu'>
@@ -1366,16 +1405,12 @@ function htmlForms($userData) {
 		</div>
 		<div id='aNoti' class='tabcontent'style='display: block'>
 		<div class='NotiTable'>
-			<div class='NotiTableBody'>
-			".notiList($userID, 1)."
-			</div>
+			<div class='NotiTableBody'></div>
 		</div>
 		</div>
 		<div id='oNoti' class='tabcontent' style='display: none'>
 		<div class='NotiTable'>
-			<div class='NotiTableBody'>
-			".notiList($userID, 0)."
-			</div>
+			<div class='NotiTableBody'></div>
 		</div>
 		</div>
 	</div>";
@@ -1384,7 +1419,7 @@ function htmlForms($userData) {
 	<div id='pbulletform' class='mbmdialog'>
 		<h6>Pushbullet</h6>
 		<div class='dialogdescr'>Maintain your API Token and Device ID.</div>
-		<form action='".$_SERVER['PHP_SELF']."' method='POST'>$pbswitch
+		<form action='' method='POST'>$pbswitch
 			<input placeholder='API Token' type='text' id='ptoken' name='ptoken' value='$pAPI' />
 			<input placeholder='Device ID' type='text' id='pdevice' name='pdevice' value='$pDevice' autocomplete='device-token' />
 			<input required placeholder='Password' type='password' id='password' name='password' autocomplete='current-password' value='' />
@@ -1396,7 +1431,7 @@ function htmlForms($userData) {
 	<div id='passwordform' class='mbmdialog'>
 		<h6>Change Password</h6>
 		<div class='dialogdescr'>Enter your current password and a new password and confirm the new password.</div>
-		<form action='".$_SERVER['PHP_SELF']."' method='POST'>					
+		<form action='' method='POST'>					
 			<input required placeholder='Current password' type='password' id='opassword' name='opassword' autocomplete='current-password' value='' />
 			<input required placeholder='New password' type='password' id='npassword' name='npassword' autocomplete='new-password' value='' />
 			<input required placeholder='Confirm new password' type='password' id='cpassword' name='cpassword' autocomplete='new-password' value='' />
@@ -1408,7 +1443,7 @@ function htmlForms($userData) {
 	<div id='userform' class='mbmdialog'>
 		<h6>Change Username</h6>
 		<div class='dialogdescr'>Here you can change your username. Type in your new username and your current password and click on save to change it.</div>
-		<form action='".$_SERVER['PHP_SELF']."' method='POST'>
+		<form action='' method='POST'>
 			<input placeholder='Username' required type='text' name='username' id='username' autocomplete='username' value='$userName'>
 			<input placeholder='Password' required type='password' id='oopassword' name='opassword' autocomplete='current-password' value='' />
 			<div class='dbutton'><button class='mdcancel' type='reset' value='Reset'>Cancel</button><button type='submit' name='caction' value='uupdate'>Save</button></div>
@@ -1514,7 +1549,6 @@ function showBookmarks($userData, $mode) {
 function bClientlist($uid) {
 	$query = "SELECT * FROM `clients` WHERE `uid` = $uid ORDER BY `lastseen` DESC;";
 	$clientData = db_query($query);
-	
 	$clientList = "<ul>";
 	foreach($clientData as $key => $client) {
 		$cname = $client['cid'];
@@ -1548,7 +1582,7 @@ function notiList($uid, $loop) {
 }
 
 function htmlFooter() {
-	$htmlFooter = "<script src='bookmarksf.js'></script></body></html>";
+	$htmlFooter = "<script src='js/bookmarksf.min.js'></script></body></html>";
 	return $htmlFooter;
 }
 
@@ -1689,7 +1723,7 @@ function parseJSON($arr) {
 }
 
 function getBookmarks($userData) {
-	$query = "SELECT * FROM `bookmarks` WHERE `bmAction` IS NULL AND `userID` = ".$userData['userID'].";";
+	$query = "SELECT * FROM `bookmarks` WHERE `bmAction` IS NOT 1 AND `userID` = ".$userData['userID'].";";
 	e_log(8,"Get bookmarks");
 	$userMarks = db_query($query);
 	foreach($userMarks as &$element) {
@@ -1709,118 +1743,210 @@ function prepare_url($url) {
 		$parsed['query'] = http_build_query($query);
 	}
 
-    $pass      = $parsed['pass'] ?? null;
-    $user      = $parsed['user'] ?? null;
-    $userinfo  = $pass !== null ? "$user:$pass" : $user;
-    $port      = $parsed['port'] ?? 0;
-    $scheme    = $parsed['scheme'] ?? "";
-    $query     = $parsed['query'] ?? "";
-    $fragment  = $parsed['fragment'] ?? "";
-    $authority = (
-        ($userinfo !== null ? "$userinfo@" : "") .
-        ($parsed['host'] ?? "") .
-        ($port ? ":$port" : "")
-    );
-    return (
-        (strlen($scheme) > 0 ? "$scheme:" : "") .
-        (strlen($authority) > 0 ? "//$authority" : "") .
-        ($parsed['path'] ?? "") .
-        (strlen($query) > 0 ? "?$query" : "") .
-        (strlen($fragment) > 0 ? "#$fragment" : "")
-    );
+	$pass      = $parsed['pass'] ?? null;
+	$user      = $parsed['user'] ?? null;
+	$userinfo  = $pass !== null ? "$user:$pass" : $user;
+	$port      = $parsed['port'] ?? 0;
+	$scheme    = $parsed['scheme'] ?? "";
+	$query     = $parsed['query'] ?? "";
+	$fragment  = $parsed['fragment'] ?? "";
+	$authority = (
+		($userinfo !== null ? "$userinfo@" : "") .
+		($parsed['host'] ?? "") .
+		($port ? ":$port" : "")
+	);
+	return (
+		(strlen($scheme) > 0 ? "$scheme:" : "") .
+		(strlen($authority) > 0 ? "//$authority" : "") .
+		($parsed['path'] ?? "") .
+		(strlen($query) > 0 ? "?$query" : "") .
+		(strlen($fragment) > 0 ? "#$fragment" : "")
+	);
+}
+
+function clearAuthCookie() {
+	e_log(8,'Reset Cookie');
+	if(isset($_COOKIE['syncmarks'])) {
+		$cookieStr = cryptCookie($_COOKIE['syncmarks'], 2);
+
+		$cookieArr = json_decode($cookieStr, true);
+
+		$query = "DELETE FROM `auth_token` WHERE `userName` = '".$cookieArr['user']."' AND `pHash` = '".$cookieArr['token']."'";
+		db_query($query);
+		
+		$cOptions = array (
+			'expires' => 0,
+			'path' => null,
+			'domain' => null,
+			'secure' => true,
+			'httponly' => true,
+			'samesite' => 'Strict'
+		);
+		
+		setcookie("syncmarks", "", $cOptions);
+	}
 }
 
 function checkLogin($realm) {
-	e_log(8,"Check login");
+	e_log(8,"Check login...");
+	$tVerified = false;
+	$cookieStr = (!isset($_COOKIE['syncmarks'])) ? '':cryptCookie($_COOKIE['syncmarks'], 2);
+
+	$cookieArr = json_decode($cookieStr, true);
+
+	$aTime = time();
+
+	if(strlen($cookieArr['user']) > 0 && strlen($cookieArr['rtkn']) > 0 && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+		e_log(8,"Cookie found. Try to login via authToken...");
+		
+		$query = "SELECT t.*, u.userlastLogin, u.sessionID FROM `auth_token` t INNER JOIN `users` u ON u.userName = t.userName WHERE t.userName = '".$cookieArr['user']."' ORDER BY t.exDate DESC;";
+		$tkdata = db_query($query);
+
+		foreach($tkdata as $key => $token) {
+			if(password_verify($cookieArr['rtkn'], $token['tHash'])) {
+				$tVerified = $token['tID'];
+				break;
+			}
+		}
+		
+		if($tVerified) {
+			e_log(8,"Cookie Login successfull. Renew cookie");
+			$seid = session_id();
+			$oTime = $tkdata[0]['userLastLogin'];
+			$_SESSION['sauth'] = $tkdata[0]['userName'];
+			
+			$expireTime = time()+60*60*24*7;
+			$rtkn = unique_code(32);
+			
+			$cOptions = array (
+				'expires' => $expireTime,
+				'path' => null,
+				'domain' => null,
+				'secure' => true,
+				'httponly' => true,
+				'samesite' => 'Strict'
+			);
+			
+			$cookieData = cryptCookie(json_encode(array('rtkn' => $rtkn, 'user' => $tkdata[0]['userName'], 'token' => $cookieArr['rtkn'])), 1);
+
+			setcookie('syncmarks', $cookieData, $cOptions);
+			
+			$rtknh = password_hash($rtkn, PASSWORD_DEFAULT);
+			
+			$query = "UPDATE `auth_token` SET `tHash` = '$rtknh', `exDate` = '$expireTime' WHERE `tID` = $tVerified;";
+			$erg = db_query($query);
+			
+			$query = "UPDATE `users` SET `userLastLogin` = '$aTime', `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userName` = '".$cookieArr['user']."';";
+			$erg = db_query($query);
+			header("location: ?");
+			die();
+	    } else {
+	        e_log(8,"Cookie not valid, using standard login now");
+			clearAuthCookie();
+	    }
+	}
+	
 	if(count($_GET) != 0 || count($_POST) != 0) {
-		unset($_SESSION['cr']);
-		if(isset($_POST['login']) && isset($_POST['username']) && isset($_POST['password'])) {
-			$user = $_POST['username'];
-			$pw = $_POST['password'];
-			$_SESSION['cr'] = true;
-		}
+		$user = (isset($_POST['username'])) ? filter_var($_POST['username'], FILTER_SANITIZE_STRING):$_SERVER['PHP_AUTH_USER'];
+		$pw = (isset($_POST['password'])) ? filter_var($_POST['password'], FILTER_SANITIZE_STRING):$_SERVER['PHP_AUTH_PW'];
 
-		if(isset($_SERVER['PHP_AUTH_USER']) && isset($_SERVER['PHP_AUTH_PW'])) {
-			$user = $_SERVER['PHP_AUTH_USER'];
-			$pw = $_SERVER['PHP_AUTH_PW'];
-			$_SESSION['cr'] = true;
-		}
-
-		if (!isset($_SESSION['cr'])) {
+		if(!$user || !$pw) {
 			header("Expires: Sat, 01 Jan 2000 00:00:00 GMT");
 			header("Last-Modified: ".gmdate("D, d M Y H:i:s")." GMT");
 			header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 			header("Cache-Control: post-check=0, pre-check=0", false);
 			header("Pragma: no-cache");
-			header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-			http_response_code(401);
-			unset($_SESSION['fauth']);
+			if(!isset($_POST['client'])) header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+			if(!isset($_POST['client'])) http_response_code(401);
 			echo htmlHeader();
 			echo "<div id='loginbody'>
 				<div id='loginform'>
 					<div id='loginformh'>Access denied</div>
-					<div id='loginformt'>Access denied. You must <a href='".$_SERVER['PHP_SELF']."'>login</a> to use this tool.</div>
+					<div id='loginformt'>Access denied. You must <a href='?'>login</a> to use this tool.</div>
 				</div>
 			</div>";
 			echo htmlFooter();
 			exit;
 		} else {
-			if(isset($_SESSION['cr'])) {
-				$query = "SELECT * FROM `users` WHERE `userName`= '$user';";
-				$udata = db_query($query);
-				if(count($udata) == 1) {
-					if(password_verify($pw, $udata[0]['userHash'])) {
-						$seid = session_id();
-						$aTime = time();
-						$oTime = $udata[0]['userLastLogin'];
-						$uid = $udata[0]['userID'];
-						$_SESSION['sauth'] = $udata[0]['userName'];
-						unset($_SESSION['fauth']);
-						e_log(8,"Login successfully");
-						if($seid != $udata[0]['sessionID']) {
-							e_log(8,"Save session to database.");
-							$query = "UPDATE `users` SET `userLastLogin` = $aTime, `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userID` = $uid;";
-							db_query($query);
-						}
-					} else {
-						session_destroy();
-						unset($_SESSION['sauth']);
-						$_SESSION['fauth'] = true;
-						header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
-						http_response_code(401);
-						e_log(8,"Login failed. Password missmatch");
-						echo htmlHeader();
-						$lform = "<div id='loginbody'>
-							<div id='loginform'>
-								<div id='loginformh'>Login failed</div>
-								<div id='loginformt'>You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.";
-								if(filter_var($udata[0]['userMail'], FILTER_VALIDATE_EMAIL)) $lform.= "<br />Forgot your password? You can try to <a data-reset='$user' id='preset' href='#'>reset</a> it.";
-						$lform.= "</div></div>
-						</div>";
-						echo $lform;
-						echo htmlFooter();
-						exit;
+			$query = "SELECT * FROM `users` WHERE `userName`= '$user';";
+			$udata = db_query($query);
+			if(count($udata) == 1) {
+				if(password_verify($pw, $udata[0]['userHash'])) {
+					$seid = session_id();
+					$oTime = $udata[0]['userLastLogin'];
+					$uid = $udata[0]['userID'];
+					$_SESSION['sauth'] = $udata[0]['userName'];
+					e_log(8,"Login successfully");
+					
+					if(isset($_POST['remember']) && $_POST['remember'] == true) {
+						e_log(8,'Set login Cookie');
+						$expireTime = time()+60*60*24*7;
+						$rtkn = unique_code(32);
+						
+						$cOptions = array (
+							'expires' => $expireTime,
+							'path' => null,
+							'domain' => null,
+							'secure' => true,
+							'httponly' => true,
+							'samesite' => 'Strict'
+						);
+						
+						$dtoken = bin2hex(openssl_random_pseudo_bytes(16));
+						$cookieData = cryptCookie(json_encode(array('rtkn' => $rtkn, 'user' => $udata[0]['userName'], 'token' => $dtoken)), 1);
+
+						setcookie('syncmarks', $cookieData, $cOptions);
+						
+						$rtknh = password_hash($rtkn, PASSWORD_DEFAULT);
+						
+						$query = "INSERT INTO `auth_token` (`userName`,`pHash`, `tHash`,`exDate`) VALUES ('".$udata[0]['userName']."', '$dtoken', '$rtknh', '$expireTime');";
+						$erg = db_query($query);
+					}
+					
+					if($seid != $udata[0]['sessionID']) {
+						e_log(8,"Save session to database.");
+						$query = "UPDATE `users` SET `userLastLogin` = $aTime, `sessionID` = '$seid', `userOldLogin` = '$oTime' WHERE `userID` = $uid;";
+						db_query($query);
 					}
 				} else {
 					unset($_SESSION['sauth']);
-					$_SESSION['fauth'] = true;
 					session_destroy();
-					if(!isset($_POST['login'])) {
+					if(!isset($_POST['login']) || !isset($_POST['client']) ) {
 						header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
 						http_response_code(401);
-					} else {
-						echo htmlHeader();
-						echo "<div id='loginbody'>
-								<div id='loginform'>
-									<div id='loginformh'>Login failed</div>
-									<div id='loginformt'>You must <a href='".$_SERVER['PHP_SELF']."'>authenticate</a> to use this tool.</div>
-								</div>
-							</div>";
-						echo htmlFooter();
 					}
-					e_log(8,"Login failed. Credential missmatch");
+					e_log(8,"Login failed. Password missmatch");
+					echo htmlHeader();
+					$lform = "<div id='loginbody'>
+						<div id='loginform'>
+							<div id='loginformh'>Login failed</div>
+							<div id='loginformt'>You must <a href='?'>authenticate</a> to use this tool.";
+					$lform.= (filter_var($udata[0]['userMail'], FILTER_VALIDATE_EMAIL)) ? "<br /><br />Forgot your password? You can try to <a data-reset='$user' id='preset' href=''>reset</a> it.":"<br /><br />Forgot your password? Please contact the admin.";
+					$lform.= "</div></div>
+					</div>";
+					echo $lform;
+					echo htmlFooter();
 					exit;
 				}
+			} else {
+				unset($_SESSION['sauth']);
+				session_destroy();
+				
+				if(!isset($_POST['login']) || !isset($_POST['client'])) {
+					header('WWW-Authenticate: Basic realm="'.$realm.'", charset="UTF-8"');
+					if(!isset($_POST['client'])) http_response_code(401);
+				} else {
+					echo htmlHeader();
+					echo "<div id='loginbody'>
+							<div id='loginform'>
+								<div id='loginformh'>Login failed</div>
+								<div id='loginformt'>You must <a href='?'>authenticate</a> to use this tool.</div>
+							</div>
+						</div>";
+					echo htmlFooter();
+				}
+				e_log(8,"Login failed. Credential missmatch");
+				exit;
 			}
 		}
 	} else {
@@ -1833,6 +1959,8 @@ function checkLogin($realm) {
 				<div id='loginformb'>
 					<input type='text' id='uf' name='username' placeholder='Username'>
 					<input type='password' name='password' placeholder='Password'>
+					
+					<label for='remember'><input type='checkbox' id='remember' name='remember'>Stay logged in</label>
 					<button name='login' value='login'>Login</button>
 				</div>
 			</div>
@@ -1841,7 +1969,16 @@ function checkLogin($realm) {
 		echo htmlFooter();
 		exit;
 	}
+}
 
+function cryptCookie($data, $crypt) {
+	global $enckey, $enchash;
+	$method = 'aes-256-cbc';
+	$iv = substr(hash('sha256', $enchash), 0, 16);
+	$opts   = defined('OPENSSL_RAW_DATA') ? OPENSSL_RAW_DATA : true;
+	$key = hash('sha256', $enckey);
+	$str = ($crypt == 1) ? base64_encode(openssl_encrypt($data, $method, $key, $opts, $iv)):openssl_decrypt(base64_decode($data), $method, $key, $opts, $iv);
+	return $str;
 }
 
 function db_query($query, $data=null) {
@@ -1911,18 +2048,22 @@ function db_query($query, $data=null) {
 
 function checkDB($database,$suser,$spwd) {
 	$vInfo = db_query("SELECT * FROM `system` ORDER BY `updated` DESC LIMIT 1;")[0];
+	
 	$olddate = $vInfo['updated'];
 	$newdate = filemtime(__FILE__);
+	$dbv = 5;
 
-	if($vInfo['db_version'] && $vInfo['db_version'] < 4) {
+	if($vInfo['db_version'] && $vInfo['db_version'] < $dbv) {
 		e_log(8,"Database update needed. Starting DB update...");
 		if($database['type'] == "sqlite") {
-			db_query(file_get_contents("./sql/sqlite_update_4.sql"));
+			db_query(file_get_contents("./sql/sqlite_update_$dbv.sql"));
 		} elseif($database['type'] == "mysql") {
-			e_log(8,"No update available");
+			db_query(file_get_contents("./sql/mysql_update_$dbv.sql"));
 		}
-		db_query("UPDATE `system` SET `updated` = '$newdate' WHERE `updated` = '$olddate';");
-	} elseif($vInfo['db_version'] && $vInfo['db_version'] >= 4) {
+		$aversion = explode ("\n", file_get_contents('./CHANGELOG.md',NULL,NULL,0,30))[2];
+	    $aversion = substr($aversion,0,strpos($aversion, " "));
+		db_query("INSERT INTO `system`(`app_version`,`db_version`,`updated`) VALUES ('$aversion','$dbv','$newdate');");
+	} elseif($vInfo['db_version'] && $vInfo['db_version'] >= $dbv) {
 		if($olddate <> $newdate) db_query("UPDATE `system` SET `updated` = '$newdate' WHERE `updated` = '$olddate';");
 	} else {
 		e_log(8,"Database not ready. Initialize database now");

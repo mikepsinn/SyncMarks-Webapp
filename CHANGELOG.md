@@ -1,5 +1,28 @@
 ChangeLog
 =========
+1.6.0 (2020-07-29)
+-------------------------
+- Added option to stay logged in
+- Added Load on demand for clients
+- Added Load on demand for notifications
+- Fix not showing moved bookmarks
+- Fix rewrites
+- Fix encoding some titles
+- Fix empty notification list
+- Fix mobile rename
+- Fix delete notifications
+- Removed unused session vars
+- Moved assets
+
+
+1.5.2 (2020-05-10)
+-------------------------
+- Write clientlist to disk, for debugging
+- Rebuilding clientlist serverside
+- Relocating log and debug files
+- Fixed encoding issue
+
+
 1.5.1 (2020-03-31)
 -------------------------
 - Fix for listing clients

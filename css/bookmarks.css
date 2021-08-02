@@ -1,4 +1,21 @@
 /* @media screen and (orientation:portrait) */
+#loginform label {
+	display: block;
+	padding-left: 15px;
+	text-indent: -15px;
+	font-family: FontAwesome,Roboto,Arial,Helvetica,sans-serif;
+	font-size: .9em;
+}
+#loginform input[type="checkbox"] {
+	width: 15px;
+	height: 15px;
+	padding: 0;
+	margin: 0;
+	vertical-align: bottom;
+	position: relative;
+	top: -1px;
+	margin-right: 10px;
+}
 .nlink {
     float: left;
     font-size: 12px;
@@ -181,14 +198,13 @@
 	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='currentColor' d='M18,17H10.5L12.5,15H18M6,17V14.5L13.88,6.65C14.07,6.45 14.39,6.45 14.59,6.65L16.35,8.41C16.55,8.61 16.55,8.92 16.35,9.12L8.47,17M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3Z' /%3E%3C/svg%3E");
 	background-repeat: no-repeat;
 	cursor: pointer !important;
-	height: 24px;
-	width: 24px !important;
+	height: 35px;
 }
 .fa-trash {
 	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='currentColor' d='M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z' /%3E%3C/svg%3E");
 	background-repeat: no-repeat;
 	cursor: pointer;
-	height: 24px;
+	height: 35px;
 }
 #loutaction {
 	background: transparent;
@@ -394,21 +410,25 @@
 .rename, .remove {
 	display: block;
 	cursor: pointer;
-	font-size: 27px !important;
 	text-decoration: none;
 	width: 40px;
 	text-align: center;
 	position: relative;
 	float: left;
-	top: 3px;
+}
+.emptyl {
+	width: 100%;
+	position: absolute;
+	text-align: center;
+	top: 50%;
+	font-size: 1.5em;
+	font-weight: bold;
+	color: gainsboro;
 }
 .rename {
-	top: 4px;
-	pointer-events: none;
 	color: darkgray;
 }
 .renamea {
-	top: 4px;
 	color: #29302e;
 	pointer-events: all;
 	display: block;
@@ -431,8 +451,15 @@
 	line-height: unset !important;
 	border: 1px solid #bbb;
 	outline: 0;
+	font-size: 1em;
 }
 .clientname:hover > input {
+	display: block;
+}
+.clientname:active > input {
+	display: block;
+}
+.clientname > input:focus {
 	display: block;
 }
 .client[data-type="firefox"] {
@@ -1040,13 +1067,28 @@ span.rdesc {
 .NotiTableBody {
 	display: block;
 	width: 100%;
+	min-height: 35px;
+}
+.NotiTableBody::after {
+	content: 'List empty';
+	position: absolute;
+	left: 0;
+	right: 0;
+	text-align: center;
+	font-size: 1.5em;
+	font-weight: bold;
+	color: gainsboro;
+	z-index: -1;
+	top: 50px;
 }
 .NotiTableRow {
 	display: block;
 	width: 100%;
+	background-color: white;
+	height: 55px;
 }
 .NotiTableRow:hover {
-	background: ghostwhite;
+	background-color: #f8f8ff;
 }
 .tabcontent h3 {
 	padding: 0 12px;
@@ -1061,6 +1103,7 @@ span.rdesc {
 .NotiTableCell {
 	display: block;
 	padding: 0 0 0 10px;
+	float: left;
 }
 .NotiTableCell:first-child {
 	width: calc(100% - 60px);
@@ -1088,9 +1131,9 @@ span.rdesc {
 .NotiTableRow:hover .fa {
 	display: block;
 	position: relative;
-	top: -20px;
+	top: -10px;
 	left: 520px;
-	margin-top: -24px;
+	margin-top: -35px;
 }
 .NotiTableCell .fa::before {
 	position: absolute;
@@ -1302,7 +1345,10 @@ input:checked + .slider:before {
 		height: 100%;
 		cursor: w-resize;
 		top: 0;
-	}	
+	}
+	.NotiTableCell {
+		float: unset;
+	}
 	.NotiTableCell .fa {
 		display: none;
 	}
@@ -1317,7 +1363,6 @@ input:checked + .slider:before {
 		width: calc(100% - 65px) !important;
 	}
 	.rename, .remove {
-		font-size: 20px !important;
 		width: 30px;
 		display: none !important;
 	}
