@@ -2,7 +2,7 @@
 /**
  * SyncMarks
  *
- * @version 1.6.0
+ * @version 1.6.1
  * @author Offerel
  * @copyright Copyright (c) 2021, Offerel
  * @license GNU General Public License, version 3
@@ -14,7 +14,7 @@ set_error_handler("e_log");
 
 e_log(9,$_SERVER['REQUEST_METHOD'].' '.var_export($_REQUEST,true));
 
-//if(!isset($_SESSION['sauth'])) checkDB($database,$suser,$spwd);
+if(!isset($_SESSION['sauth'])) checkDB($database,$suser,$spwd);
 
 if(isset($_GET['reset'])){
 	$reset = filter_var($_GET['reset'], FILTER_SANITIZE_STRING);
@@ -1571,7 +1571,7 @@ function notiList($uid, $loop) {
 
 		$notiList.= "<div class='NotiTableRow'>
 					<div class='NotiTableCell'>
-						<span><a class='link' title='$title' href='".$aNoti['message']."'>$title</a></span>
+						<span><a class='link' target='_blank' title='$title' href='".$aNoti['message']."'>$title</a></span>
 						<span class='nlink'>".$aNoti['message']."</span>
 						<span class='ndate'>".date("d.m.Y H:i",$aNoti['publish_date'])." | $cl</span>
 					</div>
