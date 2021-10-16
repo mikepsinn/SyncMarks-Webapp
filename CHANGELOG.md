@@ -3,6 +3,7 @@ ChangeLog
 1.6.1 (2020-08-05)
 -------------------------
 - Fix notification not opening in new tab
+- Fix adding bookmark
 
 
 1.6.0 (2020-07-29)

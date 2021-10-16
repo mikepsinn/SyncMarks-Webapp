@@ -127,7 +127,7 @@ document.addEventListener("DOMContentLoaded", function() {
 					document.querySelectorAll('.folder').forEach(bookmark => bookmark.addEventListener('contextmenu',onContextMenu,false));
 					console.info("Bookmark added successfully.");
 				} else {
-					let message = "Error adding bookmark, please check server log.";
+					let message = (this.responseText != '') ? this.responseText:"Error adding bookmark, please check server log.";
 					show_noti({title:"Syncmarks - Error", url:message, key:""}, false);
 					console.error(message);
 				}

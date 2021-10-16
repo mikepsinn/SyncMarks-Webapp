@@ -122,7 +122,6 @@ if(isset($_GET['reset'])){
 	die();
 }
 
-//if(!isset($_SESSION['sauth']) || isset($_SESSION['fauth'])) checkLogin($realm);
 if(!isset($_SESSION['sauth'])) checkLogin($realm);
 
 if(!isset($userData)) $userData = getUserdata();
@@ -517,30 +516,33 @@ if(isset($_POST['caction'])) {
 			$bmParentID = filter_var($_POST['folder'], FILTER_SANITIZE_STRING);
 			$bmURL = validate_url(trim($_POST['url']));
 			e_log(8,"Try to add manually new bookmark ".$bmURL);
-			$bmID = unique_code(12);
-			$bmIndex = getIndex($bmParentID);
+			
 			if(strpos($bmURL,'http') != 0) {
 				e_log(1,"Given string is not a real URL, cant add this.");
 				exit;
 			}
-			$bmTitle = getSiteTitle($bmURL);
-			$bmAdded = round(microtime(true) * 1000);
-			$userID = $userData['userID'];
-
-			if($bmTitle === "") {
-				$message = "Titel is missing, add bookmark failed";
-				e_log(1,$message);
-				die($message);
+			
+			$bookmark['url'] = $bmURL;
+			$bookmark['folder'] = $bmParentID;
+			$bookmark['title'] = getSiteTitle($bmURL);
+			$bookmark['id'] = unique_code(12);
+			$bookmark['type'] = 'bookmark';
+			$bookmark['added'] = round(microtime(true) * 1000);
+			
+			$res = addBookmark($userData, $bookmark);
+			
+			if($res === 1) {
+				if(!isset($_POST['rc'])) {
+					e_log(8,"Manually added bookmark.");
+					die(bmTree($userData));
+				} else {
+					die(e_log(8,"Roundcube added bookmark."));
+				}
 			} else {
-				$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`userID`) VALUES ('".$bmID."', '".$bmParentID."', ".$bmIndex.", '".$bmTitle."', 'bookmark', '".$bmURL."', ".$bmAdded.", ".$userID.")";
-				db_query($query);
+				echo $res;
+				http_response_code(417);
 			}
-			if(!isset($_POST['rc'])) {
-				e_log(8,"Manually added bookmark.");
-				die(bmTree($userData));
-			} else {
-				die(e_log(8,"Roundcube added bookmark."));
-			}
+			
 			break;
 		case "mdel":
 			$bmID = filter_var($_POST['id'], FILTER_SANITIZE_STRING);
@@ -743,8 +745,7 @@ if(isset($_GET['link'])) {
 	$url = validate_url($_GET["link"]);
 	e_log(9,"URL add request: " . $url);
 	
-	$title = (isset($_GET["title"])) ? filter_var($_GET["title"], FILTER_SANITIZE_STRING):getSiteTitle($url);
-	$client = (isset($_GET["client"])) ? filter_var($_GET["client"], FILTER_SANITIZE_STRING):false;
+	$title = (isset($_GET["title"]) && $_GET["title"] != '') ? filter_var($_GET["title"], FILTER_SANITIZE_STRING):getSiteTitle($url);
 
 	$bookmark['url'] = $url;
 	$bookmark['folder'] = 'unfiled_____';
@@ -765,6 +766,13 @@ if(isset($_GET['link'])) {
 			$so = true;
 			break;
 		}
+	}
+	
+	if($cexpjson == true && $loglevel == 9) {
+		$filename = "addmark_".time().".json";
+		if(is_dir($logfile)) $filename = $logfile."/$filename";	
+		e_log(8,"Write addmark json to $filename");
+		file_put_contents($filename,json_encode($bookmark),true);
 	}
 	
 	$res = addBookmark($userData, $bookmark);
@@ -1254,11 +1262,11 @@ function getSiteTitle($url) {
 	$src = file_get_contents($url);
 	if(strlen($src) > 0) {
 		preg_match("/\<title\>(.*)\<\/title\>/i",$src,$title_arr);
-		$title = (strlen($title_arr[1]) > 0) ? strval($title_arr[1]) : 'unknown';
+		$title = (strlen($title_arr[1]) > 0) ? strval($title_arr[1]) : substr($url, 0, 240);
 		e_log(8,"Titel for site is '$title'");
 		$convTitle = htmlspecialchars(mb_convert_encoding($title,"UTF-8"),ENT_QUOTES,'UTF-8', false);
 	} else {
-		$convTitle = "unknown";
+		$convTitle = substr($url, 0, 240);
 	}
 	
 	return $convTitle;
