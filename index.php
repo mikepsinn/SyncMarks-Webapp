@@ -152,6 +152,14 @@ if(isset($_POST['caction'])) {
 			break;
 		case "movemark":
 			$bookmark = json_decode($_POST['bookmark'],true);
+
+			if($cexpjson == true && $loglevel == 9) {
+				$filename = "movemark_".time().".json";
+				if(is_dir($logfile)) $filename = $logfile."/$filename";	
+				e_log(8,"Write move bookmark json to $filename");
+				file_put_contents($filename,json_encode($bookmark),true);
+			}
+
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			$ctime = round(microtime(true) * 1000);
 			$response = json_encode(moveBookmark($userData, $bookmark));
@@ -1055,6 +1063,8 @@ function moveBookmark($ud, $bm) {
 	if(is_null($folderData['bmID'])) {
 		e_log(2,"Folder not found, can`t move bookmark.");
 		return "Folder not found, bookmark not moved.";
+	} else {
+		$bm['folder'] = $folderData['bmID'];
 	}
 
 	if(array_key_exists("url", $bm)) {
