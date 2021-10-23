@@ -1,5 +1,12 @@
 ChangeLog
 =========
+1.6.1 (2020-10-23)
+-------------------------
+- Fix notification not opening in new tab
+- Fix adding bookmark
+- Fix moving bookmark
+
+
 1.6.0 (2020-07-29)
 -------------------------
 - Added option to stay logged in
