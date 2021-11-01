@@ -130,8 +130,9 @@ if(isset($_POST['caction'])) {
 	switch($_POST['caction']) {
 		case "addmark":
 			$bookmark = json_decode($_POST['bookmark'], true);
+			e_log(9,print_r($bookmark, true));
 			e_log(8,"Try to add entry '".$bookmark['title']."'");
-			e_log(9,$_POST['bookmark']);
+			e_log(9,print_r($bookmark, true));
 			$client = filter_var($_POST['client'], FILTER_SANITIZE_STRING);
 			if(array_key_exists('url',$bookmark)) $bookmark['url'] = validate_url($bookmark['url']);
 			if(strtolower(getClientType($_SERVER['HTTP_USER_AGENT'])) != "firefox") $bookmark = cfolderMatching($bookmark);
@@ -1128,7 +1129,7 @@ function addFolder($ud, $bm) {
 	}
 }
 
-function addBookmark($ud, $bm) { 
+function addBookmark($ud, $bm) {
 	e_log(8,"Check if bookmark already exists for user.");
 	$query = "SELECT `bmID`, COUNT(*) AS `bmcount`, MAX(`bmAction`) AS `bmaction` FROM `bookmarks` WHERE `bmUrl` = '".$bm['url']."' AND `bmParentID` = '".$bm["folder"]."' AND `userID` = ".$ud["userID"].";";
 	$bmExistData = db_query($query);
@@ -1709,9 +1710,32 @@ function importMarks($bookmarks,$uid) {
 			$uid
 		);
 	}
+
+	foreach($data as $key => $bookmark) {
+		if(is_numeric($bookmark[0])) {
+			$nid = unique_code(12);
+			$bmap[$bookmark[0]] = $nid;
+			$bookmark[0] = $nid;
+			if(array_key_exists($bookmark[1], $bmap)) {
+				$bookmark[1] = $bmap[$bookmark[1]];
+			}
+		}
+
+		$data2[] = array(
+			$bookmark[0],
+			$bookmark[1],
+			$bookmark[2],
+			$bookmark[3],
+			$bookmark[4],
+			$bookmark[5],
+			$bookmark[6],
+			$bookmark[7],
+			$bookmark[8],
+		);
+	}
 	
 	$query = "INSERT INTO `bookmarks` (`bmID`,`bmParentID`,`bmIndex`,`bmTitle`,`bmType`,`bmURL`,`bmAdded`,`bmModified`,`userID`) VALUES (?,?,?,?,?,?,?,?,?)";
-	$response = db_query($query,$data);
+	$response = db_query($query,$data2);
 
 	if($response)
 		e_log(8,"Browser bookmark import successfully");
